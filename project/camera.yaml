@@ -1,0 +1,3 @@
+intrinsics: [718.856, 718.856, 607.193, 185.216] ## fx,fy,cx,cy
+projection_type: pinhole
+dimensions: [376, 1241] ## rows ,cols
