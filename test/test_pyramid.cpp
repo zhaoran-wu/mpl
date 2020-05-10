@@ -31,7 +31,7 @@ int main() {
     cv::Mat im = cv::imread(im_path);
     cv::cvtColor(im, im, CV_BGR2GRAY);
 
-    ImagePyramid pyramid(im.data, lvls);
+    ImagePyramid pyramid(im.data);
 
     for (int lvl = 0; lvl < cam.lvls; ++lvl) {
         //* color image test

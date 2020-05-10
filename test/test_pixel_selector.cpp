@@ -21,8 +21,7 @@ int main() {
     cv::Mat im_clone = im.clone();
     cv::cvtColor(im, im, CV_BGR2GRAY);
 
-    std::shared_ptr<ImagePyramid> pyramid(
-        new ImagePyramid(im.data, config.PYRAMID_LVLS));
+    std::shared_ptr<ImagePyramid> pyramid(new ImagePyramid(im.data));
 
     //! test pixel selector
     PixelSelector selector;
@@ -51,7 +50,7 @@ int main() {
     cv::Mat im2_clone = im2.clone();
     cv::cvtColor(im2, im2, CV_BGR2GRAY);
 
-    ImagePyramid::ptr pyramid2(new ImagePyramid(im2.data, config.PYRAMID_LVLS));
+    ImagePyramid::ptr pyramid2(new ImagePyramid(im2.data));
 
     //! test pixel selector
     std::vector<Eigen::Vector3i> candidate2;

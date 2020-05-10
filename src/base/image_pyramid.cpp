@@ -3,12 +3,13 @@
 #include <algorithm>
 #include <glog/logging.h>
 namespace mpl {
-ImagePyramid::ImagePyramid(const uchar* const row_data, const int lvls) {
+ImagePyramid::ImagePyramid(const uchar* const row_data) {
     LOG_ASSERT(row_data != nullptr);
     cam_data = &CamData::getInstance();
+    auto& config = Config::getInstance();
 
     const uchar* parent_image = row_data;
-    for (int lvl = 0; lvl < lvls; ++lvl) {
+    for (int lvl = 0; lvl < config.PYRAMID_LVLS; ++lvl) {
         build_image(parent_image, lvl);
         parent_image = image_pyramid[lvl].get();
         build_derivative(lvl);

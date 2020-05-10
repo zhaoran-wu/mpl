@@ -1,5 +1,6 @@
 #pragma once
 #include "cam_data.h"
+#include "config.h"
 #include <memory>
 #include <vector>
 namespace mpl {
@@ -25,7 +26,7 @@ class ImagePyramid {
     typedef std::shared_ptr<uchar[]> uchar_ptr;
     typedef std::shared_ptr<float[]> float_ptr;
 
-    ImagePyramid(const uchar* const row_data, const int lvls);
+    ImagePyramid(const uchar* const row_data);
 
     // data :row intensity , dx,dy: derivative in x and y direction
     // get image at lvl

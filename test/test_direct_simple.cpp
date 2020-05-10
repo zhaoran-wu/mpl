@@ -1,4 +1,8 @@
 #include "../util/utility.h"
+#include "cam_data.h"
+#include "config.h"
+#include "image_pyramid.h"
+#include "pixel_selector.h"
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <ceres/ceres.h>
@@ -21,11 +25,11 @@ T getPixelValue(double x, double y, const cv::Mat* im) {
     return T((1 - xx) * (1 - yy) * data[0] + xx * (1 - yy) * data[1] +
              (1 - xx) * yy * data[im->step] + xx * yy * data[im->step + 1]);
 }
-inline Eigen::Vector3d project2Dto3D(int x, int y, int d, float fx, float fy,
+inline Eigen::Vector3d project2Dto3D(int x, int y, ushort d, float fx, float fy,
                                      float cx, float cy, float scale) {
     float zz = float(d) / scale;
-    float xx = zz * (x + 0.5 - cx) / fx;
-    float yy = zz * (y + 0.5 - cy) / fy;
+    float xx = zz * (x + 0.5f - cx) / fx;
+    float yy = zz * (y + 0.5f - cy) / fy;
     return Eigen::Vector3d(xx, yy, zz);
 }
 
@@ -85,10 +89,8 @@ bool PhotometicCostFunction::Evaluate(double const* const* parameters,
         residuals[0] = 0;
         return true;
     }
-    residuals[0] =
-        intensity1 -
-        exp(parameters[0][7]) * getPixelValue<uchar>(p_2d.x, p_2d.y, &im2) -
-        parameters[0][8];
+    residuals[0] = -exp(parameters[0][7]) * intensity1 - parameters[0][8] +
+                   getPixelValue<uchar>(p_2d.x, p_2d.y, &im2);
     //* #######---set Jacobdians J = [JT,Jab], with dimension 1*(6+2)----######
     // JT = dI/dT = dI/dp * dp / dT
     Eigen::Matrix<double, 1, 2> dIdp;
@@ -115,10 +117,10 @@ bool PhotometicCostFunction::Evaluate(double const* const* parameters,
 
     if (jacobians != NULL && jacobians[0] != NULL) {
         Eigen::Map<Eigen::Matrix<double, 1, 6>> JT(jacobians[0]);
-        JT = -dIdp * dpdT;
-        jacobians[0][6] =
-            -getPixelValue<uchar>(p_2d.x, p_2d.y, &im2) * exp(parameters[0][7]);
-        jacobians[0][7] = -1;
+        JT = dIdp * dpdT;
+        JT.segment<3>(0) *= 0.5f;
+        jacobians[0][6] = -10 * intensity1 * exp(parameters[0][7]);
+        jacobians[0][7] = -1000 * 1.0;
         jacobians[0][8] = 0;
     }
 
@@ -163,9 +165,15 @@ bool Parameterization::Plus(const double* x, const double* delta,
     //! so the delta_se3 will be (pro,phi)
 
     //* #######---update T ----######
-    T_new = Sophus::SE3d::exp(delta_se3) * T;
-    x_plus_delta[7] = x[7] + delta[6];
-    x_plus_delta[8] = x[8] + delta[7];
+    Sophus::Vector6d pose_delta;
+    pose_delta.segment<3>(0) += 0.5 * delta_se3.segment<3>(0);
+    pose_delta.segment<3>(3) += delta_se3.segment<3>(3);
+
+    //! the first 3 is translational in sohpus (pho phi), determined by jacobian
+    T_new = Sophus::SE3d::exp(pose_delta) * T;
+
+    x_plus_delta[7] = x[7] + delta[6] * 10;
+    x_plus_delta[8] = x[8] + delta[7] * 1000;
 
     return true;
 }
@@ -179,42 +187,41 @@ Eigen::Vector3d projectTo3d(const cv::Point pixel, const Eigen::Matrix3d K,
     // LOG(INFO) << " depth " << d << " m";
     return d * K.inverse() * homo_pixel;
 }
-
+using namespace mpl;
 int main(int argc, char** argv) {
+    Config& config = Config::getInstance();
+    std::string config_path = "/home/zhaoran/thesis_ws/mpl/project/config.yaml";
+    config.readYamlFile(config_path);
+
+    std::string calib_path =
+        "/home/zhaoran/thesis_ws/mpl/project/camera_tum.yaml";
+    CamData& cam = CamData::getInstance();
+    cam.readYamlFile(calib_path);
     const std::string im_path = "/home/zhaoran/thesis_ws/mpl/test_data/";
     //* all image
-    cv::Mat im1 = cv::imread(im_path + "tum.1.photo.png");
+    cv::Mat im1 = cv::imread(im_path + "rgb/1.png");
     cv::Mat im1_clone = im1.clone();
     cv::cvtColor(im1, im1, CV_BGR2GRAY);
 
-    cv::Mat im2 = cv::imread(im_path + "tum.2.photo.png");
+    cv::Mat im2 = cv::imread(im_path + "rgb/2.png");
     cv::Mat im2_clone = im2.clone();
     cv::cvtColor(im2, im2, CV_BGR2GRAY);
 
-    cv::Mat depth1 = cv::imread(im_path + "tum.1.depth.png");
+    cv::Mat depth1 = cv::imread(im_path + "depth/1.png");
 
+    std::shared_ptr<ImagePyramid> pyramid(new ImagePyramid(im1.data));
     //* compute gradient image
-    cv::Mat grad2x(im2.size(), CV_32F);
-    cv::Mat grad2y(im2.size(), CV_32F);
-    cv::Mat grad1(im1.size(), CV_32F);
+    cv::Mat grad2x(im2.size(), CV_32F, pyramid->dx(0).get());
+    cv::Mat grad2y(im2.size(), CV_32F, pyramid->dy(0).get());
 
     std::vector<cv::Point> candidates;
-    for (int x = 1; x < im2.cols - 1; ++x) {
-        for (int y = 1; y < im2.rows - 1; ++y) {
-            grad2x.ptr<float>(y)[x] =
-                (im2.ptr<uchar>(y)[x + 1] - im2.ptr<uchar>(y)[x - 1]) / 2.0f;
-            grad2y.ptr<float>(y)[x] =
-                (im2.ptr<uchar>(y + 1)[x] - im2.ptr<uchar>(y - 1)[x]) / 2.0f;
-            float dx =
-                (im1.ptr<uchar>(y)[x + 1] - im1.ptr<uchar>(y)[x - 1]) / 2.0;
-            float dy =
-                (im1.ptr<uchar>(y + 1)[x] - im1.ptr<uchar>(y - 1)[x]) / 2.0;
-            float grad = std::sqrt(dx * dx + dy * dy);
-            grad1.ptr<float>(y)[x] = grad;
-            if (grad > 50) {
-                candidates.push_back(cv::Point(x, y));
-            }
-        }
+
+    PixelSelector selector;
+    std::vector<Eigen::Vector3i> candidates_eigen;
+    int num = selector.select(pyramid, candidates_eigen);
+
+    for (const auto& p : candidates_eigen) {
+        candidates.push_back(cv::Point(p(0), p(1)));
     }
 
     //* build optimization probleml
@@ -222,7 +229,7 @@ int main(int argc, char** argv) {
     double* param = new double[9];
     Eigen::Map<Sophus::SE3d> T(param);
     T = Sophus::SE3d(Eigen::Quaterniond::Identity(),
-                     Eigen::Vector3d(-0.07, -0.06, -0.01));  //! T21
+                     Eigen::Vector3d(-0.06, -0.04, 0));  //! T21
     param[7] = 0;
     param[8] = 0;
 
@@ -239,11 +246,24 @@ int main(int argc, char** argv) {
         problem.AddResidualBlock(cost, loss, param);
         problem.SetParameterization(param, parameterization);
     }
+    // before
+    for (const auto& p : candidates) {
+        if (depth1.at<ushort>(p) == 0) continue;
+        cv::circle(im1_clone, p, 1, cv::Scalar(0, 255, 0), 1, CV_FILLED);
+        Eigen::Vector3d p_3 =
+            project2Dto3D(p.x, p.y, depth1.at<ushort>(p), fx, fy, cx, cy, 1000);
+        Eigen::Vector3d p_x = p_3;
+        cv::Point2d p_2 = project3Dto2D(p_x(0), p_x(1), p_x(2), fx, fy, cx, cy);
+        cv::Point p_draw(p_2.x, p_2.y);
+        cv::circle(im2_clone, p_draw, 1, cv::Scalar(0, 255, 0), 1, CV_FILLED);
+    }
+    cv::imshow("im2_clone ", im2_clone);
+    cv::imshow("im1_clone ", im1_clone);
+    cv::waitKey(0);
 
     ceres::Solver::Options options;
     ceres::Solver::Summary summary;
     options.minimizer_progress_to_stdout = true;
-    options.linear_solver_type = ceres::DENSE_QR;
     options.num_threads = 1;
     options.update_state_every_iteration = true;
     options.max_num_iterations = 100;
@@ -251,20 +271,23 @@ int main(int argc, char** argv) {
     // options.linear_solver_type = ceres::DENSE_SCHUR;
 
     std::cout << summary.FullReport() << "\n";
-    //* visualize the result
+    //* after
     for (size_t i = 0; i < 9; ++i) {
         LOG(ERROR) << "param" << i << " : " << param[i];
     }
     Eigen::Map<Sophus::SE3d> T_x(param);
     for (const auto& p : candidates) {
         if (depth1.at<ushort>(p) == 0) continue;
+        cv::circle(im1_clone, p, 1, cv::Scalar(0, 255, 0), 1, CV_FILLED);
         Eigen::Vector3d p_3 =
             project2Dto3D(p.x, p.y, depth1.at<ushort>(p), fx, fy, cx, cy, 1000);
         Eigen::Vector3d p_x = T_x * p_3;
-        cv::Point p_2 = project3Dto2D(p_x(0), p_x(1), p_x(2), fx, fy, cx, cy);
-        cv::circle(im2_clone, p_2, 1, cv::Scalar(0, 255, 0));
+        cv::Point2d p_2 = project3Dto2D(p_x(0), p_x(1), p_x(2), fx, fy, cx, cy);
+        cv::Point p_draw(p_2.x, p_2.y);
+        cv::circle(im2_clone, p_draw, 1, cv::Scalar(0, 0, 255), 1, CV_FILLED);
     }
     cv::imshow("im2_clone ", im2_clone);
+    cv::imshow("im1_clone ", im1_clone);
     cv::waitKey(0);
 
     return 0;
