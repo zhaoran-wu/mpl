@@ -23,9 +23,8 @@ class TrackingOptimizer {
    private:
     // accumulate to H and b
     void update(const Vec8 delta_x);
-    void roll_back(const Vec8 delta_x);
     void build_problem();
-    void update_H_b();
+    void accumulate_H_b();
     void scaling_H_b();
     void scaling_delta_x(Vec8& delta_x);
     float max_diag(const Mat88& H) const;
@@ -46,15 +45,16 @@ class TrackingOptimizer {
     CamData* cam;
     Config* config;
 
-    Mat88 H;  // H = J.trans()*J
-    Vec8 b;   // b = - J.trans()*r_vec
+    Mat88 H = Mat88::Zero();  // H = J.trans()*J
+    Vec8 b = Vec8::Zero();    // b = - J.trans()*r_vec
+    Vec8 b_for_evaluation = Vec8::Zero();
 
-    double sum_residual;
-    double r_tmp;   // r for every measurement
-    RowVec8 J_tmp;  // J for every measurement
+    float sum_residual;
+    double r_tmp;                     // r for every measurement
+    RowVec8 J_tmp = RowVec8::Zero();  // J for every measurement
 
     float lamda;
-    float v = 1e-6;
+    float lamda_failed_factor = 2.0f;
 };
 
 }  // namespace mpl

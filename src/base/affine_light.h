@@ -44,9 +44,9 @@ class AffineLight {
     * I_dst = exp(alpha)*I_src + beta
     * so we will have the relation ship beteween relative and global affine
     * param
-    //* alpha = alpha_dst - alpha_src
-    //* beta = beta_dst - exp(alpha)*beta_src
-    //* the output affine param map src I to dst I
+    // alpha = alpha_dst - alpha_src
+    // beta = beta_dst - exp(alpha)*beta_src
+    // the output affine param map src I to dst I
      *
      * @param src_global src affine light parameter,map I_src to Irran_src
      * @param dst_global dst affine light parameter,map I_dst to Irran_dst

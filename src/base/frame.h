@@ -10,7 +10,7 @@ class Frame {
 
     // unproject a point in image lvl to 3D refer to current frame coordinate
     // system
-    Eigen::Vector3f unproject(const Eigen::Vector2i& pixel, const ushort depth,
+    Eigen::Vector3f unproject(const Eigen::Vector2i& pixel, const float depth,
                               const int lvl = 0) const;
     // poject a point in current frame coordinate system to image at lvl
     Eigen::Vector2f project(const Eigen::Vector3f point, int lvl = 0) const;
@@ -21,7 +21,7 @@ class Frame {
 };
 
 inline Eigen::Vector3f Frame::unproject(const Eigen::Vector2i& pixel,
-                                        const ushort depth,
+                                        const float depth,
                                         const int lvl) const {
     return depth * cam->K_inv[lvl] * pixel.cast<float>().homogeneous();
 }

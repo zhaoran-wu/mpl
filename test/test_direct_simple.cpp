@@ -229,7 +229,7 @@ int main(int argc, char** argv) {
     double* param = new double[9];
     Eigen::Map<Sophus::SE3d> T(param);
     T = Sophus::SE3d(Eigen::Quaterniond::Identity(),
-                     Eigen::Vector3d(-0.06, -0.04, 0));  //! T21
+                     Eigen::Vector3d(-0.00, -0.00, 0));  //! T21
     param[7] = 0;
     param[8] = 0;
 
