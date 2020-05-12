@@ -17,6 +17,11 @@ bool Config::readYamlFile(const std::string& file_path) {
     read(PIXEL_SELECTION_NUM, int);
     read(PIXEL_SELECTION_DOWNWEIGHT, float);
     read(PIXEL_SELECTION_RECURSIVE_LIMIT, int);
+    read(OPTIMIZATION_TRANS_SCALE, float);
+    read(OPTIMIZATION_ROTATION_SCALE, float);
+    read(OPTIMIZATION_ALPHA_SCALE, float);
+    read(OPTIMIZATION_BETA_SCALE, float);
+
     return true;
 }
 

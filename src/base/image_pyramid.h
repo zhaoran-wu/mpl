@@ -6,9 +6,6 @@
 namespace mpl {
 typedef unsigned char uchar;
 
-inline uchar halfSampling(const int child_u, const int child_v,
-                          const int parent_step, const uchar* parent_image);
-
 /**
  * @brief accept 2D coordinate and step(e.g image width )to calc 1D idx
  *
@@ -91,8 +88,9 @@ inline int ImagePyramid::lvls() const {
     return image_pyramid.size();
 }
 
-inline uchar halfSampling(const int child_u, const int child_v,
-                          const int parent_step, const uchar* parent_image) {
+template <typename T>
+inline T halfSampling(const int child_u, const int child_v,
+                      const int parent_step, const T* parent_image) {
     float parent_x = (child_u + 0.5f) * 2;  // x,y is in continue space
     float parent_y = (child_v + 0.5f) * 2;
 

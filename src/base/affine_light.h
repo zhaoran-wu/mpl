@@ -22,6 +22,8 @@ class AffineLight {
     AffineLight(const AffineLight& affLight);
     AffineLight& operator=(const AffineLight& affLight);
 
+    void update(float delta_alpha, float delta_beta);
+
     // irrandeance = exp(-alpha) * (I_cam - beta)
     float alpha() const;
     float beta() const;
@@ -69,5 +71,9 @@ class AffineLight {
     float alpha_;
     float beta_;
 };
+inline void AffineLight::update(float delta_alpha, float delta_beta) {
+    alpha_ += delta_alpha;
+    beta_ += delta_beta;
+}
 
 }  // namespace mpl
