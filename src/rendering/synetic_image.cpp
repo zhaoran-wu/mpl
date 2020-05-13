@@ -136,8 +136,8 @@ cv::Mat SyneticImage::renderingAt(const Eigen::Isometry3f& pose,
 
     // Copy back in the given Eigen matrices
     if (mode == mpl::DEPTH) {
-        cv::Mat result(camera.rows, camera.cols, CV_8UC4);
-        glReadPixels(0, 0, camera.cols, camera.rows, GL_BGRA, GL_UNSIGNED_BYTE,
+        cv::Mat result(camera.rows, camera.cols, CV_16UC4);
+        glReadPixels(0, 0, camera.cols, camera.rows, GL_BGRA, GL_UNSIGNED_SHORT,
                      result.data);
 
         cv::flip(result, result, 0);
