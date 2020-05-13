@@ -96,21 +96,21 @@ int main() {
         to_track_pyramid.push_back(tmp);
     }
 
-    /*     for (int lvl = 0; lvl < lvls; ++lvl) {
-            for (auto& voxel : (*pcp)[lvl]) {
-                Eigen::Vector2f projection = ref->project(voxel.position, lvl);
-                cv::circle(to_track_pyramid[lvl],
-                           cv::Point(projection(0), projection(1)), 1,
-                           cv::Scalar(0, 0, 255), 1, CV_FILLED);
-            }
-            cv::imshow("before optimization", to_track_pyramid[lvl]);
-            cv::waitKey(0);
-        } */
-
     Sophus::SE3f T_curr_ref(Eigen::Quaternionf::Identity(),
                             Eigen::Vector3f::Zero());
 
     AffineLight alight_curr_ref(0, 0);
+    for (int lvl = 0; lvl < lvls; ++lvl) {
+        for (auto& voxel : (*pcp)[lvl]) {
+            Eigen::Vector2f projection =
+                ref->project(T_curr_ref * voxel.position, lvl);
+            cv::circle(to_track_pyramid[lvl],
+                       cv::Point(projection(0), projection(1)), 1,
+                       cv::Scalar(0, 0, 255), 1, CV_FILLED);
+        }
+        cv::imshow("before optimization", to_track_pyramid[lvl]);
+        cv::waitKey(0);
+    }
 
     bool is_success = tracker.tracking(to_track, T_curr_ref, alight_curr_ref);
 
