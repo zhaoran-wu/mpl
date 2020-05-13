@@ -266,6 +266,7 @@ int main(int argc, char** argv) {
     options.minimizer_progress_to_stdout = true;
     options.num_threads = 1;
     options.update_state_every_iteration = true;
+    options.trust_region_strategy_type = ceres::LEVENBERG_MARQUARDT;
     options.max_num_iterations = 100;
     ceres::Solve(options, &problem, &summary);
     // options.linear_solver_type = ceres::DENSE_SCHUR;

@@ -21,6 +21,11 @@ bool Config::readYamlFile(const std::string& file_path) {
     read(OPTIMIZATION_ROTATION_SCALE, float);
     read(OPTIMIZATION_ALPHA_SCALE, float);
     read(OPTIMIZATION_BETA_SCALE, float);
+    read(OPTIMIZATION_LAMDA_INIT, float);
+    read(OPTIMIZATION_LAMDA_MAX, float);
+    read(OPTIMIZATION_LAMDA_MIN, float);
+    read(OPTIMIZATION_LAMDA_FAILED_PENALIZE, float);
+    read(OPTIMIZATION_LAMDA_SUCCESS_PENALIZE, float);
 
     return true;
 }

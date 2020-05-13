@@ -1,5 +1,5 @@
 add_library(${PROJECT_NAME}_tracking
-##tracker.cpp
+tracker.cpp
 point_cloud_pyramid.cpp
 tracking_optimizer.cpp
 )

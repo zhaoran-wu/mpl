@@ -10,9 +10,18 @@ void Tracker::set_tracking_ref(
 
 bool Tracker::tracking(Frame::ptr to_track_frame, Sophus::SE3f& pose_in_out,
                        AffineLight& affine_in_out) {
+    // todo use this
     generate_movement_predictions(pose_in_out);
 
-    problem->computeResidual() problem->computeJacobian() problem->solve(20);
+    Sophus::SE3f init_pose(pose_in_out);
+    AffineLight init_aff_light(affine_in_out);
+    optimizer.init(init_pose, init_aff_light, point_cloud_pyramid_,
+                   to_track_frame);
+    for (int lvl = point_cloud_pyramid_->lvls() - 1; lvl >= 0; --lvl) {
+        optimizer.set_lvl(lvl);
+        optimizer.solve(40);
+    }
+    return true;  // todo
 }
 
 void Tracker::generate_movement_predictions(const Sophus::SE3f& pose_in_out) {

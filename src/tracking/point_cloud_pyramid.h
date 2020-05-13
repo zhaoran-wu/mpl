@@ -21,6 +21,7 @@ class PointCloudPyramid {
    public:
     typedef std::shared_ptr<PointCloudPyramid> ptr;
     PointCloudPyramid();
+    int lvls();
     PointCloud& operator[](const int lvl);
 
     //    PointCloudReference(std::vector<Candidates>& candidates);

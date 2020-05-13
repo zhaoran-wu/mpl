@@ -13,7 +13,7 @@ class Frame {
     Eigen::Vector3f unproject(const Eigen::Vector2i& pixel, const float depth,
                               const int lvl = 0) const;
     // poject a point in current frame coordinate system to image at lvl
-    Eigen::Vector2f project(const Eigen::Vector3f point, int lvl = 0) const;
+    Eigen::Vector2f project(const Eigen::Vector3f& point, int lvl = 0) const;
 
    private:
     ImagePyramid::ptr pyramid;
@@ -26,7 +26,7 @@ inline Eigen::Vector3f Frame::unproject(const Eigen::Vector2i& pixel,
     return depth * cam->K_inv[lvl] * pixel.cast<float>().homogeneous();
 }
 
-inline Eigen::Vector2f Frame::project(const Eigen::Vector3f point,
+inline Eigen::Vector2f Frame::project(const Eigen::Vector3f& point,
                                       const int lvl) const {
     return (cam->K[lvl] * point).hnormalized();
 }

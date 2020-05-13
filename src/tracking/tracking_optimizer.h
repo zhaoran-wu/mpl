@@ -19,15 +19,16 @@ class TrackingOptimizer {
     float solve(const int iterations);
     Sophus::SE3f getT() const;
     AffineLight getAffineLight() const;
+    void set_lvl(const int lvl);
 
    private:
     // accumulate to H and b
     void update(const Vec8 delta_x);
     void build_problem();
     void accumulate_H_b();
+    Mat88 get_damped_hessian();
     void scaling_H_b();
     void scaling_delta_x(Vec8& delta_x);
-    float max_diag(const Mat88& H) const;
     float calc_residual(const float curr_intensity,
                         const float point_cloud_intensity) const;
     float evaluate_sum_residual() const;
@@ -35,6 +36,8 @@ class TrackingOptimizer {
     Eigen::Vector3f map(
         Sophus::SE3d pose,
         Eigen::Vector3f point) const;  // map point to curr coordinate system
+
+    int curr_lvl;
 
     Sophus::SE3d pose;  // pose from reference to curr frame
     AffineLight affine_light;
@@ -47,14 +50,13 @@ class TrackingOptimizer {
 
     Mat88 H = Mat88::Zero();  // H = J.trans()*J
     Vec8 b = Vec8::Zero();    // b = - J.trans()*r_vec
-    Vec8 b_for_evaluation = Vec8::Zero();
 
     float sum_residual;
     double r_tmp;                     // r for every measurement
     RowVec8 J_tmp = RowVec8::Zero();  // J for every measurement
 
     float lamda;
-    float lamda_failed_factor = 2.0f;
+    float lamda_failed_penalize_factor = 2.0f;
 };
 
 }  // namespace mpl

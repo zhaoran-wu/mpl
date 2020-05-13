@@ -3,6 +3,7 @@
 #include "frame.h"
 #include "point_cloud_pyramid.h"
 #include "sophus/se3.hpp"
+#include "tracking_optimizer.h"
 
 namespace mpl {
 
@@ -40,6 +41,7 @@ class Tracker {
     // forward movement
     Sophus::SE3f movement_prediction[10];
     PointCloudPyramid::ptr point_cloud_pyramid_;
+    TrackingOptimizer optimizer;
 
     // movement pridiction part
 };

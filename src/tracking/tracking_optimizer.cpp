@@ -22,52 +22,43 @@ void TrackingOptimizer::init(const Sophus::SE3f init_pose,
 float TrackingOptimizer::solve(const int iterations) {
     // build Hx = b problem
     build_problem();
-    // set init lamda value = tao* max{H(i,i)};
-    float scale_ratio = 10e-6;
-    float h_max_diag = max_diag(H);
-    lamda = scale_ratio * h_max_diag;
-    lamda = 5;
+    lamda = config->OPTIMIZATION_LAMDA_INIT;
+    lamda_failed_penalize_factor = config->OPTIMIZATION_LAMDA_FAILED_PENALIZE;
+
     int iteration_cnt = 0;
     bool is_converge = false;
-    int successive_failed_times = 0;
+
     while (!is_converge && iteration_cnt++ < iterations) {
-        // solve (H + lamda*I)*delta_x = b
         LOG(INFO) << " iterations begin : " << iteration_cnt
                   << ", lamda : " << lamda << "------------------------";
-        auto H_tmp = H;
-        H_tmp *= (1 + lamda) * Mat88::Identity();
+
+        auto H_tmp = get_damped_hessian();
         Vec8 delta_x = H_tmp.ldlt().solve(b);
-
-        // we evaluate model decent before scaling
-        // we salce our delta_x,because we sclae out jacobian in build_problem()
         scaling_delta_x(delta_x);
-        LOG(INFO) << "delta_x : " << delta_x.transpose();
-        // todo add new converge condition
-        // * residual dosen't change
-        // * gradient to small
 
-        // pre-update the state for evaluation
+        LOG(INFO) << "delta_x : " << delta_x.transpose();
+
         Sophus::SE3d old_pose(pose);
         AffineLight old_affine_light(affine_light);
-        update(delta_x);
 
+        update(delta_x);
         // evaluate result
-        float model_decent =
-            1e-6 + 0.5f * delta_x.transpose() * (lamda * delta_x + b);
         float new_sum_residual = evaluate_sum_residual();
-        float totoal_residual_decent = sum_residual - new_sum_residual;
         bool is_accept = (new_sum_residual < sum_residual) ? true : false;
 
         if (is_accept) {
-            successive_failed_times = 0;
+            if (delta_x.norm() < 1e-3) {
+                is_converge = true;
+                continue;
+            }
             LOG(INFO) << "step accepted @@@@@@@, curr sum residual : "
                       << new_sum_residual;
-            lamda *= 0.5f;
-            if (lamda < 0.00001) {
-                lamda = 0.00001;
-            }
-            //! std::max(0.333, 1 - std::pow((2 * rho - 1), 3));
-            lamda_failed_factor = 2;
+            lamda *= config->OPTIMIZATION_LAMDA_SUCCESS_PENALIZE;
+            lamda = (lamda < config->OPTIMIZATION_LAMDA_MIN)
+                        ? config->OPTIMIZATION_LAMDA_MIN
+                        : lamda;
+            lamda_failed_penalize_factor =
+                config->OPTIMIZATION_LAMDA_FAILED_PENALIZE;
             LOG(INFO) << "curr gradient" << b.norm();
             // evaluate J and r according to new parameters
             build_problem();
@@ -78,12 +69,9 @@ float TrackingOptimizer::solve(const int iterations) {
             // if not accept we roll back our state
             pose = old_pose;
             affine_light = old_affine_light;
-            lamda *= lamda_failed_factor;
-            if (lamda > 1e10) {
-                is_converge = true;
-            }
-            lamda_failed_factor *= 2;
-            if (++successive_failed_times > 18) {
+            lamda *= lamda_failed_penalize_factor;
+            lamda_failed_penalize_factor *= 2;
+            if (lamda > config->OPTIMIZATION_LAMDA_MAX) {
                 is_converge = true;
             }
         }
@@ -102,23 +90,23 @@ void TrackingOptimizer::build_problem() {
     H.setZero();
     b.setZero();
     sum_residual = 0.0f;
-    for (auto& voxel : (*point_cloud_pyramid)[0]) {
+    for (auto& voxel : (*point_cloud_pyramid)[curr_lvl]) {
         Eigen::Vector3f P = map(pose, voxel.position);  // point in curr frame
         Eigen::Vector2f hit_pixel = to_track_frame->project(P);
         // todo in frame function
-        if (!image_pyramid->is_in_image(0, hit_pixel(0), hit_pixel(1))) {
+        if (!image_pyramid->is_in_image(curr_lvl, hit_pixel(0), hit_pixel(1))) {
             continue;
         }
         float intensity_on_image =
-            (*image_pyramid)(0, hit_pixel(0), hit_pixel(1));
+            (*image_pyramid)(curr_lvl, hit_pixel(0), hit_pixel(1));
         // compute residual
         r_tmp = calc_residual(intensity_on_image, voxel.intensity);
         sum_residual += std::pow(r_tmp, 2);
         // compute jacobian
         float inv_z = (1.0f / P(2));
         float inv_zz = inv_z * inv_z;
-        float dx = image_pyramid->dx(0, hit_pixel(0), hit_pixel(1));
-        float dy = image_pyramid->dy(0, hit_pixel(0), hit_pixel(1));
+        float dx = image_pyramid->dx(curr_lvl, hit_pixel(0), hit_pixel(1));
+        float dy = image_pyramid->dy(curr_lvl, hit_pixel(0), hit_pixel(1));
 
         float fx_dx = cam->fx[0] * dx;
         float fy_dy = cam->fy[0] * dy;
@@ -142,7 +130,6 @@ void TrackingOptimizer::build_problem() {
 
         accumulate_H_b();
     }
-    b_for_evaluation = b;
     scaling_H_b();
 
     LOG(INFO) << "HESSIAN : " << '\n' << H;
@@ -153,6 +140,13 @@ void TrackingOptimizer::accumulate_H_b() {
     b += -J_tmp.transpose() * r_tmp;
 }
 
+Mat88 TrackingOptimizer::get_damped_hessian() {
+    Mat88 H_tmp = H;
+    for (int i = 0; i < 8; ++i) {
+        H_tmp(i, i) *= (1.0f + lamda);
+    }
+    return H_tmp;
+}
 /**
  * @brief  [A B C]' * [a,b,c] = [ Aa, Ab ,Ac]
  *                              [Ba, Bb ,Bc]
@@ -189,20 +183,14 @@ Sophus::SE3f TrackingOptimizer::getT() const {
     return pose.cast<float>();
 }
 
+void TrackingOptimizer::set_lvl(const int lvl) {
+    curr_lvl = lvl;
+}
+
 inline Eigen::Vector3f TrackingOptimizer::map(Sophus::SE3d pose,
                                               Eigen::Vector3f point) const {
     return pose.cast<float>().rotationMatrix() * point +
            pose.cast<float>().translation();
-}
-
-inline float TrackingOptimizer::max_diag(const Mat88& H) const {
-    float max = 0;
-    for (int i = 0; i < H.rows(); ++i) {
-        if (H(i, i) > max) {
-            max = H(i, i);
-        }
-    }
-    return max;
 }
 
 float TrackingOptimizer::evaluate_sum_residual() const {
@@ -210,11 +198,11 @@ float TrackingOptimizer::evaluate_sum_residual() const {
     for (auto& voxel : (*point_cloud_pyramid)[0]) {
         Eigen::Vector3f P = map(pose, voxel.position);  // point in curr frame
         Eigen::Vector2f hit_pixel = to_track_frame->project(P);
-        if (!image_pyramid->is_in_image(0, hit_pixel(0), hit_pixel(1))) {
+        if (!image_pyramid->is_in_image(curr_lvl, hit_pixel(0), hit_pixel(1))) {
             continue;
         }
         float intensity_on_image =
-            (*image_pyramid)(0, hit_pixel(0), hit_pixel(1));
+            (*image_pyramid)(curr_lvl, hit_pixel(0), hit_pixel(1));
         sum += std::pow(calc_residual(intensity_on_image, voxel.intensity), 2);
     }
     return sum;

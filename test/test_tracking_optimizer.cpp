@@ -52,7 +52,7 @@ int main() {
     cv::Mat im1_clone = im1.clone();
     cv::cvtColor(im1, im1, CV_BGR2GRAY);
 
-    cv::Mat im2 = cv::imread(im_path + "rgb/1.png");
+    cv::Mat im2 = cv::imread(im_path + "rgb/2.png");
     cv::Mat im2_clone = im2.clone();
     cv::cvtColor(im2, im2, CV_BGR2GRAY);
 

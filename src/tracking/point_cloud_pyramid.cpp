@@ -11,5 +11,7 @@ PointCloudPyramid::PointCloudPyramid() {
 PointCloud& PointCloudPyramid::operator[](const int lvl) {
     return pyramid_[lvl];
 }
-
+int PointCloudPyramid::lvls() {
+    return pyramid_.size();
+}
 }  // namespace mpl
