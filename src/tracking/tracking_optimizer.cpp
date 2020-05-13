@@ -18,7 +18,7 @@ void TrackingOptimizer::init(const Sophus::SE3f init_pose,
     cam = &CamData::getInstance();
     config = &Config::getInstance();
 }
-// todo move to tracking for fine controll
+
 float TrackingOptimizer::solve(const int iterations) {
     // build Hx = b problem
     build_problem();
@@ -27,7 +27,7 @@ float TrackingOptimizer::solve(const int iterations) {
 
     int iteration_cnt = 0;
     bool is_converge = false;
-
+    // todo : add robust weight
     while (!is_converge && iteration_cnt++ < iterations) {
         LOG(INFO) << " iterations begin : " << iteration_cnt
                   << ", lamda : " << lamda << "------------------------";

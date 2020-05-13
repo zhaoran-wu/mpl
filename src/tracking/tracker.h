@@ -43,6 +43,8 @@ class Tracker {
     PointCloudPyramid::ptr point_cloud_pyramid_;
     TrackingOptimizer optimizer;
 
+    int max_iteration_each_lvl[6] = {40, 30, 30, 20, 10, 10};
+
     // movement pridiction part
 };
 }  // namespace mpl

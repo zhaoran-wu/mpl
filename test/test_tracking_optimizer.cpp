@@ -81,7 +81,7 @@ int main() {
 
     //* initial param
     auto T = Sophus::SE3f(Eigen::Quaternionf::Identity(),
-                          Eigen::Vector3f(-0.3, -.10, 0.1));  //! T21
+                          Eigen::Vector3f(0, .00, 0.0));  //! T21
     AffineLight affL(0, 0);
     //* build the problem
     TrackingOptimizer tra_optimizer;
