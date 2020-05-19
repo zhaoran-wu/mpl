@@ -214,15 +214,15 @@ float PixelSelector::find_max_mag2(Eigen::Vector3i& candidate, const int grid_x,
                                    const int pot_y) {
     SearchRegion search_region;
     if (pot_x != -1 && pot_y != -1) {
-        search_region = POT_LVL;
+        search_region = SearchRegion::POT_LVL;
     } else if (block_x != -1 && block_y != -1) {
-        search_region = BLOCK_LVL;
+        search_region = SearchRegion::BLOCK_LVL;
     } else {
-        search_region = GRID_LVL;
+        search_region = SearchRegion::GRID_LVL;
     }
 
     switch (search_region) {
-        case POT_LVL: {
+        case SearchRegion::POT_LVL: {
             int pot_right_bound =
                 grid_x * grid_dim + block_x * block_dim + (pot_x + 1) * pot_dim;
             if (pot_right_bound > cam->width[0]) {
@@ -253,7 +253,7 @@ float PixelSelector::find_max_mag2(Eigen::Vector3i& candidate, const int grid_x,
 
             return *max_iter;
         } break;
-        case BLOCK_LVL: {
+        case SearchRegion::BLOCK_LVL: {
             int block_right_bound =
                 grid_x * grid_dim + (block_x + 1) * block_dim;
             if (block_right_bound > cam->width[0]) {
@@ -285,7 +285,7 @@ float PixelSelector::find_max_mag2(Eigen::Vector3i& candidate, const int grid_x,
 
             return *max_iter;
         } break;
-        case GRID_LVL: {
+        case SearchRegion::GRID_LVL: {
             // if there homogenous area in image bound, igonore it will be also
             // rational
             int grid_right_bound = (grid_x + 1) * grid_dim;

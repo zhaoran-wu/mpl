@@ -13,10 +13,8 @@ int main() {
     std::string config_path = "/home/zhaoran/thesis_ws/mpl/project/config.yaml";
     config.readYamlFile(config_path);
     int lvls = config.PYRAMID_LVLS;
-    assert(lvls == 3);
     Config& config_2 = Config::getInstance();
     int lvl_max_2 = config_2.PYRAMID_LVLS;
-    assert(lvl_max_2 == 3);
 
     //! test cam data
     std::string calib_path = "/home/zhaoran/thesis_ws/mpl/project/camera.yaml";

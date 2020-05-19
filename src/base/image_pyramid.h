@@ -37,7 +37,7 @@ class ImagePyramid {
     float dx(const int lvl, const int u, const int v) const;
     float mag2(const int lvl, const int u, const int v) const;
 
-    // sub-pixel
+    // sub-pixel overloading
     float operator()(const int lvl, const float u, const float v) const;
     float dx(const int lvl, const float u, const float v) const;
     float dy(const int lvl, const float u, const float v) const;
@@ -83,7 +83,7 @@ inline bool ImagePyramid::is_in_image(const int lvl, const int u,
 
 inline uchar ImagePyramid::operator()(const int lvl, const int u,
                                       const int v) const {
-    return this->image_pyramid[lvl][v * cam_data->width[lvl] + u];
+    return this->image_pyramid[lvl][idx(cam_data->width[lvl], u, v)];
 }
 
 inline float ImagePyramid::dy(const int lvl, const int u, const int v) const {

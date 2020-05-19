@@ -21,9 +21,9 @@ void TrackingOptimizer::init(const Sophus::SE3f init_pose,
 
 float TrackingOptimizer::solve(const int iterations) {
     // build Hx = b problem
-    build_problem();
     lamda = config->OPTIMIZATION_LAMDA_INIT;
     lamda_failed_penalize_factor = config->OPTIMIZATION_LAMDA_FAILED_PENALIZE;
+    build_problem();
 
     int iteration_cnt = 0;
     bool is_converge = false;
@@ -33,7 +33,8 @@ float TrackingOptimizer::solve(const int iterations) {
                   << ", lamda : " << lamda << "------------------------";
 
         auto H_tmp = get_damped_hessian();
-        Vec8 delta_x = H_tmp.ldlt().solve(b);
+        Vec8 delta_x = H_tmp.llt().solve(
+            b);  // H_tmp if for sure spd->llt,? faster than ldlt
         scaling_delta_x(delta_x);
 
         LOG(INFO) << "delta_x : " << delta_x.transpose();
@@ -69,8 +70,10 @@ float TrackingOptimizer::solve(const int iterations) {
             // if not accept we roll back our state
             pose = old_pose;
             affine_light = old_affine_light;
+
             lamda *= lamda_failed_penalize_factor;
             lamda_failed_penalize_factor *= 2;
+
             if (lamda > config->OPTIMIZATION_LAMDA_MAX) {
                 is_converge = true;
             }
@@ -136,15 +139,13 @@ void TrackingOptimizer::build_problem() {
 }
 
 void TrackingOptimizer::accumulate_H_b() {
-    H += J_tmp.transpose() * J_tmp;
+    H.noalias() += J_tmp.transpose() * J_tmp;
     b += -J_tmp.transpose() * r_tmp;
 }
 
 Mat88 TrackingOptimizer::get_damped_hessian() {
-    Mat88 H_tmp = H;
-    for (int i = 0; i < 8; ++i) {
-        H_tmp(i, i) *= (1.0f + lamda);
-    }
+    Mat88 H_tmp(H);
+    H_tmp.diagonal() *= (1.0f + lamda);
     return H_tmp;
 }
 /**

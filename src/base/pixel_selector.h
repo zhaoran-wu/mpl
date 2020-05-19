@@ -8,7 +8,7 @@
 namespace mpl {
 
 class PixelSelector {
-    enum SearchRegion {
+    enum class SearchRegion {
         GRID_LVL,
         BLOCK_LVL,
         POT_LVL,

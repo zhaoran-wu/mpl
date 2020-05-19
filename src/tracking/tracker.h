@@ -43,7 +43,7 @@ class Tracker {
     PointCloudPyramid::ptr point_cloud_pyramid_;
     TrackingOptimizer optimizer;
 
-    int max_iteration_each_lvl[6] = {40, 30, 30, 20, 10, 10};
+    const int max_iteration_each_lvl[6] = {30, 20, 15, 10, 8, 6};
 
     // movement pridiction part
 };
