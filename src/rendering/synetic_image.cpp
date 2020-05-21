@@ -1,5 +1,8 @@
 #include "synetic_image.h"
+#include <algorithm>
 #include <iostream>
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
 namespace mpl {
 
 SyneticImage::SyneticImage(const std::string project_path) {
@@ -7,13 +10,10 @@ SyneticImage::SyneticImage(const std::string project_path) {
     // load texture and mesh and upload to gpu
     mesh.read(project_path);
     // compile and link shader
-    photometric_shader.read(project_path + "../shader/photometric.vs",
-                            project_path + "../shader/photometric.fs");
-    depth_shader.read(
-        project_path + "../shader/depth_vis.vs",
-        project_path + "../shader/depth_vis.fs");  // vis is for visualization
-    normal_shader.read(project_path + "../shader/normal.vs",
-                       project_path + "../shader/normal.fs");
+    photometric_shader.read(project_path + "../shader/photometric.vs", project_path + "../shader/photometric.fs");
+    depth_shader.read(project_path + "../shader/depth_vis.vs",
+                      project_path + "../shader/depth_vis.fs");  // vis is for visualization
+    normal_shader.read(project_path + "../shader/normal.vs", project_path + "../shader/normal.fs");
 
     std::string config_file = project_path + "/config_camera.yaml";
     util::exists(config_file);
@@ -47,29 +47,24 @@ void SyneticImage::init() {
 }
 
 void SyneticImage::preComputeParam() {
-    // use the intrinsic parameters
-    constexpr float z_n = 1;
-    constexpr float z_f = 100;
-
     // K that modified to fit opengl form
     Eigen::Matrix4f modified_K;
-    modified_K << camera.fx, 0.0f, -camera.cx, 0.0f, 0.0f, camera.fy,
-        -camera.cy, 0.0f, 0.0f, 0.0f, z_f + z_n, z_n * z_f, 0.0f, 0.0f, -1.0f,
-        0.0f;
+    modified_K << camera.fx, 0.0f, -camera.cx, 0.0f, 0.0f, camera.fy, -camera.cy, 0.0f, 0.0f, 0.0f, z_f + z_n,
+        z_n * z_f, 0.0f, 0.0f, -1.0f, 0.0f;
 
     Eigen::Matrix4f NDC;
-    NDC << 2.0f / camera.cols, 0.0f, 0.0f, -1.0f, 0.0f, 2.0f / camera.rows,
-        0.0f, -1.0f, 0.0f, 0.0f, 2.0f / (z_n - z_f), (z_n + z_f) / (z_n - z_f),
-        0.0f, 0.0f, 0.0f, 1.0f;
+    NDC << 2.0f / camera.cols, 0.0f, 0.0f, -1.0f, 0.0f, 2.0f / camera.rows, 0.0f, -1.0f, 0.0f, 0.0f, 2.0f / (z_n - z_f),
+        (z_n + z_f) / (z_n - z_f), 0.0f, 0.0f, 0.0f, 1.0f;
 
     projection = NDC * modified_K;
     zn_zf(0) = z_n;
     zn_zf(1) = z_f;
 
-    Tb_gl = Eigen::Isometry3f::Identity();
-    Eigen::Matrix3f Rb_gl;
-    Rb_gl << 1, 0, 0, 0, -1, 0, 0, 0, -1;
-    Tb_gl.rotate(Rb_gl);
+    extrinsic_T_b_gl = Eigen::Isometry3f::Identity();  // gl: opengl gl world
+                                                       // frame, b: body frame
+    Eigen::Matrix3f extrinsic_Rb_gl;
+    extrinsic_Rb_gl << 1, 0, 0, 0, -1, 0, 0, 0, -1;
+    extrinsic_T_b_gl.rotate(extrinsic_Rb_gl);
 }
 
 void SyneticImage::setFrameBuffer() {
@@ -80,17 +75,14 @@ void SyneticImage::setFrameBuffer() {
     glBindRenderbuffer(GL_RENDERBUFFER, rbo_color);
     glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8, camera.cols, camera.rows);
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-                              GL_RENDERBUFFER, rbo_color);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, rbo_color);
     // create a (also multisampled) renderbuffer object for depth and stencil
     // attachments
     glGenRenderbuffers(1, &rbo_depth_stencil);
     glBindRenderbuffer(GL_RENDERBUFFER, rbo_depth_stencil);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH32F_STENCIL8, camera.cols,
-                          camera.rows);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH32F_STENCIL8, camera.cols, camera.rows);
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
-                              GL_RENDERBUFFER, rbo_depth_stencil);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo_depth_stencil);
     // check if a framebuffer is complete
     assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -100,9 +92,8 @@ void SyneticImage::setFrameBuffer() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-cv::Mat SyneticImage::renderingAt(const Eigen::Isometry3f& pose,
-                                  const RenderingMode mode) {
-    view = (pose * Tb_gl).inverse();
+cv::Mat SyneticImage::renderingAt(const Eigen::Isometry3f& pose, const RenderingMode mode) {
+    view = (pose * extrinsic_T_b_gl).inverse();
     // todo switch
 
     glClearColor(0.f, 0.f, 0.f, 1.f);
@@ -120,14 +111,14 @@ cv::Mat SyneticImage::renderingAt(const Eigen::Isometry3f& pose,
             depth_shader.set_uniform_mat4("projection", projection);
             depth_shader.set_uniform_mat4("view", view);
             depth_shader.set_uniform_vec2("zn_zf", zn_zf);
+
             mesh.draw(depth_shader);
         } break;
         case mpl::NORMAL: {
             normal_shader.active();
             normal_shader.set_uniform_mat4("projection", projection);
             normal_shader.set_uniform_mat4("view", view);
-            normal_shader.set_uniform_mat3("normal_R",
-                                           pose.inverse().rotation());
+            normal_shader.set_uniform_mat3("normal_R", pose.inverse().rotation());
             mesh.draw(normal_shader);
         } break;
         default:
@@ -137,15 +128,20 @@ cv::Mat SyneticImage::renderingAt(const Eigen::Isometry3f& pose,
     // Copy back in the given Eigen matrices
     if (mode == mpl::DEPTH) {
         cv::Mat result(camera.rows, camera.cols, CV_16UC4);
-        glReadPixels(0, 0, camera.cols, camera.rows, GL_BGRA, GL_UNSIGNED_SHORT,
-                     result.data);
-
+        cv::Mat result_single_channnel(camera.rows, camera.cols, CV_16UC1);
+        glReadPixels(0, 0, camera.cols, camera.rows, GL_RGBA, GL_UNSIGNED_SHORT, result.data);
         cv::flip(result, result, 0);
-        return result;
+
+        // transform to unit mm
+        // (d/zf)* max(ushort)  = x ;  d_in_mm = x*z_f*1000/max(ushort)
+        cv::cvtColor(result, result_single_channnel, CV_RGBA2GRAY);
+        std::for_each(result_single_channnel.begin<ushort>(), result_single_channnel.end<ushort>(),
+                      [=](ushort& depth) { depth *= (std::numeric_limits<ushort>::max()) * 1000 * z_f; });
+        assert(result_single_channnel.channels() == 1);
+        return result_single_channnel;
     } else {
         cv::Mat result(camera.rows, camera.cols, CV_8UC4);
-        glReadPixels(0, 0, camera.cols, camera.rows, GL_BGRA, GL_UNSIGNED_BYTE,
-                     result.data);
+        glReadPixels(0, 0, camera.cols, camera.rows, GL_BGRA, GL_UNSIGNED_BYTE, result.data);
         cv::flip(result, result, 0);
         return result;
     }

@@ -12,48 +12,60 @@ namespace mpl {
 
 enum RenderingMode { PHTOMETRIC, DEPTH, NORMAL };
 class SyneticImage {
- public:
-  SyneticImage(const std::string project_path);
-  cv::Mat renderingAt(const Eigen::Isometry3f& pose, const RenderingMode mode);
-  void shut();
+   public:
+    SyneticImage(const std::string project_path);
+    /**
+     * @brief return rendering image from model and texture at given pose, and
+     * mode
+     *
+     * @param pose T_b0_bfn,the tranform from curr body frame bfn to body frame
+     * at world frame identity b0 , T_b0_bfn =  T_b0_bf0  * T_bf0_bfn
+     * = T_b0_bf0 * ( extrin_T_b_c    T_c0_cn * extrin_T_c_b )
+     * @param mode support color image ,depth image(mm, store in ushort), and normal image
+     * @return cv::Mat
+     */
+    cv::Mat renderingAt(const Eigen::Isometry3f& pose, const RenderingMode mode);
+    void shut();
 
- private:
-  /**
-   * @brief create opengl context
-   *
-   */
-  void init();
-  /**
-   * @brief pre-compute some parameters, which will be set as uniform parameters
-   * for shader
-   *
-   */
-  void preComputeParam();
+   private:
+    /**
+     * @brief create opengl context
+     *
+     */
+    void init();
+    /**
+     * @brief pre-compute some parameters, which will be set as uniform
+     * parameters for shader
+     *
+     */
+    void preComputeParam();
 
-  void setFrameBuffer();
+    void setFrameBuffer();
 
+    Mesh mesh;  // all the ply and texture data
 
-  Mesh mesh;  // all the ply and texture data
+    Shader photometric_shader;
+    Shader depth_shader;
+    Shader normal_shader;
 
-  Shader photometric_shader;
-  Shader depth_shader;
-  Shader normal_shader;
+    unsigned int framebuffer;
+    unsigned int rbo_color;
+    unsigned int rbo_depth_stencil;
 
-  unsigned int framebuffer;
-  unsigned int rbo_color;
-  unsigned int rbo_depth_stencil;
+    // uniform parameters for opengl
+    Eigen::Matrix4f projection;          //! projection matrix of opengl
+    Eigen::Isometry3f view;              //! view matix of opengl, correspond to Tgl_w
+    Eigen::Vector2f zn_zf;               //! z_near and z_far;
+    Eigen::Matrix3f Rb_w;                // ! world to body frame
+    Eigen::Isometry3f extrinsic_T_b_gl;  // ! opengl camera to body frame
 
-  // uniform parameters for opengl
-  Eigen::Matrix4f projection;  //! projection matrix of opengl
-  Eigen::Isometry3f view;      //! view matix of opengl, correspond to Tgl_w
-  Eigen::Vector2f zn_zf;       //! z_near and z_far;
-  Eigen::Matrix3f Rb_w;        // ! world to body frame
-  Eigen::Isometry3f Tb_gl;     // ! opengl camera to body frame
+    const float z_n = 1.f;
+    const float z_f = 60.f;
 
-  // window
-  GLFWwindow* window;
-  // sensor data
-  util::SensorData camera;
+    // window
+    GLFWwindow* window;
+    // sensor data
+    util::SensorData camera;
 };
 
 }  // namespace mpl
