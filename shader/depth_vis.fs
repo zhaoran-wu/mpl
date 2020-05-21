@@ -1,5 +1,6 @@
 #version 330 core
 out vec4 FragColor;
+//out float FragColor;
 uniform vec2 zn_zf;
 
 float near = zn_zf.x;
@@ -15,4 +16,5 @@ void main()
 {             
     float depth = LinearizeDepth(gl_FragCoord.z)/far; //! far is only for visuallization
     FragColor = vec4(vec3(depth), 1.0);
+    //FragColor = depth;
 }

@@ -136,7 +136,7 @@ cv::Mat SyneticImage::renderingAt(const Eigen::Isometry3f& pose, const Rendering
         // (d/zf)* max(ushort)  = x ;  d_in_mm = x*z_f*1000/max(ushort)
         cv::cvtColor(result, result_single_channnel, CV_RGBA2GRAY);
         std::for_each(result_single_channnel.begin<ushort>(), result_single_channnel.end<ushort>(),
-                      [=](ushort& depth) { depth *= (std::numeric_limits<ushort>::max()) * 1000 * z_f; });
+                      [=](ushort& depth) { depth *= (1.f / std::numeric_limits<ushort>::max()) * 1000 * z_f; });
         assert(result_single_channnel.channels() == 1);
         return result_single_channnel;
     } else {
