@@ -40,6 +40,8 @@ class Config {
     float OPTIMIZATION_LAMDA_MIN;
     float OPTIMIZATION_LAMDA_FAILED_PENALIZE;
     float OPTIMIZATION_LAMDA_SUCCESS_PENALIZE;
+
+    static const int WINDOW_SIZE = 7;
 };
 
 }  // namespace mpl
