@@ -52,6 +52,8 @@ class SyneticImage {
     unsigned int rbo_color;
     unsigned int rbo_depth_stencil;
 
+    GLuint pbo;
+
     // uniform parameters for opengl
     Eigen::Matrix4f projection;          //! projection matrix of opengl
     Eigen::Isometry3f view;              //! view matix of opengl, correspond to Tgl_w

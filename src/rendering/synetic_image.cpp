@@ -70,6 +70,7 @@ void SyneticImage::preComputeParam() {
 void SyneticImage::setFrameBuffer() {
     glGenFramebuffers(1, &framebuffer);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, framebuffer);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer);
     // create a multisampled color attachment texture
     glGenRenderbuffers(1, &rbo_color);
     glBindRenderbuffer(GL_RENDERBUFFER, rbo_color);
@@ -90,6 +91,11 @@ void SyneticImage::setFrameBuffer() {
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glClearColor(0.f, 0.f, 0.f, 1.f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // pxiel buffer object
+    glGenBuffers(1, &pbo);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
 }
 
 cv::Mat SyneticImage::renderingAt(const Eigen::Isometry3f& pose, const RenderingMode mode) {
@@ -129,7 +135,17 @@ cv::Mat SyneticImage::renderingAt(const Eigen::Isometry3f& pose, const Rendering
     if (mode == mpl::DEPTH) {
         cv::Mat result(camera.rows, camera.cols, CV_16UC4);
         cv::Mat result_single_channnel(camera.rows, camera.cols, CV_16UC1);
-        glReadPixels(0, 0, camera.cols, camera.rows, GL_RGBA, GL_UNSIGNED_SHORT, result.data);
+
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
+        glBufferData(GL_PIXEL_PACK_BUFFER, camera.cols * camera.rows * 4 * sizeof(ushort), 0, GL_STREAM_READ);
+        glReadBuffer(GL_BACK);
+        glReadPixels(0, 0, camera.cols, camera.rows, GL_RGBA, GL_UNSIGNED_SHORT, 0);
+
+        result.data = (uchar*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+
+        glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+
         cv::flip(result, result, 0);
 
         // transform to unit mm
@@ -137,11 +153,21 @@ cv::Mat SyneticImage::renderingAt(const Eigen::Isometry3f& pose, const Rendering
         cv::cvtColor(result, result_single_channnel, CV_RGBA2GRAY);
         std::for_each(result_single_channnel.begin<ushort>(), result_single_channnel.end<ushort>(),
                       [=](ushort& depth) { depth *= (1.f / std::numeric_limits<ushort>::max()) * 1000 * z_f; });
-        assert(result_single_channnel.channels() == 1);
+
         return result_single_channnel;
     } else {
         cv::Mat result(camera.rows, camera.cols, CV_8UC4);
-        glReadPixels(0, 0, camera.cols, camera.rows, GL_BGRA, GL_UNSIGNED_BYTE, result.data);
+
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
+        glBufferData(GL_PIXEL_PACK_BUFFER, camera.cols * camera.rows * 4 * sizeof(uchar), 0, GL_STREAM_READ);
+        glReadBuffer(GL_BACK);
+
+        glReadPixels(0, 0, camera.cols, camera.rows, GL_BGRA, GL_UNSIGNED_BYTE, 0);
+
+        result.data = (uchar*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+
         cv::flip(result, result, 0);
         return result;
     }
