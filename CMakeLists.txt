@@ -4,7 +4,7 @@ project(mpl)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
 
 if(NOT CMAKE_BUILD_TYPE)
-	set(CMAKE_BUILD_TYPE DEBUG)
+	set(CMAKE_BUILD_TYPE RELEASE)
 endif()
 
 # gprof
@@ -36,8 +36,9 @@ include_directories(${CMAKE_SOURCE_DIR}/third)
 include_directories(${CMAKE_SOURCE_DIR}/src/rendering)
 include_directories(${CMAKE_SOURCE_DIR}/src/base)
 include_directories(${CMAKE_SOURCE_DIR}/src/frontend)
-include_directories(${CMAKE_SOURCE_DIR}/src/optimization)
+include_directories(${CMAKE_SOURCE_DIR}/src/window_optimization)
 include_directories(${CMAKE_SOURCE_DIR}/src/tracking)
+
 
 include_directories(${CMAKE_SOURCE_DIE}/util)
 include_directories(${Boost_INCLUDE_DIRS})
@@ -52,4 +53,5 @@ add_subdirectory(util)
 add_subdirectory(src/rendering)
 add_subdirectory(src/base)
 add_subdirectory(src/tracking)
+add_subdirectory(src/window_optimization)
 add_subdirectory(test)

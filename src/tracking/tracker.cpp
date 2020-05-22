@@ -3,15 +3,18 @@
 namespace mpl {
 
 void Tracker::set_tracking_ref(
+    const Frame::ptr ref_frame,
     const PointCloudPyramid::ptr point_cloud_pyramid) {
     assert(point_cloud_pyramid != nullptr);
     this->point_cloud_pyramid_ = point_cloud_pyramid;
+    curr_ref_frame = ref_frame;
 }
 
 bool Tracker::tracking(Frame::ptr to_track_frame, Sophus::SE3f& pose_in_out,
                        AffineLight& affine_in_out) {
     // todo use movement prdiction mode, and pick best inital value
     // generate_movement_predictions(pose_in_out);
+    to_track_frame->set_ref_frame(curr_ref_frame);
 
     Sophus::SE3f init_pose(pose_in_out);
     AffineLight init_aff_light(affine_in_out);

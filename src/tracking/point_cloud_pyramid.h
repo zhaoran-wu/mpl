@@ -1,6 +1,8 @@
 #pragma once
+#include "candidate_manager.h"
 #include <Eigen/Core>
 #include <memory>
+#include <opencv2/core.hpp>
 #include <vector>
 
 namespace mpl {
@@ -21,6 +23,9 @@ class PointCloudPyramid {
    public:
     typedef std::shared_ptr<PointCloudPyramid> ptr;
     PointCloudPyramid();
+    PointCloudPyramid(cv::Mat rendered_depth, const std::vector<Candidate>& semi_dense_depth);
+    static ptr create(cv::Mat rendered_depth, const std::vector<Candidate>& semi_dense_depth);
+    void generate_pyramid(cv::Mat rendered_depth, const std::vector<Candidate>& semi_dense_depth);
     int lvls();
     PointCloud& operator[](const int lvl);
 

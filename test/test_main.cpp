@@ -24,16 +24,15 @@ int main() {
     std::string pose_file = project_path + "ground_truth.txt";
     trajectory_io::Trajectory pose;
     pose.read(pose_file, trajectory_io::Trajectory::FORMAT_MAT);
-    Eigen::Isometry3f T_w_c0 = pose.atIndex(0);
 
     // read 100 image date for test
     std::string data_path = "/home/zhaoran/dataset/KITTI/sequences/00/image_0/";
-
     std::vector<cv::Mat> img_vec;
     std::vector<cv::Mat> img_draw_vec;
     for (int i = 0; i < 100; ++i) {
         int im_id = 80 + i;
-        string im_name = (im_id < 100) ? "0000" + to_string(im_id) + ".png" : "000" + to_string(im_id) + ".png";
+        string im_name = (im_id < 100) ? "0000" + to_string(im_id) + ".png"
+                                       : "000" + to_string(im_id) + ".png";
         cv::Mat im_tmp = cv::imread(data_path + im_name);
         assert(im_tmp.isContinuous());
 
@@ -44,40 +43,66 @@ int main() {
     }
 
     Tracker tracker;
-    //    SlidingWindow sw;
-
+    SlidingWindow sw;
+    Eigen::Isometry3f T_w_c0 = pose.atIndex(0);
     // system begin
 
-    Eigen::Isometry3f T_c0_curr = Eigen::Isometry3f::Identity();  // accumulate tranform relative to first cam frame
     for (int i = 0; i < 100; ++i) {
         Frame::ptr curr_frame = Frame::create(img_vec[i]);
 
-        /*         if (sw.empty()) {
-                    sw.add_tracked_frame(curr_frame, Sophus::SE3f(Eigen::Quaternionf::Identity(),
-           Eigen::Vector3f::Zero()), AffineLight(0, 0));
-                } */
+        if (sw.empty()) {
+            curr_frame->set_pose(
+                Sophus::SE3f(T_w_c0.rotation(), T_w_c0.translation()));
+            curr_frame->set_aff_light(0, 0);
+            sw.fix_origin(curr_frame);
+        }
 
-        Eigen::Isometry3f render_pose = T_w_c0 * T_c0_curr;
-        std::vector<cv::Mat> syn_im_vec = synetic_image.renderingAt(render_pose);
-        cv::Mat photo_im = syn_im_vec[0];
+        Frame::ptr lastKF = sw.get_lastKF();
+        Eigen::Isometry3f T_w_lastKF = lastKF->get_pose<Eigen::Isometry3f>();
+
+        Eigen::Isometry3f render_pose = T_w_lastKF;  // T_w_c0 * T_c0_lastKF;
+        // todo how to give a global constrain? fix the global pose of the first
+        // frame?
+        std::vector<cv::Mat> syn_im_vec =
+            synetic_image.renderingAt(render_pose);
         cv::Mat depth_im = syn_im_vec[1];
-        cv::Mat normal_im = syn_im_vec[2];
-        cv::imshow("photo_im", photo_im);
-        cv::imshow("depth_im", depth_im);
-        cv::imshow("norma_im", normal_im);
-        cv::waitKey(0);
+        // todo use depth_im to initilize the search area of candidate
 
         // todo init point cloud ref from (rendering image + semi-dense map)
-        /*         std::vector<Candidate> semi_dense_depth = sw.get_depthmap();
+        std::vector<Candidate> semi_dense_depth = sw.get_depthmap();
 
-                PointCloudPyramid::ptr pcp = PointCloudPyramid::create(depth_im, semi_dense_depth);
+        PointCloudPyramid::ptr pcp =
+            PointCloudPyramid::create(depth_im, semi_dense_depth);
 
-                tracker.set_tracking_ref(pcp);
-                Sophus::SE3f T_curr_lastKf = Sophus::SE3f(Eigen::Quaternionf::Identity(), Eigen::Vector3f::Zero());
-                AffineLight aff_light_curr_lastKF(0, 0);
+        tracker.set_tracking_ref(lastKF, pcp);
 
-                tracker.tracking(curr_frame, T_curr_lastKf, aff_light_curr_lastKF);
+        // todo get inital value from KF history
+        Sophus::SE3f in_out_T_curr_lastKF = Sophus::SE3f(
+            Eigen::Quaternionf::Identity(), Eigen::Vector3f::Zero());
+        AffineLight in_out_aff_light_curr_lastKF(0, 0);
 
-                sw.add_tracked_frame(curr_frame, T_curr_lastKf, aff_light_curr_lastKF); */
+        tracker.tracking(curr_frame, in_out_T_curr_lastKF,
+                         in_out_aff_light_curr_lastKF);
+
+        // visulization tracking result
+        cv::Mat im_to_vis = img_draw_vec[i];
+        for (auto& pcd : pcp->operator[](0)) {
+            Eigen::Vector3f point = in_out_T_curr_lastKF * pcd.position;
+            Eigen::Vector2f hit_pixel = curr_frame->project(point);
+
+            // todo radius is correpond to covariance, color is correspond to
+            // depth,
+            cv::circle(img_draw_vec, cv::Point2f(hit_pixel(0), hit_pixel(1)), 2,
+                       cv::Scalar(0, 255, 0), 2);
+        }
+
+        cv::imshow("curr_frame", im_to_vis);
+        cv::waitKey(0);
+        auto& T_curr_lastKF = in_out_T_curr_lastKF;
+        auto& aff_light_curr_lastKF = in_out_aff_light_curr_lastKF;
+        curr_frame->set_state_curr_lastKF(T_curr_lastKF, aff_light_curr_lastKF);
+        sw.add_tracked_frame(curr_frame, syn_im_vec);
+
+        sw.optimize_window();
     }
 }

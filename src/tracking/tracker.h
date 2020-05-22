@@ -15,7 +15,8 @@ class Tracker {
      *
      * @param point_cloud_pyramid
      */
-    void set_tracking_ref(const PointCloudPyramid::ptr point_cloud_pyramid);
+    void set_tracking_ref(const Frame::ptr ref_frame,
+                          const PointCloudPyramid::ptr point_cloud_pyramid);
 
     /**
      * @brief tracking new frame relative pose to reference frame
@@ -42,6 +43,8 @@ class Tracker {
     Sophus::SE3f movement_prediction[10];
     PointCloudPyramid::ptr point_cloud_pyramid_;
     TrackingOptimizer optimizer;
+
+    Frame::ptr curr_ref_frame;
 
     const int max_iteration_each_lvl[6] = {30, 20, 15, 10, 8, 6};
 

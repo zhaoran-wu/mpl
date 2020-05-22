@@ -57,7 +57,7 @@ int main() {
     // generate pointcloud pyramid
     PointCloudPyramid::ptr pcp(new PointCloudPyramid);
     for (int lvl = 0; lvl < lvls; ++lvl) {
-        for (int i = 0; i < candidates.size(); ++i) {
+        for (size_t i = 0; i < candidates.size(); ++i) {
             //! for test we just ignore somce point at each sub lvl
             if (lvl != 0 && i % lvl != 0) {
                 continue;
@@ -82,7 +82,8 @@ int main() {
     }
 
     Tracker tracker;
-    tracker.set_tracking_ref(pcp);  // tracer has it's own movement prediction
+    tracker.set_tracking_ref(ref,
+                             pcp);  // tracer has it's own movement prediction
     // FrontendSystem->movementPredictor->predict(prediction,frontend_history)
     // tracker->setMovementPrediction(pridiction);
 
@@ -112,7 +113,7 @@ int main() {
         cv::waitKey(0);
     }
 
-    bool is_success = tracker.tracking(to_track, T_curr_ref, alight_curr_ref);
+    tracker.tracking(to_track, T_curr_ref, alight_curr_ref);
 
     for (int lvl = lvls - 1; lvl >= 0; --lvl) {
         for (auto& voxel : (*pcp)[lvl]) {

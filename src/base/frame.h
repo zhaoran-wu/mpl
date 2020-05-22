@@ -1,22 +1,47 @@
 #pragma once
+#include "affine_light.h"
 #include "image_pyramid.h"
 #include <Eigen/Geometry>
+#include <opencv2/core.hpp>
+#include <sophus/se3.hpp>
 namespace mpl {
+
 class Frame {
    public:
     typedef std::shared_ptr<Frame> ptr;
     Frame(const uchar* const row_image_data);
+    static Frame::ptr create(cv::Mat image);
     ImagePyramid::ptr getImagePyramid();
+    void set_pose(const Sophus::SE3f& pose);
+    void set_aff_light(const int alpha, const int beta);
+    void set_state_curr_lastKF(const Sophus::SE3f& T_curr_lastKF,
+                               const AffineLight& aff_light_curr_lastKF);
+    void set_ref_frame(const Frame::ptr& frame);
 
-    // unproject a point in image lvl to 3D refer to current frame coordinate
-    // system
+    // return T_w_c
+    template <typename T>
+    T get_pose() const;
+    // return global aff light
+    AffineLight get_aff_light() const;
+
+    // unproject a point in image lvl to 3D refer to current frame
+    // coordinate system
     Eigen::Vector3f unproject(const Eigen::Vector2i& pixel, const float depth,
                               const int lvl = 0) const;
     // poject a point in current frame coordinate system to image at lvl
     Eigen::Vector2f project(const Eigen::Vector3f& point, int lvl = 0) const;
 
+    bool is_in_image(const int lvl, const float u, const float v) const;
+
    private:
     ImagePyramid::ptr pyramid;
+    // relative info
+    Frame::ptr last_KF_ref;
+    Sophus::SE3f T_curr_lastKF;
+    AffineLight aff_light_curr_lastKF;
+    // global info
+    Sophus::SE3f pose;  // T_c_w;
+    AffineLight affine_light;
     CamData* cam;
 };
 
@@ -31,4 +56,52 @@ inline Eigen::Vector2f Frame::project(const Eigen::Vector3f& point,
     return (cam->K[lvl] * point).hnormalized();
 }
 
+inline void Frame::set_pose(const Sophus::SE3f& pose) {
+    this->pose = pose;
+}
+inline void Frame::set_aff_light(const int alpha, const int beta) {
+    this->affine_light = AffineLight(alpha, beta);
+}
+
+inline void Frame::set_state_curr_lastKF(
+    const Sophus::SE3f& T_curr_lastKF,
+    const AffineLight& aff_light_curr_lastKF) {
+    this->T_curr_lastKF = T_curr_lastKF;
+    this->aff_light_curr_lastKF = aff_light_curr_lastKF;
+}
+
+// return T_w_c
+
+template <typename T>
+inline T Frame::get_pose() const {
+    return T(pose.matrix());
+}
+
+// return global aff light
+inline AffineLight Frame::get_aff_light() const {
+    return affine_light;
+}
+
+inline void Frame::set_ref_frame(const Frame::ptr& frame) {
+    this->last_KF_ref = frame;
+}
+
+inline bool Frame::is_in_image(const int lvl, const float u,
+                               const float v) const {
+    return pyramid->is_in_image(lvl, u, v);
+}
+
+inline Eigen::Vector2f unproject_trans_project(const float d_inv,
+                                               const Eigen::Vector2i& src_pixel,
+                                               const Frame::ptr src_frame,
+                                               const Frame::ptr target_frame,
+
+                                               int lvl = 0) {
+    Eigen::Vector3f src_point =
+        src_frame->unproject(src_pixel, 1.f / d_inv, lvl);
+    Eigen::Isometry3f T_target_src =
+        target_frame->get_pose<Eigen::Isometry3f>().inverse() *
+        src_frame->get_pose<Eigen::Isometry3f>();
+    return target_frame->project(T_target_src * src_point, lvl);
+}
 }  // namespace mpl

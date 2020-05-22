@@ -29,7 +29,8 @@ float TrackingOptimizer::solve(const int iterations) {
     bool is_converge = false;
     // todo : add robust weight
     while (!is_converge && iteration_cnt++ < iterations) {
-        LOG(INFO) << " iterations begin : " << iteration_cnt
+        LOG(INFO) << " curr lvl : " << curr_lvl
+                  << " iterations begin : " << iteration_cnt
                   << ", lamda : " << lamda << "------------------------";
 
         auto H_tmp = get_damped_hessian();
@@ -48,19 +49,19 @@ float TrackingOptimizer::solve(const int iterations) {
         bool is_accept = (new_sum_residual < sum_residual) ? true : false;
 
         if (is_accept) {
-            if (delta_x.norm() < 1e-3) {
+            LOG(INFO) << "step accepted @@@@@@@, curr sum residual : "
+                      << new_sum_residual;
+            LOG(INFO) << "curr gradient" << b.norm();
+            if (delta_x.norm() < 8e-4) {
                 is_converge = true;
                 continue;
             }
-            LOG(INFO) << "step accepted @@@@@@@, curr sum residual : "
-                      << new_sum_residual;
             lamda *= config->OPTIMIZATION_LAMDA_SUCCESS_PENALIZE;
             lamda = (lamda < config->OPTIMIZATION_LAMDA_MIN)
                         ? config->OPTIMIZATION_LAMDA_MIN
                         : lamda;
             lamda_failed_penalize_factor =
                 config->OPTIMIZATION_LAMDA_FAILED_PENALIZE;
-            LOG(INFO) << "curr gradient" << b.norm();
             // evaluate J and r according to new parameters
             build_problem();
         } else {
@@ -89,13 +90,14 @@ inline void TrackingOptimizer::update(const Vec8 delta_x) {
     affine_light.update(delta_x(6), delta_x(7));
 }
 
+// todo only update b
 void TrackingOptimizer::build_problem() {
     H.setZero();
     b.setZero();
     sum_residual = 0.0f;
     for (auto& voxel : (*point_cloud_pyramid)[curr_lvl]) {
         Eigen::Vector3f P = map(pose, voxel.position);  // point in curr frame
-        Eigen::Vector2f hit_pixel = to_track_frame->project(P);
+        Eigen::Vector2f hit_pixel = to_track_frame->project(P, curr_lvl);
         // todo in frame function
         if (!image_pyramid->is_in_image(curr_lvl, hit_pixel(0), hit_pixel(1))) {
             continue;
@@ -111,8 +113,8 @@ void TrackingOptimizer::build_problem() {
         float dx = image_pyramid->dx(curr_lvl, hit_pixel(0), hit_pixel(1));
         float dy = image_pyramid->dy(curr_lvl, hit_pixel(0), hit_pixel(1));
 
-        float fx_dx = cam->fx[0] * dx;
-        float fy_dy = cam->fy[0] * dy;
+        float fx_dx = cam->fx[curr_lvl] * dx;
+        float fy_dy = cam->fy[curr_lvl] * dy;
         float p1_inv_zz = P(1) * inv_zz;
 
         // dIdp

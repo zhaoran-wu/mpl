@@ -77,3 +77,17 @@ util
 ${PROJECT_NAME}_base
 ${PROJECT_NAME}_tracking
 )
+
+
+#add_executable(test_main test_main.cpp)
+#target_link_libraries(test_main
+#${CERES_LIBRARIES}
+#${OpenCV_LIBRARIES}
+#${Eigen_LIBRARIES}
+#${Boost_LIBRARIES}
+#util
+#${PROJECT_NAME}_base
+#${PROJECT_NAME}_tracking
+#${PROJECT_NAME}_rendering
+#${PROJECT_NAME}_window_optimization
+#)

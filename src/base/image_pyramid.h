@@ -42,7 +42,7 @@ class ImagePyramid {
     float dx(const int lvl, const float u, const float v) const;
     float dy(const int lvl, const float u, const float v) const;
     // todo overload for eigen vec
-    bool is_in_image(const int lvl, const int u, const int v) const;
+    bool is_in_image(const int lvl, const float u, const float v) const;
 
     int lvls() const;
 
@@ -75,9 +75,9 @@ inline ImagePyramid::float_ptr ImagePyramid::mag2(const int lvl) {
     return this->mag2_pyramid[lvl];
 }
 
-inline bool ImagePyramid::is_in_image(const int lvl, const int u,
-                                      const int v) const {
-    return (u > 0 && u < cam_data->width[lvl] && v > 0 &&
+inline bool ImagePyramid::is_in_image(const int lvl, const float u,
+                                      const float v) const {
+    return (u >= 0.f && u < cam_data->width[lvl] && v >= 0.f &&
             v < cam_data->height[lvl]);
 }
 
