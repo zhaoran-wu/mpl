@@ -230,11 +230,11 @@ float PixelSelector::find_max_mag2(Eigen::Vector3i& candidate, const int grid_x,
             }
             float* pot_head_ptr =
                 get_pot_head(grid_x, grid_y, block_x, block_y, pot_x, pot_y);
-            // move to a vector to use max_element
+            // copy to a vector to use max_element
             for (int y = 0; y < pot_dim; ++y) {
-                memmove(&pot_mag2_vec[y * pot_dim],
-                        &pot_head_ptr[y * cam->width[0]],
-                        pot_dim * sizeof(float));
+                memcpy(&pot_mag2_vec[y * pot_dim],
+                       &pot_head_ptr[y * cam->width[0]],
+                       pot_dim * sizeof(float));
             }
             auto max_iter =
                 std::max_element(pot_mag2_vec.begin(), pot_mag2_vec.end());
@@ -245,11 +245,6 @@ float PixelSelector::find_max_mag2(Eigen::Vector3i& candidate, const int grid_x,
             candidate(1) = grid_y * grid_dim + block_y * block_dim +
                            pot_y * pot_dim + distance / pot_dim;
             candidate(2) = 0;
-            // move back
-            for (int y = 0; y < pot_dim; ++y) {
-                memmove(&pot_head_ptr[y * cam->width[0]],
-                        &pot_mag2_vec[y * pot_dim], pot_dim * sizeof(float));
-            }
 
             return *max_iter;
         } break;
@@ -262,11 +257,11 @@ float PixelSelector::find_max_mag2(Eigen::Vector3i& candidate, const int grid_x,
 
             float* block_head_ptr =
                 get_block_head(grid_x, grid_y, block_x, block_y);
-            // move to a vector to use max_element
+            // copy to a vector to use max_element
             for (int y = 0; y < block_dim; ++y) {
-                memmove(&block_mag2_vec[y * block_dim],
-                        &block_head_ptr[y * cam->width[0]],
-                        block_dim * sizeof(float));
+                memcpy(&block_mag2_vec[y * block_dim],
+                       &block_head_ptr[y * cam->width[0]],
+                       block_dim * sizeof(float));
             }
             auto max_iter =
                 std::max_element(block_mag2_vec.begin(), block_mag2_vec.end());
@@ -276,12 +271,6 @@ float PixelSelector::find_max_mag2(Eigen::Vector3i& candidate, const int grid_x,
             candidate(1) =
                 grid_y * grid_dim + block_y * block_dim + distance / block_dim;
             candidate(2) = 1;
-            // move back
-            for (int y = 0; y < pot_dim; ++y) {
-                memmove(&block_head_ptr[y * cam->width[0]],
-                        &block_mag2_vec[y * block_dim],
-                        block_dim * sizeof(float));
-            }
 
             return *max_iter;
         } break;
@@ -293,11 +282,11 @@ float PixelSelector::find_max_mag2(Eigen::Vector3i& candidate, const int grid_x,
                 return 0;
             }
             float* grid_head_ptr = get_grid_head(grid_x, grid_y);
-            // move to a vector to use max_element
+            // copy to a vector to use max_element
             for (int y = 0; y < grid_dim; ++y) {
-                memmove(&grid_mag2_vec[y * grid_dim],
-                        &grid_head_ptr[y * cam->width[0]],
-                        grid_dim * sizeof(float));
+                memcpy(&grid_mag2_vec[y * grid_dim],
+                       &grid_head_ptr[y * cam->width[0]],
+                       grid_dim * sizeof(float));
             }
             auto max_iter =
                 std::max_element(grid_mag2_vec.begin(), grid_mag2_vec.end());
@@ -305,11 +294,6 @@ float PixelSelector::find_max_mag2(Eigen::Vector3i& candidate, const int grid_x,
             candidate(0) = grid_x * grid_dim + distance % grid_dim;
             candidate(1) = grid_y * grid_dim + distance / grid_dim;
             candidate(2) = 2;
-            // move back
-            for (int y = 0; y < pot_dim; ++y) {
-                memmove(&grid_head_ptr[y * cam->width[0]],
-                        &grid_mag2_vec[y * grid_dim], grid_dim * sizeof(float));
-            }
 
             return *max_iter;
         } break;
