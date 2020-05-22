@@ -43,6 +43,10 @@ class SyneticImage {
 
     void setFrameBuffer();
 
+    void rendering_photometric_image();
+    void rendering_depth_image();
+    void rendering_normal_image(const Eigen::Isometry3f& pose);
+
     Mesh mesh;  // all the ply and texture data
 
     Shader photometric_shader;

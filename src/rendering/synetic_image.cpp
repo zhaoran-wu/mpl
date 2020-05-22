@@ -105,25 +105,14 @@ cv::Mat SyneticImage::renderingAt(const Eigen::Isometry3f& pose, const Rendering
     // rendering according to mode
     switch (mode) {
         case mpl::PHTOMETRIC: {
-            photometric_shader.active();
-            photometric_shader.set_uniform_mat4("projection", projection);
-            photometric_shader.set_uniform_mat4("view", view);
-            mesh.draw(photometric_shader);
+            rendering_photometric_image();
         } break;
         case mpl::DEPTH: {
-            depth_shader.active();
-            depth_shader.set_uniform_mat4("projection", projection);
-            depth_shader.set_uniform_mat4("view", view);
-            depth_shader.set_uniform_vec2("zn_zf", zn_zf);
+            rendering_depth_image();
 
-            mesh.draw(depth_shader);
         } break;
         case mpl::NORMAL: {
-            normal_shader.active();
-            normal_shader.set_uniform_mat4("projection", projection);
-            normal_shader.set_uniform_mat4("view", view);
-            normal_shader.set_uniform_mat3("normal_R", pose.inverse().rotation());
-            mesh.draw(normal_shader);
+            rendering_normal_image(pose);
         } break;
         default:
             break;
@@ -171,6 +160,29 @@ cv::Mat SyneticImage::renderingAt(const Eigen::Isometry3f& pose, const Rendering
     }
 }
 
+inline void SyneticImage::rendering_photometric_image() {
+    photometric_shader.active();
+    photometric_shader.set_uniform_mat4("projection", projection);
+    photometric_shader.set_uniform_mat4("view", view);
+    mesh.draw(photometric_shader);
+}
+
+inline void SyneticImage::rendering_depth_image() {
+    depth_shader.active();
+    depth_shader.set_uniform_mat4("projection", projection);
+    depth_shader.set_uniform_mat4("view", view);
+    depth_shader.set_uniform_vec2("zn_zf", zn_zf);
+    mesh.draw(depth_shader);
+}
+
+inline void SyneticImage::rendering_normal_image(const Eigen::Isometry3f& pose) {
+    normal_shader.active();
+    normal_shader.set_uniform_mat4("projection", projection);
+    normal_shader.set_uniform_mat4("view", view);
+    normal_shader.set_uniform_mat3("normal_R", pose.inverse().rotation());
+    mesh.draw(normal_shader);
+}
+
 std::vector<cv::Mat> SyneticImage::renderingAt(const Eigen::Isometry3f& pose) {
     view = (pose * extrinsic_T_c_cgl).inverse();
 
@@ -179,45 +191,50 @@ std::vector<cv::Mat> SyneticImage::renderingAt(const Eigen::Isometry3f& pose) {
     std::vector<cv::Mat> results;
 
     // rendering photometric image
-    photometric_shader.active();
-    photometric_shader.set_uniform_mat4("projection", projection);
-    photometric_shader.set_uniform_mat4("view", view);
-    mesh.draw(photometric_shader);
-
+    rendering_photometric_image();
     // copy from gpu to cpu
-    cv::Mat photometric(camera.rows, camera.cols, CV_8UC4);
-
     glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo_arr[0]);
     glBufferData(GL_PIXEL_PACK_BUFFER, camera.cols * camera.rows * 4 * sizeof(uchar), 0, GL_STREAM_READ);
     glReadBuffer(GL_BACK);
-
+    // use pbo, glReadPixles will return immedeatly, which allow asynchronization
     glReadPixels(0, 0, camera.cols, camera.rows, GL_BGRA, GL_UNSIGNED_BYTE, 0);
-    photometric.data = (uchar*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
-    glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
-
-    cv::flip(photometric, photometric, 0);
-    results.push_back(photometric);
 
     // rendring depth image
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    depth_shader.active();
-    depth_shader.set_uniform_mat4("projection", projection);
-    depth_shader.set_uniform_mat4("view", view);
-    depth_shader.set_uniform_vec2("zn_zf", zn_zf);
-    mesh.draw(depth_shader);
+    rendering_depth_image();
 
     // copy from gpu to cpu
-    cv::Mat depth(camera.rows, camera.cols, CV_16UC4);
-    cv::Mat depth_single_channnel(camera.rows, camera.cols, CV_16UC1);
 
     glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo_arr[1]);
     glBufferData(GL_PIXEL_PACK_BUFFER, camera.cols * camera.rows * 4 * sizeof(ushort), 0, GL_STREAM_READ);
     glReadBuffer(GL_BACK);
     glReadPixels(0, 0, camera.cols, camera.rows, GL_RGBA, GL_UNSIGNED_SHORT, 0);
 
-    depth.data = (uchar*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+    // when read depth data ,we can map and process photometric data
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo_arr[0]);
+    cv::Mat photometric(camera.rows, camera.cols, CV_8UC4);
+    photometric.data = (uchar*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
 
+    cv::flip(photometric, photometric, 0);
+    results.push_back(photometric);
+
+    // rendering normal image
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    rendering_normal_image(pose);
+
+    // copy from gpu to cpu
+
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo_arr[2]);
+    glBufferData(GL_PIXEL_PACK_BUFFER, camera.cols * camera.rows * 4 * sizeof(uchar), 0, GL_STREAM_READ);
+    glReadBuffer(GL_BACK);
+    glReadPixels(0, 0, camera.cols, camera.rows, GL_BGRA, GL_UNSIGNED_BYTE, 0);
+
+    // when read normal map data, we can map and process the result from depth map
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo_arr[1]);
+    cv::Mat depth(camera.rows, camera.cols, CV_16UC4);
+    cv::Mat depth_single_channnel(camera.rows, camera.cols, CV_16UC1);
+    depth.data = (uchar*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
     glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
     glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
 
@@ -231,28 +248,12 @@ std::vector<cv::Mat> SyneticImage::renderingAt(const Eigen::Isometry3f& pose) {
 
     results.push_back(depth);
 
-    // rendering normal image
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    normal_shader.active();
-    normal_shader.set_uniform_mat4("projection", projection);
-    normal_shader.set_uniform_mat4("view", view);
-    normal_shader.set_uniform_mat3("normal_R", pose.inverse().rotation());
-    mesh.draw(normal_shader);
-
-    // copy from gpu to cpu
-    cv::Mat normal(camera.rows, camera.cols, CV_8UC4);
-
     glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo_arr[2]);
-    glBufferData(GL_PIXEL_PACK_BUFFER, camera.cols * camera.rows * 4 * sizeof(uchar), 0, GL_STREAM_READ);
-    glReadBuffer(GL_BACK);
-
-    glReadPixels(0, 0, camera.cols, camera.rows, GL_BGRA, GL_UNSIGNED_BYTE, 0);
-
+    cv::Mat normal(camera.rows, camera.cols, CV_8UC4);
     normal.data = (uchar*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+    cv::flip(normal, normal, 0);
 
     glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
-
-    cv::flip(normal, normal, 0);
 
     results.push_back(normal);
 
