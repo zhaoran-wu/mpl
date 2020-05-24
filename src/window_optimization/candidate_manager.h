@@ -11,6 +11,7 @@ struct Candidate {
     float d_variance;
     bool is_converge = false;
     bool is_H_constrained = false;
+    bool is_acctive = false;
 };
 
 class CandidateManager {

@@ -3,7 +3,6 @@ affine_light.cpp
 config.cpp
 cam_data.cpp
 image_pyramid.cpp
-pixel_selector.cpp
 affine_light.cpp
 frame.cpp
 )

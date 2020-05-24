@@ -36,6 +36,7 @@ ${Boost_LIBRARIES}
 ${Sophus_LIBRARIS}
 util
 ${PROJECT_NAME}_base
+${PROJECT_NAME}_pixel_management
 )
 
 add_executable(test_pyramid test_pyramid.cpp)
@@ -46,6 +47,7 @@ ${Eigen_LIBRARIES}
 ${Boost_LIBRARIES}
 util
 ${PROJECT_NAME}_base
+
 )
 add_executable(test_selector test_pixel_selector.cpp)
 target_link_libraries(test_selector
@@ -54,7 +56,7 @@ ${OpenCV_LIBRARIES}
 ${Eigen_LIBRARIES}
 ${Boost_LIBRARIES}
 util
-${PROJECT_NAME}_base
+${PROJECT_NAME}_pixel_management
 )
 add_executable(test_tracker test_tracker.cpp)
 target_link_libraries(test_tracker
@@ -65,6 +67,7 @@ ${Boost_LIBRARIES}
 util
 ${PROJECT_NAME}_base
 ${PROJECT_NAME}_tracking
+${PROJECT_NAME}_pixel_management
 )
 
 add_executable(test_tracking_optimizer test_tracking_optimizer.cpp)
@@ -76,6 +79,7 @@ ${Boost_LIBRARIES}
 util
 ${PROJECT_NAME}_base
 ${PROJECT_NAME}_tracking
+${PROJECT_NAME}_pixel_management
 )
 
 

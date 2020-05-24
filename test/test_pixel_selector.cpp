@@ -26,7 +26,7 @@ int main() {
     //! test pixel selector
     PixelSelector selector;
     std::vector<Eigen::Vector3i> candidate;
-    int num = selector.select(pyramid, candidate);
+    selector.select(pyramid, candidate);
     const auto im_ptr = pyramid->data(0);
 
     for (auto& p : candidate) {
@@ -54,7 +54,7 @@ int main() {
 
     //! test pixel selector
     std::vector<Eigen::Vector3i> candidate2;
-    int num_2 = selector.select(pyramid2, candidate2);
+    selector.select(pyramid2, candidate2);
     const auto im_ptr2 = pyramid2->data(0);
 
     for (auto& p : candidate2) {

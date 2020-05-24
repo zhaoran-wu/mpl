@@ -48,6 +48,7 @@ int PixelSelector::select(ImagePyramid::ptr pyramid_ptr,
                   << "time cost : " << time_cost / 1000.0f << " ms";
         return this->candidates.size();
     }
+    return 0;
 }
 
 void PixelSelector::fill_thresh_map() {

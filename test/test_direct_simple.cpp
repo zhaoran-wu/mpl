@@ -218,7 +218,7 @@ int main(int argc, char** argv) {
 
     PixelSelector selector;
     std::vector<Eigen::Vector3i> candidates_eigen;
-    int num = selector.select(pyramid, candidates_eigen);
+    selector.select(pyramid, candidates_eigen);
 
     for (const auto& p : candidates_eigen) {
         candidates.push_back(cv::Point(p(0), p(1)));
