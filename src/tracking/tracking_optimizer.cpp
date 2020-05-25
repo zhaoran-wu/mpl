@@ -1,4 +1,5 @@
 #include "tracking_optimizer.h"
+#include <cmath>
 #include <glog/logging.h>
 
 namespace mpl {
@@ -29,16 +30,24 @@ float TrackingOptimizer::solve(const int iterations) {
     bool is_converge = false;
     // todo : add robust weight
     while (!is_converge && iteration_cnt++ < iterations) {
-        LOG(INFO) << " curr lvl : " << curr_lvl
-                  << " iterations begin : " << iteration_cnt
-                  << ", lamda : " << lamda << "------------------------";
+        /*         LOG(INFO) << " curr lvl : " << curr_lvl
+                          << " iterations begin : " << iteration_cnt
+                          << ", lamda : " << lamda <<
+           "------------------------"; */
 
         auto H_tmp = get_damped_hessian();
-        Vec8 delta_x = H_tmp.llt().solve(
+        Vec8 delta_x = H_tmp.ldlt().solve(
             b);  // H_tmp if for sure spd->llt,? faster than ldlt
+
+        for (int i = 0; i < delta_x.rows(); ++i) {
+            if (std::isinf(delta_x(i)) || std::isnan(delta_x(i))) {
+                return sum_residual;
+            }
+        }
+
         scaling_delta_x(delta_x);
 
-        LOG(INFO) << "delta_x : " << delta_x.transpose();
+        /* LOG(INFO) << "delta_x : " << delta_x.transpose() */;
 
         Sophus::SE3d old_pose(pose);
         AffineLight old_affine_light(affine_light);
@@ -49,9 +58,10 @@ float TrackingOptimizer::solve(const int iterations) {
         bool is_accept = (new_sum_residual < sum_residual) ? true : false;
 
         if (is_accept) {
-            LOG(INFO) << "step accepted @@@@@@@, curr sum residual : "
-                      << new_sum_residual;
-            LOG(INFO) << "curr gradient" << b.norm();
+            /*             LOG(INFO) << "step accepted @@@@@@@, curr sum
+               residual : "
+                                  << new_sum_residual;
+                        LOG(INFO) << "curr gradient" << b.norm(); */
             if (delta_x.norm() < 8e-4) {
                 is_converge = true;
                 continue;
@@ -65,9 +75,11 @@ float TrackingOptimizer::solve(const int iterations) {
             // evaluate J and r according to new parameters
             build_problem();
         } else {
-            LOG(INFO) << "step rejected !!!!!!, curr sum residual: "
-                      << sum_residual;
-            LOG(INFO) << "curr gradient" << b.norm();
+            /*             LOG(INFO) << "step rejected !!!!!!, curr sum
+               residual: "
+                                  << sum_residual;
+                        LOG(INFO) << "curr gradient" << b.norm() */
+            ;
             // if not accept we roll back our state
             pose = old_pose;
             affine_light = old_affine_light;
@@ -79,7 +91,8 @@ float TrackingOptimizer::solve(const int iterations) {
                 is_converge = true;
             }
         }
-        LOG(INFO) << " iteration end -----------------------------------";
+        /*         LOG(INFO) << " iteration end
+         * -----------------------------------"; */
     }
     return sum_residual;
 }
@@ -137,7 +150,7 @@ void TrackingOptimizer::build_problem() {
     }
     scaling_H_b();
 
-    LOG(INFO) << "HESSIAN : " << '\n' << H;
+    /*     LOG(INFO) << "HESSIAN : " << '\n' << H; */
 }
 
 void TrackingOptimizer::accumulate_H_b() {

@@ -4,6 +4,7 @@
 #include "point_cloud_pyramid.h"
 #include "sophus/se3.hpp"
 #include "tracking_optimizer.h"
+#include <glog/logging.h>
 
 namespace mpl {
 
@@ -46,7 +47,7 @@ class Tracker {
 
     Frame::ptr curr_ref_frame;
 
-    const int max_iteration_each_lvl[6] = {30, 20, 15, 10, 8, 6};
+    const int max_iteration_each_lvl[6] = {50, 25, 15, 11, 7, 5};
 
     // movement pridiction part
 };

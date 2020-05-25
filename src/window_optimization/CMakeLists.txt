@@ -1,5 +1,4 @@
 #add_library(${PROJECT_NAME}_window_optimization
-#candidate_manager.cpp
 #sliding_window.cpp
 #window_optimizer.cpp
 #)

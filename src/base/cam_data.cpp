@@ -21,8 +21,8 @@ bool CamData::readYamlFile(const std::string& file_path) {
     for (int lvl = 0; lvl < lvls; ++lvl) {
         float fx_lvl = intrinsic[0] / pow(2, lvl);
         float fy_lvl = intrinsic[1] / pow(2, lvl);
-        float cx_lvl = intrinsic[2] / pow(2, lvl);
-        float cy_lvl = intrinsic[3] / pow(2, lvl);
+        float cx_lvl = (intrinsic[2] + 0.5f) / pow(2, lvl) - 0.5f;
+        float cy_lvl = (intrinsic[3] + 0.5f) / pow(2, lvl) - 0.5f;
 
         fx.push_back(fx_lvl);
         fy.push_back(fy_lvl);
