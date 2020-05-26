@@ -72,18 +72,6 @@ ${PROJECT_NAME}_tracking
 ${PROJECT_NAME}_pixel_management
 )
 
-add_executable(test_tracking_optimizer test_tracking_optimizer.cpp)
-target_link_libraries(test_tracking_optimizer
-${CERES_LIBRARIES}
-${OpenCV_LIBRARIES}
-${Eigen_LIBRARIES}
-${Boost_LIBRARIES}
-util
-${PROJECT_NAME}_base
-${PROJECT_NAME}_tracking
-${PROJECT_NAME}_pixel_management
-)
-
 
 #add_executable(test_main test_main.cpp)
 #target_link_libraries(test_main

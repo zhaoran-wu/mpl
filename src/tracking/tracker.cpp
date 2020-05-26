@@ -29,7 +29,7 @@ bool Tracker::tracking(Frame::ptr to_track_frame, Sophus::SE3f& pose_in_out,
     for (int lvl = lvls - 1; lvl >= 0; --lvl) {
         optimizer.set_lvl(lvl);
         int iterations = (lvl > 5) ? 3 : max_iteration_each_lvl[lvl];
-        optimizer.solve(iterations);
+        optimizer.solve(iterations, lvl);
     }
     LOG(INFO) << "tracking use time : " << tictoc::toc() / 1000.f << "ms";
 

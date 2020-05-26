@@ -8,7 +8,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # gprof
-OPTION(USE_GPROF  "Use gprof"  OFF)
+OPTION(USE_GPROF  "Use gprof"  FALSE)
 
 if(USE_GPROF)
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pg")
@@ -35,10 +35,9 @@ include_directories(${OpenCV_INCLUDE_DIR})
 include_directories(${CMAKE_SOURCE_DIR}/third)
 include_directories(${CMAKE_SOURCE_DIR}/src/rendering)
 include_directories(${CMAKE_SOURCE_DIR}/src/base)
-include_directories(${CMAKE_SOURCE_DIR}/src/frontend)
+include_directories(${CMAKE_SOURCE_DIR}/src/pixel_management)
 include_directories(${CMAKE_SOURCE_DIR}/src/window_optimization)
 include_directories(${CMAKE_SOURCE_DIR}/src/tracking)
-include_directories(${CMAKE_SOURCE_DIR}/src/pixel_management)
 
 
 

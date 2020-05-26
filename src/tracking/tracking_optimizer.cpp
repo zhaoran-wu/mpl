@@ -20,15 +20,22 @@ void TrackingOptimizer::init(const Sophus::SE3f init_pose,
     config = &Config::getInstance();
 }
 
-float TrackingOptimizer::solve(const int iterations) {
+float TrackingOptimizer::solve(const int iterations, const int pyramid_lvl) {
     // build Hx = b problem
+    l1_truncation = config->OPTIMIZATION_L1_TRUNCATION_INITIAL -
+                    15 * (config->PYRAMID_LVLS - pyramid_lvl);
+    l1_truncation = (l1_truncation < 30) ? 30 : l1_truncation;
+
+    /* LOG(INFO) << " l1 turncation : " << l1_truncation << " lvl " <<
+     * pyramid_lvl */
+    ;
+
     lamda = config->OPTIMIZATION_LAMDA_INIT;
     lamda_failed_penalize_factor = config->OPTIMIZATION_LAMDA_FAILED_PENALIZE;
     build_problem();
 
     int iteration_cnt = 0;
     bool is_converge = false;
-    // todo : add robust weight
     while (!is_converge && iteration_cnt++ < iterations) {
         /*         LOG(INFO) << " curr lvl : " << curr_lvl
                           << " iterations begin : " << iteration_cnt
@@ -36,12 +43,12 @@ float TrackingOptimizer::solve(const int iterations) {
            "------------------------"; */
 
         auto H_tmp = get_damped_hessian();
-        Vec8 delta_x = H_tmp.ldlt().solve(
+        Vec8 delta_x = H_tmp.llt().solve(
             b);  // H_tmp if for sure spd->llt,? faster than ldlt
 
         for (int i = 0; i < delta_x.rows(); ++i) {
             if (std::isinf(delta_x(i)) || std::isnan(delta_x(i))) {
-                return sum_residual;
+                return sum_abs_residual;
             }
         }
 
@@ -55,14 +62,14 @@ float TrackingOptimizer::solve(const int iterations) {
         update(delta_x);
         // evaluate result
         float new_sum_residual = evaluate_sum_residual();
-        bool is_accept = (new_sum_residual < sum_residual) ? true : false;
+        bool is_accept = (new_sum_residual < sum_abs_residual) ? true : false;
 
         if (is_accept) {
             /*             LOG(INFO) << "step accepted @@@@@@@, curr sum
                residual : "
                                   << new_sum_residual;
                         LOG(INFO) << "curr gradient" << b.norm(); */
-            if (delta_x.norm() < 8e-4) {
+            if (delta_x.norm() < 8e-5) {
                 is_converge = true;
                 continue;
             }
@@ -77,7 +84,7 @@ float TrackingOptimizer::solve(const int iterations) {
         } else {
             /*             LOG(INFO) << "step rejected !!!!!!, curr sum
                residual: "
-                                  << sum_residual;
+                                  << sum_abs_residual;
                         LOG(INFO) << "curr gradient" << b.norm() */
             ;
             // if not accept we roll back our state
@@ -85,16 +92,16 @@ float TrackingOptimizer::solve(const int iterations) {
             affine_light = old_affine_light;
 
             lamda *= lamda_failed_penalize_factor;
-            lamda_failed_penalize_factor *= 2;
+            lamda_failed_penalize_factor *= 2.5;
 
             if (lamda > config->OPTIMIZATION_LAMDA_MAX) {
                 is_converge = true;
             }
         }
         /*         LOG(INFO) << " iteration end
-         * -----------------------------------"; */
+         * -----------------------------------";*/
     }
-    return sum_residual;
+    return sum_abs_residual;
 }
 
 inline void TrackingOptimizer::update(const Vec8 delta_x) {
@@ -107,7 +114,8 @@ inline void TrackingOptimizer::update(const Vec8 delta_x) {
 void TrackingOptimizer::build_problem() {
     H.setZero();
     b.setZero();
-    sum_residual = 0.0f;
+    sum_abs_residual = 0.0f;
+    int num_outlier = 0;
     for (auto& voxel : (*point_cloud_pyramid)[curr_lvl]) {
         Eigen::Vector3f P = map(pose, voxel.position);  // point in curr frame
         Eigen::Vector2f hit_pixel = to_track_frame->project(P, curr_lvl);
@@ -119,7 +127,24 @@ void TrackingOptimizer::build_problem() {
             (*image_pyramid)(curr_lvl, hit_pixel(0), hit_pixel(1));
         // compute residual
         r_tmp = calc_residual(intensity_on_image, voxel.intensity);
-        sum_residual += std::pow(r_tmp, 2);
+        float robust_weight = 1.0f;
+        if (std::abs(r_tmp) < l1_truncation) {
+            robust_weight = 1.f / (1e-8 + std::abs(r_tmp));
+            sum_abs_residual += std::abs(r_tmp);
+        } else {
+            robust_weight = 0.0f;
+            sum_abs_residual += l1_truncation;
+            if (((float)num_outlier++ / config->PIXEL_SELECTION_NUM) > 0.2) {
+                /*                 LOG(INFO) << " truncation : " <<
+                   l1_truncation
+                                          << " outlier ratio "
+                                          << (float)num_outlier /
+                   config->PIXEL_SELECTION_NUM */
+                l1_truncation += 50;
+                return build_problem();
+            }
+        }
+
         // compute jacobian
         float inv_z = (1.0f / P(2));
         float inv_zz = inv_z * inv_z;
@@ -145,22 +170,21 @@ void TrackingOptimizer::build_problem() {
 
         J_tmp(6) = -voxel.intensity * exp(affine_light.alpha());
         J_tmp(7) = -1;
-
-        accumulate_H_b();
+        accumulate_H_b(robust_weight);
     }
+    /*     std::cerr << "l1 truncation" << l1_truncation
+                  << " num outlier :" << num_outlier << '\n'; */
     scaling_H_b();
-
-    /*     LOG(INFO) << "HESSIAN : " << '\n' << H; */
 }
 
-void TrackingOptimizer::accumulate_H_b() {
-    H.noalias() += J_tmp.transpose() * J_tmp;
-    b += -J_tmp.transpose() * r_tmp;
+void TrackingOptimizer::accumulate_H_b(const float robust_weight) {
+    H.noalias() += robust_weight * J_tmp.transpose() * J_tmp;
+    b += -robust_weight * J_tmp.transpose() * r_tmp;
 }
 
 Mat88 TrackingOptimizer::get_damped_hessian() {
     Mat88 H_tmp(H);
-    H_tmp.diagonal() *= (1.0f + lamda);
+    H_tmp.diagonal() *= (1.0 + lamda);
     return H_tmp;
 }
 /**
@@ -219,7 +243,8 @@ float TrackingOptimizer::evaluate_sum_residual() const {
         }
         float intensity_on_image =
             (*image_pyramid)(curr_lvl, hit_pixel(0), hit_pixel(1));
-        sum += std::pow(calc_residual(intensity_on_image, voxel.intensity), 2);
+        float r = calc_residual(intensity_on_image, voxel.intensity);
+        sum += (std::abs(r) < l1_truncation) ? std::abs(r) : l1_truncation;
     }
     return sum;
 }

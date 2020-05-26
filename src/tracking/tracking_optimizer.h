@@ -16,7 +16,7 @@ class TrackingOptimizer {
               PointCloudPyramid::ptr ref_point_cloud_prymid,
               Frame::ptr to_track_frame);
 
-    float solve(const int iterations);
+    float solve(const int iterations, const int pyramid_lvl);
     Sophus::SE3f getT() const;
     AffineLight getAffineLight() const;
     void set_lvl(const int lvl);
@@ -25,7 +25,7 @@ class TrackingOptimizer {
     // accumulate to H and b
     void update(const Vec8 delta_x);
     void build_problem();
-    void accumulate_H_b();
+    void accumulate_H_b(float roboust_weight);
     Mat88 get_damped_hessian();
     void scaling_H_b();
     void scaling_delta_x(Vec8& delta_x);
@@ -51,11 +51,12 @@ class TrackingOptimizer {
     Mat88 H = Mat88::Zero();  // H = J.trans()*J
     Vec8 b = Vec8::Zero();    // b = - J.trans()*r_vec
 
-    float sum_residual;
+    float sum_abs_residual;
     double r_tmp;                     // r for every measurement
     RowVec8 J_tmp = RowVec8::Zero();  // J for every measurement
 
     float lamda;
+    float l1_truncation;
     float lamda_failed_penalize_factor = 2.0f;
 };
 
