@@ -38,10 +38,11 @@ bool Tracker::tracking(Frame::ptr to_track_frame, Sophus::SE3f& pose_in_out,
             huber_radius = 100;
             lamda_min = 1e-5;
         } else {
-            iterations = max_iteration_each_lvl[lvl];
-            lamda_init = lamda_init_each_lvl[lvl];
-            lamda_min = lamda_min_eahc_lvl[lvl];
-            huber_radius = huber_residual_each_lvl[lvl];
+            auto& config = Config::getInstance();
+            iterations = config.max_iteration_each_lvl[lvl];
+            lamda_init = config.lamda_init_each_lvl[lvl];
+            lamda_min = config.lamda_min_eahc_lvl[lvl];
+            huber_radius = config.huber_residual_each_lvl[lvl];
         }
         optimizer.solve(iterations, lamda_init, lamda_min, huber_radius);
     }
