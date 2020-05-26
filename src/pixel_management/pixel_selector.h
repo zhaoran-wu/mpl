@@ -64,7 +64,7 @@ class PixelSelector {
     int thresh_block_num_y;
     std::unique_ptr<float[]> thresh_map;  // each block has a thresh_vec
     std::unique_ptr<float[]> thresh_map_backup;
-    float weight[9] = {
+    const float weight[9] = {
         1.0f / 16, 2.0f / 16, 1.0f / 16,  //
         2.0f / 16, 4.0f / 16, 2.0f / 16,  //
         1.0f / 16, 2.0f / 16, 1.0f / 16,
@@ -92,6 +92,7 @@ class PixelSelector {
 
     ImagePyramid::float_ptr
         mag2_ptr;  // unlikely with dso, we select only with mag2[0]
+
     std::vector<Eigen::Vector3i> candidates;
 
     int recursive_count;

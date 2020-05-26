@@ -132,7 +132,7 @@ bool PixelSelector::select_adaptively(int pot_dim_want) {
     // check return condition
     if (pot_dim_want != pot_dim) {
         // pot should at least has size 1
-        pot_dim = pot_dim_want ? pot_dim_want : 1;
+        pot_dim = std::max(pot_dim_want, 1);
         LOG(INFO) << " pot now : " << pot_dim_want;
         set_pot_dim(pot_dim_want);
         candidates.clear();

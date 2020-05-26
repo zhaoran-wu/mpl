@@ -18,12 +18,12 @@ bool Config::readYamlFile(const std::string& file_path) {
     read(PIXEL_SELECTION_DOWNWEIGHT, float);
     read(PIXEL_SELECTION_RECURSIVE_LIMIT, int);
 
-    read(OPTIMIZATION_L1_TRUNCATION_INITIAL, float);
     read(OPTIMIZATION_TRANS_SCALE, float);
     read(OPTIMIZATION_ROTATION_SCALE, float);
     read(OPTIMIZATION_ALPHA_SCALE, float);
     read(OPTIMIZATION_BETA_SCALE, float);
 
+    read(OPTIMIZATION_STEP_MIN, float);
     read(OPTIMIZATION_LAMDA_MAX, float);
     read(OPTIMIZATION_LAMDA_FAILED_PENALIZE, float);
     read(OPTIMIZATION_LAMDA_SUCCESS_PENALIZE, float);
