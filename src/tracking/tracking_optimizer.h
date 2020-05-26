@@ -16,7 +16,8 @@ class TrackingOptimizer {
               PointCloudPyramid::ptr ref_point_cloud_prymid,
               Frame::ptr to_track_frame);
 
-    float solve(const int iterations, const int pyramid_lvl);
+    float solve(const int iterations, const float lamda_init,
+                const float lamda_min, const int l1_turacation);
     Sophus::SE3f getT() const;
     AffineLight getAffineLight() const;
     void set_lvl(const int lvl);
@@ -31,8 +32,11 @@ class TrackingOptimizer {
     void scaling_delta_x(Vec8& delta_x);
     float calc_residual(const float curr_intensity,
                         const float point_cloud_intensity) const;
-    float evaluate_sum_residual() const;
+    float calc_sum_weighted_squared_residual() const;
 
+    float calc_huber_weight(const float residual) const;
+    float calc_huber_weigted_redidual(const float huber_weight,
+                                      const float residual) const;
     Eigen::Vector3f map(
         Sophus::SE3d pose,
         Eigen::Vector3f point) const;  // map point to curr coordinate system
@@ -51,12 +55,12 @@ class TrackingOptimizer {
     Mat88 H = Mat88::Zero();  // H = J.trans()*J
     Vec8 b = Vec8::Zero();    // b = - J.trans()*r_vec
 
-    float sum_abs_residual;
+    float sum_weighted_squared_residual;
     double r_tmp;                     // r for every measurement
     RowVec8 J_tmp = RowVec8::Zero();  // J for every measurement
 
     float lamda;
-    float l1_truncation;
+    float huber_radius;
     float lamda_failed_penalize_factor = 2.0f;
 };
 

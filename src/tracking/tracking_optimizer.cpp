@@ -20,73 +20,63 @@ void TrackingOptimizer::init(const Sophus::SE3f init_pose,
     config = &Config::getInstance();
 }
 
-float TrackingOptimizer::solve(const int iterations, const int pyramid_lvl) {
+float TrackingOptimizer::solve(const int iterations, const float lamda_init,
+                               const float lamda_min, const int huber_radius_) {
     // build Hx = b problem
-    l1_truncation = config->OPTIMIZATION_L1_TRUNCATION_INITIAL -
-                    15 * (config->PYRAMID_LVLS - pyramid_lvl);
-    l1_truncation = (l1_truncation < 30) ? 30 : l1_truncation;
-
-    /* LOG(INFO) << " l1 turncation : " << l1_truncation << " lvl " <<
-     * pyramid_lvl */
-    ;
-
-    lamda = config->OPTIMIZATION_LAMDA_INIT;
+    this->huber_radius = huber_radius_;
+    lamda = lamda_init;
     lamda_failed_penalize_factor = config->OPTIMIZATION_LAMDA_FAILED_PENALIZE;
+    sum_weighted_squared_residual = 0;
     build_problem();
 
     int iteration_cnt = 0;
     bool is_converge = false;
     while (!is_converge && iteration_cnt++ < iterations) {
-        /*         LOG(INFO) << " curr lvl : " << curr_lvl
-                          << " iterations begin : " << iteration_cnt
-                          << ", lamda : " << lamda <<
-           "------------------------"; */
+        // LOG(INFO) << " curr lvl : " << curr_lvl
+        //           << " iterations begin : " << iteration_cnt
+        //           << ", lamda : " << lamda << "------------------------";
 
         auto H_tmp = get_damped_hessian();
-        Vec8 delta_x = H_tmp.llt().solve(
+        Vec8 delta_x = H_tmp.ldlt().solve(
             b);  // H_tmp if for sure spd->llt,? faster than ldlt
 
         for (int i = 0; i < delta_x.rows(); ++i) {
             if (std::isinf(delta_x(i)) || std::isnan(delta_x(i))) {
-                return sum_abs_residual;
+                LOG(INFO) << "delta_x has inf or nan";
+                return sum_weighted_squared_residual;
             }
         }
 
         scaling_delta_x(delta_x);
 
-        /* LOG(INFO) << "delta_x : " << delta_x.transpose() */;
+        // LOG(INFO) << "delta_x : " << delta_x.transpose();
 
         Sophus::SE3d old_pose(pose);
         AffineLight old_affine_light(affine_light);
 
         update(delta_x);
         // evaluate result
-        float new_sum_residual = evaluate_sum_residual();
-        bool is_accept = (new_sum_residual < sum_abs_residual) ? true : false;
+        float new_sum_residual = calc_sum_weighted_squared_residual();
+        bool is_accept = (new_sum_residual < sum_weighted_squared_residual);
 
         if (is_accept) {
-            /*             LOG(INFO) << "step accepted @@@@@@@, curr sum
-               residual : "
-                                  << new_sum_residual;
-                        LOG(INFO) << "curr gradient" << b.norm(); */
-            if (delta_x.norm() < 8e-5) {
+            // LOG(INFO) << "step accepted @@@@@@@, curr sum residual : "
+            //           << new_sum_residual;
+            // LOG(INFO) << "curr gradient" << b.norm();
+            if (delta_x.norm() < 1e-5) {
                 is_converge = true;
                 continue;
             }
             lamda *= config->OPTIMIZATION_LAMDA_SUCCESS_PENALIZE;
-            lamda = (lamda < config->OPTIMIZATION_LAMDA_MIN)
-                        ? config->OPTIMIZATION_LAMDA_MIN
-                        : lamda;
+            lamda = std::max(lamda, lamda_min);
             lamda_failed_penalize_factor =
                 config->OPTIMIZATION_LAMDA_FAILED_PENALIZE;
             // evaluate J and r according to new parameters
             build_problem();
         } else {
-            /*             LOG(INFO) << "step rejected !!!!!!, curr sum
-               residual: "
-                                  << sum_abs_residual;
-                        LOG(INFO) << "curr gradient" << b.norm() */
-            ;
+            // LOG(INFO) << "step rejected !!!!!!, curr residual : "
+            //          << sum_weighted_squared_residual;
+            // LOG(INFO) << "curr gradient" << b.norm();
             // if not accept we roll back our state
             pose = old_pose;
             affine_light = old_affine_light;
@@ -98,10 +88,9 @@ float TrackingOptimizer::solve(const int iterations, const int pyramid_lvl) {
                 is_converge = true;
             }
         }
-        /*         LOG(INFO) << " iteration end
-         * -----------------------------------";*/
+        // LOG(INFO) << " iteration end  -----------------------------------";
     }
-    return sum_abs_residual;
+    return sum_weighted_squared_residual;
 }
 
 inline void TrackingOptimizer::update(const Vec8 delta_x) {
@@ -110,11 +99,22 @@ inline void TrackingOptimizer::update(const Vec8 delta_x) {
     affine_light.update(delta_x(6), delta_x(7));
 }
 
+inline float TrackingOptimizer::calc_huber_weight(const float residual) const {
+    return (std::abs(residual) < huber_radius)
+               ? 1
+               : huber_radius / std::abs(residual);
+}
+
+inline float TrackingOptimizer::calc_huber_weigted_redidual(
+    const float huber_weight, const float residual) const {
+    return huber_weight * (2 - huber_weight) * residual * residual;
+}
+
 // todo only update b
 void TrackingOptimizer::build_problem() {
     H.setZero();
     b.setZero();
-    sum_abs_residual = 0.0f;
+    sum_weighted_squared_residual = 0.0f;
     int num_outlier = 0;
     for (auto& voxel : (*point_cloud_pyramid)[curr_lvl]) {
         Eigen::Vector3f P = map(pose, voxel.position);  // point in curr frame
@@ -127,23 +127,16 @@ void TrackingOptimizer::build_problem() {
             (*image_pyramid)(curr_lvl, hit_pixel(0), hit_pixel(1));
         // compute residual
         r_tmp = calc_residual(intensity_on_image, voxel.intensity);
-        float robust_weight = 1.0f;
-        if (std::abs(r_tmp) < l1_truncation) {
-            robust_weight = 1.f / (1e-8 + std::abs(r_tmp));
-            sum_abs_residual += std::abs(r_tmp);
-        } else {
-            robust_weight = 0.0f;
-            sum_abs_residual += l1_truncation;
-            if (((float)num_outlier++ / config->PIXEL_SELECTION_NUM) > 0.2) {
-                /*                 LOG(INFO) << " truncation : " <<
-                   l1_truncation
-                                          << " outlier ratio "
-                                          << (float)num_outlier /
-                   config->PIXEL_SELECTION_NUM */
-                l1_truncation += 50;
+        const float huber_weight = calc_huber_weight(r_tmp);
+        if (std::abs(r_tmp) > huber_radius) {
+            ++num_outlier;
+            if (num_outlier / (float)config->PIXEL_SELECTION_NUM > 0.4) {
+                huber_radius += 20;
                 return build_problem();
             }
         }
+        sum_weighted_squared_residual +=
+            calc_huber_weigted_redidual(huber_weight, r_tmp);
 
         // compute jacobian
         float inv_z = (1.0f / P(2));
@@ -170,11 +163,15 @@ void TrackingOptimizer::build_problem() {
 
         J_tmp(6) = -voxel.intensity * exp(affine_light.alpha());
         J_tmp(7) = -1;
-        accumulate_H_b(robust_weight);
+        accumulate_H_b(huber_weight);
     }
-    /*     std::cerr << "l1 truncation" << l1_truncation
-                  << " num outlier :" << num_outlier << '\n'; */
+    // std::cerr << " huber radius :" << huber_radius
+    //          << " num outlier :" << num_outlier << '\n';
+
+    // LOG(INFO) << " H : " << '\n' << H;
     scaling_H_b();
+
+    // LOG(INFO) << "!!!!new  H : " << '\n' << H;
 }
 
 void TrackingOptimizer::accumulate_H_b(const float robust_weight) {
@@ -233,18 +230,18 @@ inline Eigen::Vector3f TrackingOptimizer::map(Sophus::SE3d pose,
            pose.cast<float>().translation();
 }
 
-float TrackingOptimizer::evaluate_sum_residual() const {
+float TrackingOptimizer::calc_sum_weighted_squared_residual() const {
     float sum = 0.f;
-    for (auto& voxel : (*point_cloud_pyramid)[0]) {
+    for (auto& voxel : (*point_cloud_pyramid)[curr_lvl]) {
         Eigen::Vector3f P = map(pose, voxel.position);  // point in curr frame
-        Eigen::Vector2f hit_pixel = to_track_frame->project(P);
+        Eigen::Vector2f hit_pixel = to_track_frame->project(P, curr_lvl);
         if (!image_pyramid->is_in_image(curr_lvl, hit_pixel(0), hit_pixel(1))) {
             continue;
         }
         float intensity_on_image =
             (*image_pyramid)(curr_lvl, hit_pixel(0), hit_pixel(1));
         float r = calc_residual(intensity_on_image, voxel.intensity);
-        sum += (std::abs(r) < l1_truncation) ? std::abs(r) : l1_truncation;
+        sum += calc_huber_weigted_redidual(calc_huber_weight(r), r);
     }
     return sum;
 }

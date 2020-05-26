@@ -28,14 +28,28 @@ bool Tracker::tracking(Frame::ptr to_track_frame, Sophus::SE3f& pose_in_out,
     tictoc::tic();
     for (int lvl = lvls - 1; lvl >= 0; --lvl) {
         optimizer.set_lvl(lvl);
-        int iterations = (lvl > 5) ? 3 : max_iteration_each_lvl[lvl];
-        optimizer.solve(iterations, lvl);
+        int iterations;
+        float lamda_init;
+        int huber_radius;
+        float lamda_min;
+        if (lvl > 4) {
+            iterations = 8;
+            lamda_init = 1e-2;
+            huber_radius = 100;
+            lamda_min = 1e-5;
+        } else {
+            iterations = max_iteration_each_lvl[lvl];
+            lamda_init = lamda_init_each_lvl[lvl];
+            lamda_min = lamda_min_eahc_lvl[lvl];
+            huber_radius = huber_residual_each_lvl[lvl];
+        }
+        optimizer.solve(iterations, lamda_init, lamda_min, huber_radius);
     }
     LOG(INFO) << "tracking use time : " << tictoc::toc() / 1000.f << "ms";
 
     pose_in_out = optimizer.getT();
     affine_in_out = optimizer.getAffineLight();
-    return true;  // todo
+    return true;
 }
 
 void Tracker::generate_movement_predictions(const Sophus::SE3f& pose_in_out) {

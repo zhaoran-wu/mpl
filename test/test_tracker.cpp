@@ -24,9 +24,9 @@ int main() {
     std::vector<cv::Mat> img_vec;
     std::vector<cv::Mat> depth_vec;
     std::vector<cv::Mat> img_draw_vec;
-    for (int i = 1; i < 10; ++i) {
-        string im_name = "rgb/" + to_string(i) + ".png";
-        string depth_name = "depth/" + to_string(i) + ".png";
+    for (int i = 15; i < 32; ++i) {
+        string im_name = "rgb2/" + to_string(i) + ".png";
+        string depth_name = "depth2/" + to_string(i) + ".png";
         cv::Mat im_tmp = cv::imread(data_path + im_name);
         cv::Mat depth_tmp = cv::imread(data_path + depth_name);
 
@@ -111,7 +111,7 @@ int main() {
     AffineLight in_out_aff_light_curr_KF(0, 0);
 
     cv::imshow("KF", key_frame_vis);
-    for (int i = 1; i < 9; ++i) {
+    for (int i = 1; i < 16; ++i) {
         Frame::ptr curr_frame = Frame::create(img_vec[i]);
 
         Sophus::SE3f old_T_curr_KF = in_out_T_curr_KF;
@@ -127,8 +127,7 @@ int main() {
             Eigen::Vector2f hit_pixel_no_op = curr_frame->project(point_no_op);
             /*             cv::circle(im_to_vis,
                                    cv::Point2f(hit_pixel_no_op(0),
-               hit_pixel_no_op(1)), 1, cv::Scalar(0, 0, 255), 1) */
-            ;
+               hit_pixel_no_op(1)), 1, cv::Scalar(0, 0, 255), 2); */
             cv::circle(im_to_vis, cv::Point2f(hit_pixel(0), hit_pixel(1)), 1,
                        cv::Scalar(0, 255, 0), 2);
         }
