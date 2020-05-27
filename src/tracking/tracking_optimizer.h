@@ -11,6 +11,8 @@ typedef Eigen::Matrix<double, 1, 8> RowVec8;
 
 class TrackingOptimizer {
    public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
     TrackingOptimizer() = default;
     void init(const Sophus::SE3f init_pose, const AffineLight init_rel_affL,
               PointCloudPyramid::ptr ref_point_cloud_prymid,

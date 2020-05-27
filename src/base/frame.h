@@ -8,6 +8,7 @@ namespace mpl {
 
 class Frame {
    public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     typedef std::shared_ptr<Frame> ptr;
     Frame(const uchar* const row_image_data);
     static Frame::ptr create(cv::Mat image);

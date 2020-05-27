@@ -10,6 +10,7 @@ namespace mpl {
 
 class Tracker {
    public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     Tracker() = default;
     /**
      * @brief pass pre-computed reference point cloud for tracking
