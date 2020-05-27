@@ -43,7 +43,7 @@ float TrackingOptimizer::solve(const int iterations, const float lamda_init,
 
         for (int i = 0; i < delta_x.rows(); ++i) {
             if (std::isinf(delta_x(i)) || std::isnan(delta_x(i))) {
-                // LOG(INFO) << "delta_x has inf or nan";
+                LOG(INFO) << "delta_x has inf or nan";
                 return sum_weighted_squared_residual;
             }
         }
@@ -131,7 +131,7 @@ void TrackingOptimizer::build_problem() {
 
         const float huber_weight = calc_huber_weight(r_tmp);
         if (std::abs(r_tmp) > huber_radius) {
-            if (++num_outlier / (float)config->PIXEL_SELECTION_NUM > 0.45f) {
+            if (++num_outlier / (float)config->PIXEL_SELECTION_NUM > 0.4f) {
                 huber_radius += 10;
                 return build_problem();
             }
@@ -167,11 +167,13 @@ void TrackingOptimizer::build_problem() {
 
         J_tmp(6) = -voxel.intensity * exp(affine_light.alpha());
         J_tmp(7) = -1.0;
+
+        // LOG(INFO) << "J :" << '\n' << J_tmp;
+        // LOG(INFO) << "r :" << sum_weighted_squared_residual;
         accumulate_H_b(huber_weight);
     }
     // std::cerr << " huber radius :" << huber_radius
     //          << " num outlier :" << num_outlier << '\n';
-
     // LOG(INFO) << " H : " << '\n' << H;
     scaling_H_b();
 

@@ -1,6 +1,7 @@
 #pragma once
 #include "cam_data.h"
 #include "config.h"
+#include <iostream>
 #include <memory>
 #include <vector>
 namespace mpl {
@@ -77,8 +78,8 @@ inline ImagePyramid::float_ptr ImagePyramid::mag2(const int lvl) {
 
 inline bool ImagePyramid::is_in_image(const int lvl, const float u,
                                       const float v) const {
-    return (u >= 0.f && u < cam_data->width[lvl] && v >= 0.f &&
-            v < cam_data->height[lvl]);
+    return (u > 2.f && u < cam_data->width[lvl] - 2.f && v > 2.f &&
+            v < cam_data->height[lvl] - 2.f);
 }
 
 inline uchar ImagePyramid::operator()(const int lvl, const int u,
@@ -105,9 +106,6 @@ inline float ImagePyramid::operator()(const int lvl, const float u,
     float x = std::abs(u - 0.5f - u_min);
     float y = std::abs(v - 0.5f - v_min);
 
-    if (u_max == cam_data->width[lvl] || v_max == cam_data->height[lvl]) {
-        return this->operator()(lvl, u_max, v_max);
-    }
     return this->operator()(lvl, u_max, v_max) * x * y +
            this->operator()(lvl, u_min, v_max) * (1 - x) * y +
            this->operator()(lvl, u_max, v_min) * x * (1 - y) +
@@ -124,32 +122,36 @@ inline float ImagePyramid::dy(const int lvl, const float u,
     float x = std::abs(u - 0.5f - u_min);
     float y = std::abs(v - 0.5f - v_min);
 
-    if (u_max == cam_data->width[lvl] || v_max == cam_data->height[lvl]) {
-        return this->dy(lvl, u_max, v_max);
-    }
-    return this->dy(lvl, u_max, v_max) * x * y +
-           this->dy(lvl, u_min, v_max) * (1 - x) * y +
-           this->dy(lvl, u_max, v_min) * x * (1 - y) +
-           this->dy(lvl, u_min, v_min) * (1 - x) * (1 - y);
+    float value = this->dy(lvl, u_max, v_max) * x * y +
+                  this->dy(lvl, u_min, v_max) * (1 - x) * y +
+                  this->dy(lvl, u_max, v_min) * x * (1 - y) +
+                  this->dy(lvl, u_min, v_min) * (1 - x) * (1 - y);
+    return value;
 }
-
+/**
+ * @brief float version is for hit pixel, so the u,v are not in pixel coordinate
+ *  but continous image coordinate
+ *
+ * @param lvl
+ * @param u : continous image x coordinate
+ * @param v  : continous image y coordinate
+ * @return float
+ */
 inline float ImagePyramid::dx(const int lvl, const float u,
                               const float v) const {
-    int u_max = ceil(u - 0.5f);
-    int v_max = ceil(v - 0.5f);
+    int u_max = std::ceil(u - 0.5f);
+    int v_max = std::ceil(v - 0.5f);
     int u_min = u_max - 1;
     int v_min = v_max - 1;
 
-    float x = std::abs(u - 0.5f - u_min);
-    float y = std::abs(v - 0.5f - v_min);
+    float x = u - 0.5f - u_min;
+    float y = v - 0.5f - v_min;
 
-    if (u_max == cam_data->width[lvl] || v_max == cam_data->height[lvl]) {
-        return this->dx(lvl, u_max, v_max);
-    }
-    return this->dx(lvl, u_max, v_max) * x * y +
-           this->dx(lvl, u_min, v_max) * (1 - x) * y +
-           this->dx(lvl, u_max, v_min) * x * (1 - y) +
-           this->dx(lvl, u_min, v_min) * (1 - x) * (1 - y);
+    float value = this->dx(lvl, u_max, v_max) * x * y +
+                  this->dx(lvl, u_min, v_max) * (1 - x) * y +
+                  this->dx(lvl, u_max, v_min) * x * (1 - y) +
+                  this->dx(lvl, u_min, v_min) * (1 - x) * (1 - y);
+    return value;
 }
 
 inline float ImagePyramid::mag2(const int lvl, const int u, const int v) const {
@@ -169,11 +171,10 @@ inline T halfSampling(const int child_u, const int child_v,
     int parent_u_hi = parent_x + 0.5f;
     int parent_v_lo = parent_y - 0.5f;
     int parent_v_hi = parent_y + 0.5f;
-    // todo getIdx(u,v,step)
-    return 0.25 * (parent_image[idx(parent_step, parent_u_lo, parent_v_lo)] +
-                   parent_image[idx(parent_step, parent_u_lo, parent_v_hi)] +
-                   parent_image[idx(parent_step, parent_u_hi, parent_v_lo)] +
-                   parent_image[idx(parent_step, parent_u_hi, parent_v_hi)]);
+    return 0.25f * (parent_image[idx(parent_step, parent_u_lo, parent_v_lo)] +
+                    parent_image[idx(parent_step, parent_u_lo, parent_v_hi)] +
+                    parent_image[idx(parent_step, parent_u_hi, parent_v_lo)] +
+                    parent_image[idx(parent_step, parent_u_hi, parent_v_hi)]);
 }
 
 inline int idx(const int step, const int u, const int v) {
