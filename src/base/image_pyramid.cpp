@@ -40,11 +40,16 @@ void ImagePyramid::build_image(const uchar* parent_image, const int child_lvl) {
 void ImagePyramid::build_derivative(const int lvl) {
     int w_lvl = cam_data->width[lvl];
     int h_lvl = cam_data->height[lvl];
-
+    int num_pixel = w_lvl * h_lvl;
     uchar_ptr im_lvl = image_pyramid[lvl];
-    float_ptr dx_lvl(new float[w_lvl * h_lvl]);
-    float_ptr dy_lvl(new float[w_lvl * h_lvl]);
-    float_ptr mag2_lvl(new float[w_lvl * h_lvl]);
+    float_ptr dx_lvl(new float[num_pixel]);
+    float_ptr dy_lvl(new float[num_pixel]);
+    float_ptr mag2_lvl(new float[num_pixel]);
+
+    memset(dx_lvl.get(), 0, sizeof(float) * num_pixel);
+    memset(dy_lvl.get(), 0, sizeof(float) * num_pixel);
+    memset(mag2_lvl.get(), 0, sizeof(float) * num_pixel);
+
     for (int u = 1; u < w_lvl - 1; ++u) {
         for (int v = 1; v < h_lvl - 1; ++v) {
             int curr_idx = idx(w_lvl, u, v);

@@ -226,7 +226,10 @@ float PixelSelector::find_max_mag2(Eigen::Vector3i& candidate, const int grid_x,
         case SearchRegion::POT_LVL: {
             int pot_right_bound =
                 grid_x * grid_dim + block_x * block_dim + (pot_x + 1) * pot_dim;
-            if (pot_right_bound > cam->width[0]) {
+            int pot_lower_bound =
+                grid_y * grid_dim + block_y * block_dim + (pot_y + 1) * pot_dim;
+            if (!(pot_right_bound < cam->width[0]) ||
+                !(pot_lower_bound < cam->height[0])) {
                 return 0;
             }
             float* pot_head_ptr =
@@ -252,10 +255,12 @@ float PixelSelector::find_max_mag2(Eigen::Vector3i& candidate, const int grid_x,
         case SearchRegion::BLOCK_LVL: {
             int block_right_bound =
                 grid_x * grid_dim + (block_x + 1) * block_dim;
-            if (block_right_bound > cam->width[0]) {
+            int block_lower_bound =
+                grid_y * grid_dim + (block_y + 1) * block_dim;
+            if (!(block_right_bound < cam->width[0]) ||
+                !(block_lower_bound < cam->height[0])) {
                 return 0;
             }
-
             float* block_head_ptr =
                 get_block_head(grid_x, grid_y, block_x, block_y);
             // copy to a vector to use max_element
@@ -279,9 +284,12 @@ float PixelSelector::find_max_mag2(Eigen::Vector3i& candidate, const int grid_x,
             // if there homogenous area in image bound, igonore it will be also
             // rational
             int grid_right_bound = (grid_x + 1) * grid_dim;
-            if (grid_right_bound > cam->width[0]) {
+            int grid_lower_bound = (grid_y + 1) * grid_dim;
+            if (!(grid_right_bound < cam->width[0]) ||
+                !(grid_lower_bound < cam->height[0])) {
                 return 0;
             }
+
             float* grid_head_ptr = get_grid_head(grid_x, grid_y);
             // copy to a vector to use max_element
             for (int y = 0; y < grid_dim; ++y) {
