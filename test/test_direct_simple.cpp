@@ -182,13 +182,13 @@ Eigen::Vector3d projectTo3d(const cv::Point pixel, const Eigen::Matrix3d K,
                             const cv::Mat depth) {
     Eigen::Vector3d homo_pixel(pixel.x, pixel.y, 1);
     /*   float d = depth.at<uchar>(pixel) * 40 /
-                255.0f;  //*100; //! 40 is z_far //255 -> 256 faster */
+                255.0f;  //100; //! 40 is z_far //255 -> 256 faster */
     float d = depth.at<ushort>(pixel) * 0.001;
     // LOG(INFO) << " depth " << d << " m";
     return d * K.inverse() * homo_pixel;
 }
 using namespace mpl;
-int main(int argc, char** argv) {
+int main() {
     Config& config = Config::getInstance();
     std::string config_path = "/home/zhaoran/thesis_ws/mpl/project/config.yaml";
     config.readYamlFile(config_path);

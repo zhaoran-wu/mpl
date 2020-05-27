@@ -7,15 +7,17 @@ PointCloudPyramid::PointCloudPyramid() {
     pyramid_.resize(config.PYRAMID_LVLS);
     // avoid reallocation each time
 }
-PointCloudPyramid::PointCloudPyramid(cv::Mat rendered_depth, const std::vector<Candidate>& semi_dense_depth) {
+PointCloudPyramid::PointCloudPyramid(
+    cv::Mat rendered_depth, const std::vector<Candidate>& semi_dense_depth) {
     auto& config = Config::getInstance();
     pyramid_.resize(config.PYRAMID_LVLS);
 
     generate_pyramid(rendered_depth, semi_dense_depth);
 }
 
-void PointCloudPyramid::generate_pyramid(cv::Mat rendered_depth, const std::vector<Candidate>& semi_dense_depth) {
-    // todo
+void PointCloudPyramid::generate_pyramid(
+    cv::Mat rendered_depth, const std::vector<Candidate>& semi_dense_depth) {
+    // todo we don't need rendered depth here
 }
 PointCloud& PointCloudPyramid::operator[](const int lvl) {
     return pyramid_[lvl];
@@ -24,8 +26,9 @@ int PointCloudPyramid::lvls() {
     return pyramid_.size();
 }
 
-PointCloudPyramid::ptr PointCloudPyramid::create(cv::Mat rendered_depth,
-                                                 const std::vector<Candidate>& semi_dense_depth) {
-    return std::make_shared<PointCloudPyramid>(rendered_depth, semi_dense_depth);
+PointCloudPyramid::ptr PointCloudPyramid::create(
+    cv::Mat rendered_depth, const std::vector<Candidate>& semi_dense_depth) {
+    return std::make_shared<PointCloudPyramid>(rendered_depth,
+                                               semi_dense_depth);
 }
 }  // namespace mpl

@@ -1,13 +1,4 @@
 
-add_executable(test_mesh test_mesh.cpp)
-target_link_libraries(test_mesh 
-util
-GLAD
-/usr/lib/x86_64-linux-gnu/libglog.so
-${OpenCV_LIBRARIES}
-glfw
-${PROJECT_NAME}_rendering)
-
 add_executable(test_synetic_image test_synetic_image.cpp)
 target_link_libraries(test_synetic_image
 util

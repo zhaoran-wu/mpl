@@ -128,7 +128,6 @@ int main() {
         tracker.tracking(curr_frame, in_out_T_curr_KF,
                          in_out_aff_light_curr_KF);
 
-        in_out_T_curr_KF;
         cv::Mat im_to_vis = img_draw_vec[i];
         for (auto& pcd : pcp->operator[](0)) {
             Eigen::Vector3f point = in_out_T_curr_KF * pcd.position;

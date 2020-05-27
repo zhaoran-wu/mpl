@@ -12,7 +12,6 @@ int main() {
     Config& config = Config::getInstance();
     std::string config_path = "/home/zhaoran/thesis_ws/mpl/project/config.yaml";
     config.readYamlFile(config_path);
-    Config& config_2 = Config::getInstance();
 
     //! test cam data
     std::string calib_path = "/home/zhaoran/thesis_ws/mpl/project/camera.yaml";

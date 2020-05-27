@@ -45,8 +45,6 @@ int main() {
 
     // system begin
 
-    Eigen::Isometry3f T_w_c0 = Eigen::Isometry3f::Identity();
-
     PixelSelector selector;
     std::vector<Eigen::Vector3i> candidates;
     Frame::ptr key_frame = Frame::create(img_vec[0]);
@@ -89,11 +87,11 @@ int main() {
             if (depth == 0 || depth == std::numeric_limits<ushort>::max()) {
                 continue;
             }
+
             if (lvl == 0) {
                 cv::circle(key_frame_vis, cv::Point2f(u, v), 1,
                            cv::Scalar(0, 255, 0), 2);
             }
-
             Eigen::Vector2i point(u, v);
             Eigen::Vector3f p3d =
                 key_frame->unproject(point, depth / 1000.f, lvl);
@@ -125,9 +123,9 @@ int main() {
             Eigen::Vector3f point_no_op = old_T_curr_KF * pcd.position;
             Eigen::Vector2f hit_pixel = curr_frame->project(point);
             Eigen::Vector2f hit_pixel_no_op = curr_frame->project(point_no_op);
-            /*             cv::circle(im_to_vis,
-                                   cv::Point2f(hit_pixel_no_op(0),
-               hit_pixel_no_op(1)), 1, cv::Scalar(0, 0, 255), 2); */
+            // cv::circle(im_to_vis,
+            //           cv::Point2f(hit_pixel_no_op(0), hit_pixel_no_op(1)), 1,
+            //           cv::Scalar(0, 0, 255), 2);
             cv::circle(im_to_vis, cv::Point2f(hit_pixel(0), hit_pixel(1)), 1,
                        cv::Scalar(0, 255, 0), 2);
         }

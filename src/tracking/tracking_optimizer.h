@@ -57,7 +57,7 @@ class TrackingOptimizer {
     Mat88 H = Mat88::Zero();  // H = J.trans()*J
     Vec8 b = Vec8::Zero();    // b = - J.trans()*r_vec
 
-    float sum_weighted_squared_residual;
+    float sum_weighted_squared_residual = 0.0f;
     double r_tmp;                     // r for every measurement
     RowVec8 J_tmp = RowVec8::Zero();  // J for every measurement
 
