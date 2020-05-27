@@ -43,7 +43,8 @@ class Config {
     float OPTIMIZATION_LAMDA_SUCCESS_PENALIZE;
 
     const int max_iteration_each_lvl[5] = {50, 30, 15, 10, 10};
-    const float lamda_init_each_lvl[5] = {1e-7, 1e-5, 1e-4, 1e-3, 1e-2};
+    const float lamda_init_each_lvl[5] = {
+        1e-8, 1e-5, 1e-2, 1, 1};  // very sensitive : e.g motion blur
     const float lamda_min_eahc_lvl[5] = {1e-14, 1e-10, 1e-9, 1e-8, 1e-7};
     const int huber_residual_each_lvl[5] = {30, 45, 55, 80, 100};
 
