@@ -6,12 +6,15 @@
 namespace mpl {
 
 struct Candidate {
-    Eigen::Vector2i uv;
+    int u;
+    int v;
     float d_inv;
-    float d_variance;
-    bool is_converge = false;
-    bool is_H_constrained = false;
-    bool is_acctive = false;
+    bool is_depth_safe =
+        false;  // has a small depth gradient on synetic depth image
+    bool is_converge = false;            // depth almost not changed
+    bool is_global_constrained = false;  // converge in 1st depth update
+    bool is_active = false;
+    float X, Y, Z;  // only for global point
 };
 
 class CandidateManager {
@@ -27,7 +30,11 @@ class CandidateManager {
     void select_candidate(const Frame::ptr frame,
                           const cv::Mat synetic_depth_im);
 
+    std::vector<Candidate> get_candidate(const Frame::ptr frame);
+
    private:
+    cv::Mat generate_depth_safe_mask(const cv::Mat synetic_depth_im) const;
+
     // map frame ptr to it's candidate
     std::unordered_map<Frame::ptr, std::vector<Candidate>> candidate_map;
     // add candidate covariance info

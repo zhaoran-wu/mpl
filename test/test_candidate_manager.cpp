@@ -53,10 +53,13 @@ int main() {
     std::vector<cv::Mat> syn_im_vec = synetic_image.renderingAt(render_pose);
     cv::Mat depth_im = syn_im_vec[1];
 
-    PixelSelector selector;
-    std::vector<Eigen::Vector3i> candidates;
     Frame::ptr key_frame = Frame::create(img_vec[0]);
-    selector.select(key_frame->getImagePyramid(), candidates);
+    // PixelSelector selector;
+    // std::vector<Eigen::Vector3i> candidates;
+    // selector.select(key_frame->getImagePyramid(), candidates);
+    CandidateManager cm;
+    cm.select_candidate(key_frame, syn_im_vec[1]);
+    std::vector<Candidate> candidates = cm.get_candidate(key_frame);
 
     // generate depth map vec
     int lvls = config.PYRAMID_LVLS;
@@ -79,35 +82,35 @@ int main() {
     for (int lvl = 0; lvl < lvls; ++lvl) {
         for (size_t i = 0; i < candidates.size(); ++i) {
             //! for test we just ignore somce point at each sub lvl
-            if (lvl != 0 && i % lvl != 0) {
+            if (lvl != 0 && i % lvl != 0 || !candidates[i].is_depth_safe) {
                 continue;
             }
             if (depth_pyramid[lvl].at<ushort>(
-                    candidates[i](1) / (float)pow(2, lvl),
-                    candidates[i](0) / (float)pow(2, lvl)) == 0 ||
+                    candidates[i].v / (float)pow(2, lvl),
+                    candidates[i].u / (float)pow(2, lvl)) == 0 ||
                 depth_pyramid[lvl].at<ushort>(
-                    candidates[i](1) / (float)pow(2, lvl),
-                    candidates[i](0) / (float)pow(2, lvl)) ==
+                    candidates[i].v / (float)pow(2, lvl),
+                    candidates[i].u / (float)pow(2, lvl)) ==
                     std::numeric_limits<ushort>::max()) {
                 continue;
             }
             cv::circle(key_frame_vis,
-                       cv::Point2f(candidates[i](0), candidates[i](1)), 1,
+                       cv::Point2f(candidates[i].u, candidates[i].v), 1,
                        cv::Scalar(0, 255, 0), 2);
 
-            Eigen::Vector2i point(candidates[i](0) / (float)pow(2, lvl),
-                                  candidates[i](1) / (float)pow(2, lvl));
-            Eigen::Vector3f p3d = key_frame->unproject(
-                point,
-                depth_pyramid[lvl].at<ushort>(
-                    candidates[i](1) / float(pow(2, lvl)),
-                    candidates[i](0) / float(pow(2, lvl))) /
-                    1000.f,
-                lvl);
+            Eigen::Vector2i point(candidates[i].u / (float)pow(2, lvl),
+                                  candidates[i].v / (float)pow(2, lvl));
+            Eigen::Vector3f p3d =
+                key_frame->unproject(point,
+                                     depth_pyramid[lvl].at<ushort>(
+                                         candidates[i].v / float(pow(2, lvl)),
+                                         candidates[i].u / float(pow(2, lvl))) /
+                                         1000.f,
+                                     lvl);
             std::cerr << " depth " << p3d(2) << '\n';
             // todo make it better
             int intensity = key_frame->getImagePyramid()->operator()(
-                lvl, candidates[i](0) >> (lvl), candidates[i](1) >> (lvl));
+                lvl, candidates[i].u >> (lvl), candidates[i].v >> (lvl));
             (*pcp)[lvl].push_back(Voxel(p3d, intensity));
         }
     }
@@ -136,9 +139,9 @@ int main() {
             Eigen::Vector2f hit_pixel_no_op = curr_frame->project(point_no_op);
             cv::circle(im_to_vis,
                        cv::Point2f(hit_pixel_no_op(0), hit_pixel_no_op(1)), 1,
-                       cv::Scalar(0, 0, 255), 1);
+                       cv::Scalar(0, 0, 255), 2);
             cv::circle(im_to_vis, cv::Point2f(hit_pixel(0), hit_pixel(1)), 1,
-                       cv::Scalar(0, 255, 0), 1);
+                       cv::Scalar(0, 255, 0), 2);
         }
 
         cv::imshow("curr_frame", im_to_vis);
