@@ -44,7 +44,6 @@ AffineLight& AffineLight::operator=(const AffineLight& affLight) {
 
 AffineLight AffineLight::calc_aff_map_src_to_dst(const AffineLight& src,
                                                  const AffineLight& dst) {
-    // dst_src : affine parame map I_src to I_dst
     float dst_src_alpha = dst.alpha() - src.alpha();
     float dst_src_beta = dst.beta() - src.beta() * exp(dst_src_alpha);
 
