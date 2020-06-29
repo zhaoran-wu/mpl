@@ -17,6 +17,9 @@ class Frame {
     void set_aff_light(const int alpha, const int beta);
     void set_state_curr_lastKF(const Sophus::SE3f& T_curr_lastKF,
                                const AffineLight& aff_light_curr_lastKF);
+    Sophus::SE3f get_T_curr_lastKF();
+    AffineLight get_aff_curr_lastKF();
+
     void set_ref_frame(const Frame::ptr& frame);
 
     // return T_w_c
@@ -25,7 +28,7 @@ class Frame {
     // return global aff light
     AffineLight get_aff_light() const;
 
-    // unproject a point in image lvl to 3D refer to current frame
+    // unproject a point in to 3D refer in current frame
     // coordinate system
     Eigen::Vector3f unproject(const Eigen::Vector2i& pixel, const float depth,
                               const int lvl = 0) const;
@@ -33,6 +36,9 @@ class Frame {
     Eigen::Vector2f project(const Eigen::Vector3f& point, int lvl = 0) const;
 
     bool is_in_image(const int lvl, const float u, const float v) const;
+
+    // get the frame, which used to tracking curr frame;
+    Frame::ptr get_ref_frame();
 
    private:
     ImagePyramid::ptr pyramid;

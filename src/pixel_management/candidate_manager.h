@@ -6,13 +6,20 @@
 namespace mpl {
 
 struct Candidate {
+    float color[8];   // pattern color
+    float weight[8];  // pattern weight
     int u;
     int v;
-    float d_inv;
+    float d_inv;  // in m
+    float d_inv_min = 0;
+    float d_inv_max = std::numeric_limits<float>::infinity();
+    Eigen::Matrix2f structure_mat;
+    bool is_oob = false;  // is oob or outlier
     bool is_depth_safe =
         false;  // has a small depth gradient on synetic depth image
-    bool is_converge = false;            // depth almost not changed
-    bool is_global_constrained = false;  // converge in 1st depth update
+    bool is_converge = false;   // d_inv almost not changed
+    bool is_map_point = false;  //  d_inv almost not change in the first update
+    float delta_d;
     bool is_active = false;
     float X, Y, Z;  // only for global point
 };
@@ -20,9 +27,10 @@ struct Candidate {
 class CandidateManager {
    public:
     CandidateManager() = default;
-    void update_depth_per_frame(const Frame::ptr frame, bool is_KF);
+    void update_depth_per_frame(const Frame::ptr frame);
     /**
-     * @brief select candidate in frame, and initial depth with synetic_depth_im
+     * @brief select candidate in key frame, and initial depth with
+     * synetic_depth_im
      *
      * @param frame
      * @param synetic_depth_im
@@ -34,6 +42,13 @@ class CandidateManager {
 
    private:
     cv::Mat generate_depth_safe_mask(const cv::Mat synetic_depth_im) const;
+
+    void update_depth_on_old_frame(Candidate& can,
+                                   const Sophus::SE3f T_curr_old,
+                                   const AffineLight aff_curr_old,
+                                   Frame::ptr curr_frame);
+
+    void calc_structure_mat(Frame::ptr host_frame, Candidate& can);
 
     // map frame ptr to it's candidate
     std::unordered_map<Frame::ptr, std::vector<Candidate>> candidate_map;

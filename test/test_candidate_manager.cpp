@@ -54,14 +54,12 @@ int main() {
     cv::Mat depth_im = syn_im_vec[1];
 
     Frame::ptr key_frame = Frame::create(img_vec[0]);
-    // PixelSelector selector;
-    // std::vector<Eigen::Vector3i> candidates;
-    // selector.select(key_frame->getImagePyramid(), candidates);
+
     CandidateManager cm;
     cm.select_candidate(key_frame, syn_im_vec[1]);
     std::vector<Candidate> candidates = cm.get_candidate(key_frame);
 
-    // generate depth map vec
+    // generate depth map pyramid
     int lvls = config.PYRAMID_LVLS;
     std::vector<cv::Mat> depth_pyramid;
     for (int i = 0; i < lvls; ++i) {
@@ -123,6 +121,8 @@ int main() {
     AffineLight in_out_aff_light_curr_KF(0, 0);
 
     cv::imshow("KF", key_frame_vis);
+
+    // draw candidates before and after tracking
     for (int i = 1; i < 5; ++i) {
         Frame::ptr curr_frame = Frame::create(img_vec[i]);
 
@@ -132,11 +132,36 @@ int main() {
                          in_out_aff_light_curr_KF);
 
         cv::Mat im_to_vis = img_draw_vec[i];
+        cv::Mat im_depth_before_after = im_to_vis.clone();
+
+        // draw before depth update
+        /*         for (const auto& can : candidates) {
+                    Eigen::Vector2i pixle(can.u, can.v);
+                    Eigen::Vector3f P = key_frame->unproject(pixle, 1.0f /
+           can.d_inv); Eigen::Vector2f p = curr_frame->project(in_out_T_curr_KF
+           * P); cv::circle(im_depth_before_after, cv::Point2f(p(0), p(1)), 3,
+                               cv::Scalar(0, 0, 255), 2);
+                } */
+
+        cm.update_depth_per_frame(curr_frame);
+        auto candidates_updated = cm.get_candidate(key_frame);
+        // draw after depth update
+        for (const auto& can : candidates_updated) {
+            Eigen::Vector2i pixle(can.u, can.v);
+            Eigen::Vector3f P = key_frame->unproject(pixle, 1.0f / can.d_inv);
+            Eigen::Vector2f p = curr_frame->project(in_out_T_curr_KF * P);
+            cv::circle(im_depth_before_after, cv::Point2f(p(0), p(1)), 1,
+                       cv::Scalar(0, 255, 0), 2);
+        }
+
+        // draw before after optimization
         for (auto& pcd : pcp->operator[](0)) {
             Eigen::Vector3f point = in_out_T_curr_KF * pcd.position;
-            Eigen::Vector3f point_no_op = old_T_curr_KF * pcd.position;
+            Eigen::Vector3f point_before_optimization =
+                old_T_curr_KF * pcd.position;
             Eigen::Vector2f hit_pixel = curr_frame->project(point);
-            Eigen::Vector2f hit_pixel_no_op = curr_frame->project(point_no_op);
+            Eigen::Vector2f hit_pixel_no_op =
+                curr_frame->project(point_before_optimization);
             cv::circle(im_to_vis,
                        cv::Point2f(hit_pixel_no_op(0), hit_pixel_no_op(1)), 1,
                        cv::Scalar(0, 0, 255), 2);
@@ -145,6 +170,7 @@ int main() {
         }
 
         cv::imshow("curr_frame", im_to_vis);
+        cv::imshow("depth update", im_depth_before_after);
         cv::waitKey(0);
     }
 }

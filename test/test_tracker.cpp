@@ -45,14 +45,19 @@ int main() {
 
     // system begin
 
-    PixelSelector selector;
-    std::vector<Eigen::Vector3i> candidates;
     Frame::ptr key_frame = Frame::create(img_vec[0]);
-    selector.select(key_frame->getImagePyramid(), candidates);
+    /*     PixelSelector selector;
+        std::vector<Eigen::Vector3i> candidates;
+        selector.select(key_frame->getImagePyramid(), candidates) */
+    ;
+
+    CandidateManager cm;
+    cm.select_candidate(key_frame, depth_vec[0]);
+    std::vector<Candidate> candidates = cm.get_candidate(key_frame);
 
     // generate depth map vec
-    int lvls = config.PYRAMID_LVLS;
     cv::Mat depth_im = depth_vec[0];
+    int lvls = config.PYRAMID_LVLS;
     std::vector<cv::Mat> depth_pyramid;
     for (int i = 0; i < lvls; ++i) {
         if (i == 0) {
@@ -76,8 +81,8 @@ int main() {
                 continue;
             }
 
-            int u = candidates[i](0) / (float)pow(2, lvl);
-            int v = candidates[i](1) / (float)pow(2, lvl);
+            int u = candidates[i].u / (float)pow(2, lvl);
+            int v = candidates[i].v / (float)pow(2, lvl);
 
             if (u < 0 || u > depth_pyramid[lvl].cols || v < 0 ||
                 v > depth_pyramid[lvl].rows) {
@@ -126,10 +131,19 @@ int main() {
             // cv::circle(im_to_vis,
             //           cv::Point2f(hit_pixel_no_op(0), hit_pixel_no_op(1)), 1,
             //           cv::Scalar(0, 0, 255), 2);
-            cv::circle(im_to_vis, cv::Point2f(hit_pixel(0), hit_pixel(1)), 1,
-                       cv::Scalar(0, 255, 0), 2);
+            cv::circle(im_to_vis, cv::Point2f(hit_pixel(0), hit_pixel(1)), 3,
+                       cv::Scalar(0, 255, 0), 3);
         }
 
+        cm.update_depth_per_frame(curr_frame);
+        auto cans = cm.get_candidate(key_frame);
+        for (const auto& can : cans) {
+            Eigen::Vector2i pixle(can.u, can.v);
+            Eigen::Vector3f P = key_frame->unproject(pixle, 1.0f / can.d_inv);
+            Eigen::Vector2f p = curr_frame->project(in_out_T_curr_KF * P);
+            cv::circle(im_to_vis, cv::Point2f(p(0), p(1)), 2,
+                       cv::Scalar(0, 0, 255), 2);
+        }
         cv::imshow("curr_frame", im_to_vis);
         cv::waitKey(0);
     }

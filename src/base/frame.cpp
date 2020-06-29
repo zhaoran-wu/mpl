@@ -17,5 +17,16 @@ Frame::ptr Frame::create(cv::Mat image) {
     return std::make_shared<Frame>(image.data);
 }
 
+Frame::ptr Frame::get_ref_frame() {
+    return last_KF_ref;
+}
+
+Sophus::SE3f Frame::get_T_curr_lastKF() {
+    return T_curr_lastKF;
+}
+AffineLight Frame::get_aff_curr_lastKF() {
+    return aff_light_curr_lastKF;
+}
+
 }  // namespace mpl
    // namespace mpl
