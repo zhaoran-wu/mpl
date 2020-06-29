@@ -140,7 +140,7 @@ int main() {
                     Eigen::Vector3f P = key_frame->unproject(pixle, 1.0f /
            can.d_inv); Eigen::Vector2f p = curr_frame->project(in_out_T_curr_KF
            * P); cv::circle(im_depth_before_after, cv::Point2f(p(0), p(1)), 3,
-                               cv::Scalar(0, 0, 255), 2);
+                               cv::Scalar(255, 255, 255), 2);
                 } */
 
         cm.update_depth_per_frame(curr_frame);
@@ -148,10 +148,24 @@ int main() {
         // draw after depth update
         for (const auto& can : candidates_updated) {
             Eigen::Vector2i pixle(can.u, can.v);
-            Eigen::Vector3f P = key_frame->unproject(pixle, 1.0f / can.d_inv);
+            float d_inv = can.d_inv_line_search;
+
+            Eigen::Vector3f P = key_frame->unproject(pixle, 1.0f / d_inv);
             Eigen::Vector2f p = curr_frame->project(in_out_T_curr_KF * P);
-            cv::circle(im_depth_before_after, cv::Point2f(p(0), p(1)), 1,
-                       cv::Scalar(0, 255, 0), 2);
+
+            cv::Scalar color;
+            if (can.status == CandidateStatus::IS_MAP_POINT) {
+                color = cv::Scalar(255, 0, 0);  // blue
+            } else if (can.status == CandidateStatus::NOT_MAP_BUT_CONVERGE) {
+                color = cv::Scalar(0, 255, 0);  // green
+            } else if (can.status == CandidateStatus::INITIALIZED) {
+                color = cv::Scalar(0, 0, 255);  // red
+            } else {
+                color = cv::Scalar(0, 255, 255);  // yellow
+            }
+
+            cv::circle(im_depth_before_after, cv::Point2f(p(0), p(1)), 1, color,
+                       2);
         }
 
         // draw before after optimization

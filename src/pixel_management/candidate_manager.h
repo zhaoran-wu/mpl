@@ -5,22 +5,36 @@
 #include <unordered_map>
 namespace mpl {
 
+enum class CandidateStatus {
+    NOT_INITIALIZED,  // do not have benn searched
+    INITIALIZED,   // have been searched at least onece but bot converge so far
+    IS_MAP_POINT,  // d_inv_line_search is converge and close to d_inv after
+                   // some search
+    NOT_MAP_BUT_CONVERGE,  // d_inv_line_search is converge but not close to
+                           // d_inv
+    OUTLIER_OR_OOB         // minimal energy larger than threshold
+};
+
 struct Candidate {
     float color[8];   // pattern color
     float weight[8];  // pattern weight
     int u;
     int v;
-    float d_inv;  // in m
+    float d_inv;  // in m, initialized with synetic depth map
+
+    // line search
     float d_inv_min = 0;
     float d_inv_max = std::numeric_limits<float>::infinity();
+    float d_inv_line_search = std::numeric_limits<float>::infinity();
+
     Eigen::Matrix2f structure_mat;
-    bool is_oob = false;  // is oob or outlier
+    // bool is_oob = false;  // is oob or outlier
     bool is_depth_safe =
         false;  // has a small depth gradient on synetic depth image
-    bool is_converge = false;   // d_inv almost not changed
-    bool is_map_point = false;  //  d_inv almost not change in the first update
-    float delta_d;
-    bool is_active = false;
+    // bool is_converge = false;   // d_inv almost not changed
+    // bool is_map_point = false;  //  d_inv almost not change in the first
+    // update float delta_d; bool is_active = false;
+    CandidateStatus status = CandidateStatus::NOT_INITIALIZED;
     float X, Y, Z;  // only for global point
 };
 

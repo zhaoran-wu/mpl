@@ -9,8 +9,8 @@ using namespace std;
 using namespace Eigen;
 using namespace Sophus;
 
-inline bool is_oob(CamData& cam, int u, int v) {
-    return !(u > 4 && v > 4 && u < cam.width[0] - 4 && cam.height[0] - 4);
+inline bool is_in_image(CamData& cam, int u, int v) {
+    return !(u > 1 && v > 1 && u < cam.width[0] - 2 && cam.height[0] - 2);
 }
 
 void CandidateManager::update_depth_per_frame(const Frame::ptr curr_frame) {
@@ -54,7 +54,11 @@ void CandidateManager::select_candidate(const Frame::ptr frame,
         can.u = p(0);
         can.v = p(1);
         can.is_depth_safe = !(mask.at<float>(can.v, can.u));
-        can.d_inv = 1000.f / synetic_depth_im.at<ushort>(can.v, can.u);
+        float d = synetic_depth_im.at<ushort>(can.v, can.u);
+
+        can.d_inv = (d == 0)
+                        ? std::numeric_limits<float>::infinity()
+                        : 1000.f / synetic_depth_im.at<ushort>(can.v, can.u);
         calc_structure_mat(frame, can);
         candidate_vec.push_back(can);
     }
@@ -119,42 +123,48 @@ void CandidateManager::update_depth_on_old_frame(Candidate& can,
                                                  const Sophus::SE3f T_curr_old,
                                                  const AffineLight aff_curr_old,
                                                  Frame::ptr curr_frame) {
-    if (can.is_oob || can.is_converge) return;
+    if (can.status == CandidateStatus::OUTLIER_OR_OOB) return;
 
     auto& cam = CamData::getInstance();
 
     Matrix3f KRKinv = cam.K[0] * T_curr_old.rotationMatrix() * cam.K_inv[0];
     Vector3f Kt = cam.K[0] * T_curr_old.translation();
 
-    float max_search_range = (cam.width[0] + cam.height[0]) * 0.04f;
+    float max_search_range = (cam.width[0] + cam.height[0]) * 0.03f;
     Vector3f pR = KRKinv * Vector3f(can.u, can.v, 1);
     Vector3f p_far = pR + Kt * can.d_inv_min;
 
     float u_far = p_far.hnormalized()(0);
     float v_far = p_far.hnormalized()(1);
 
-    if (is_oob(cam, u_far, v_far)) {
-        can.is_oob = true;
+    if (is_in_image(cam, u_far, v_far)) {
+        can.status = CandidateStatus::OUTLIER_OR_OOB;
         return;
     }
 
     float dist, u_near, v_near;
     Vector3f p_near;
-    if (std::isfinite(can.d_inv_max)) {
+    if (can.status == CandidateStatus::INITIALIZED) {
         p_near = pR + Kt * can.d_inv_max;
         u_near = p_near.hnormalized()(0);
         v_near = p_near.hnormalized()(1);
 
-        if (is_oob(cam, u_near, v_near)) {
-            can.is_oob = true;
+        if (is_in_image(cam, u_far, v_far)) {
+            can.status = CandidateStatus::OUTLIER_OR_OOB;
             return;
         }
 
         // ============== check their distance. everything below 2px is OK (->
         // skip). ===================
         dist = (p_far - p_near).head(2).norm();
-        if (dist < 1.0f) {
-            can.is_converge = true;
+        if (dist < 0.5f) {
+            if (!isinf(can.d_inv) &&
+                (std::abs(can.d_inv_line_search / can.d_inv - 1) < 6e-2)) {
+                can.status = CandidateStatus::IS_MAP_POINT;
+                return;
+            }
+
+            can.status = CandidateStatus::NOT_MAP_BUT_CONVERGE;
             return;
         }
     } else {
@@ -172,15 +182,15 @@ void CandidateManager::update_depth_on_old_frame(Candidate& can,
         v_near = v_far + dist * (v_near - v_far) * d;
 
         // may still be out!
-        if (is_oob(cam, u_near, v_near)) {
-            can.is_oob = true;
+        if (is_in_image(cam, u_far, v_far)) {
+            can.status = CandidateStatus::OUTLIER_OR_OOB;
             return;
         }
     }
 
     // set OOB if scale change too big.
     if (!(can.d_inv_min < 0 || (p_far[2] > 0.75 && p_far[2] < 1.5))) {
-        can.is_oob = true;
+        can.status = CandidateStatus::OUTLIER_OR_OOB;
         return;
     }
 
@@ -224,7 +234,7 @@ void CandidateManager::update_depth_on_old_frame(Candidate& can,
             Rplane * Vector2f(pattern[idx][0], pattern[idx][1]);
 
     if (!std::isfinite(dx) || !std::isfinite(dy)) {
-        can.is_oob = true;
+        can.status = CandidateStatus::OUTLIER_OR_OOB;
         return;
     }
 
@@ -317,9 +327,9 @@ void CandidateManager::update_depth_on_old_frame(Candidate& can,
         if (fabsf(stepBack) < 0.1) break;
     }
 
-    // std::cout << bestEnergy << " @@@@@@@@@" << '\n';
-    if (!(bestEnergy < 70.f)) {
-        can.is_oob = true;
+    std::cout << bestEnergy << " @@@@@@@@@" << '\n';
+    if (!(bestEnergy < 30.f)) {
+        can.status = CandidateStatus::OUTLIER_OR_OOB;
         return;
     }
 
@@ -340,14 +350,31 @@ void CandidateManager::update_depth_on_old_frame(Candidate& can,
 
     if (!std::isfinite(can.d_inv_min) || !std::isfinite(can.d_inv_max) ||
         (can.d_inv_max < 0)) {
-        can.is_oob = true;
+        can.status = CandidateStatus::OUTLIER_OR_OOB;
         return;
     }
 
-    float old = can.d_inv;
-    can.d_inv = (can.d_inv_max + can.d_inv_min) / 2;
+    float d_inv_line_search_old = can.d_inv_line_search;
+    can.d_inv_line_search = (can.d_inv_max + can.d_inv_min) / 2;
 
-    std::cout << " !!!!!!!!!!!!!!!!!" << can.d_inv - old << '\n';
+    if (!std::isinf(can.d_inv) &&
+        std::abs(can.d_inv / can.d_inv_line_search - 1) < 6e-2) {
+        /*         std::cout << "@@@@@@@@@d : " << 1 / can.d_inv << '\n';
+                std::cout << "@@@@@@@@@d_line : " << 1 / can.d_inv_line_search
+           << '\n' */
+        ;
+        can.status = CandidateStatus::IS_MAP_POINT;
+        return;
+    }
+
+    if (!std::isinf(d_inv_line_search_old) &&
+        std::abs(can.d_inv_line_search / d_inv_line_search_old - 1) < 6e-2) {
+        can.status = CandidateStatus::NOT_MAP_BUT_CONVERGE;
+        return;
+    }
+
+    can.status = CandidateStatus::INITIALIZED;
+    return;
 }
 
 void CandidateManager::calc_structure_mat(Frame::ptr host_frame,
