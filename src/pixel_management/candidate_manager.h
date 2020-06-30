@@ -14,9 +14,9 @@ enum class CandidateStatus {
     NOT_INITIALIZED,  // do not have benn searched even once
     ILL_CONDITIONED,  // epi-polar line direction almost parallel with gradient
                       // in last search
-    IS_MAP_POINT,     // d_inv_line_search is converge and close to d_inv after
+    IS_MAP_POINT,     // d_inv is converge and close to d_inv after
                       // some search
-    NOT_MAP_BUT_CONVERGE,  // d_inv_line_search is converge but not close to
+    NOT_MAP_BUT_CONVERGE,  // d_inv is converge but not close to
                            // d_inv
     OUTLIER,  // minimal energy larger than threshold, if occur twice --> out of
               // boundary
@@ -29,15 +29,14 @@ struct Candidate {
     float weight[8];  // pattern weight
     int u;
     int v;
-    float d_inv;  // in m, initialized with synetic depth map
+    float d_inv_synetic_im;  // in m, initialized with synetic depth map
 
     // line search
-    float d_inv_min = 0;
-    float d_inv_max = std::numeric_limits<float>::infinity();
-    float d_inv_line_search = std::numeric_limits<float>::infinity();
-    float last_search_interval = std::numeric_limits<float>::infinity();
-
-    void update(float d_inv_min, float d_inv_max);
+    float d_inv = 0;  // var is max, set d_inv to random value;
+    float var = std::numeric_limits<float>::max();
+    void update(float d_inv_obs, float var_obs);
+    float get_d_inv_min();
+    float get_d_inv_max();
 
     Eigen::Matrix2f structure_mat;
     // bool is_oob = false;  // is oob or outlier
@@ -47,7 +46,6 @@ struct Candidate {
     // bool is_map_point = false;  //  d_inv almost not change in the first
     // update float delta_d; bool is_active = false;
     CandidateStatus status = CandidateStatus::NOT_INITIALIZED;
-    float X, Y, Z;  // only for global point
 };
 
 class CandidateManager {
@@ -85,25 +83,17 @@ class CandidateManager {
     PixelSelector pixle_selector;
 };
 
-inline void Candidate::update(float d_inv_min_obs, float d_inv_max_obs) {
-    assert(std::isfinite(d_inv_max_obs) && std::isfinite(d_inv_min_obs));
+inline void Candidate::update(float d_inv_obs, float var_obs) {
+    d_inv = (d_inv * var_obs + d_inv_obs * var) / (var + var_obs);
+    var = var * var_obs / (var + var_obs);
+    std::cout << " var " << var << '\n';
+}
+inline float Candidate::get_d_inv_min() {
+    float tmp = d_inv - sqrt(var);
+    return (tmp < 0) ? 0 : tmp;
+}
 
-    if (!std::isfinite(d_inv_line_search)) {
-        d_inv_min = d_inv_min_obs;
-        d_inv_max = d_inv_max_obs;
-        d_inv_line_search = (d_inv_max + d_inv_min) / 2;
-        return;
-    }
-
-    float var = std::pow(d_inv_max_obs - d_inv_min_obs, 2);
-    float obs = (d_inv_max_obs + d_inv_min_obs) / 2;
-
-    float var_old = std::pow(d_inv_max - d_inv_min, 2);
-    float var_new = var * var_old / (var + var_old);
-
-    d_inv_line_search =
-        (d_inv_line_search * var + obs * var_old) / (var + var_old);
-    d_inv_min = d_inv_line_search - sqrt(var_new);
-    d_inv_max = d_inv_line_search + sqrt(var_new);
+inline float Candidate::get_d_inv_max() {
+    return d_inv + sqrt(var);
 }
 }  // namespace mpl

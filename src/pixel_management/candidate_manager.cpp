@@ -56,9 +56,9 @@ void CandidateManager::select_candidate(const Frame::ptr frame,
         can.is_depth_safe = !(mask.at<float>(can.v, can.u));
         float d = synetic_depth_im.at<ushort>(can.v, can.u);
 
-        can.d_inv = (d == 0)
-                        ? std::numeric_limits<float>::infinity()
-                        : 1000.f / synetic_depth_im.at<ushort>(can.v, can.u);
+        can.d_inv_synetic_im =
+            (d == 0) ? std::numeric_limits<float>::infinity()
+                     : 1000.f / synetic_depth_im.at<ushort>(can.v, can.u);
         calc_structure_mat(frame, can);
         candidate_vec.push_back(can);
     }
@@ -123,7 +123,9 @@ void CandidateManager::update_depth_on_old_frame(Candidate& can,
                                                  const Sophus::SE3f T_new_old,
                                                  const AffineLight aff_new_old,
                                                  Frame::ptr new_frame) {
-    if (can.status == CandidateStatus::OOB) return;
+    if (can.status == CandidateStatus::OOB ||
+        can.status == CandidateStatus::BAD)
+        return;
 
     auto& cam = CamData::getInstance();
 
@@ -132,20 +134,23 @@ void CandidateManager::update_depth_on_old_frame(Candidate& can,
 
     float max_search_range = (cam.width[0] + cam.height[0]) * 0.04f;
     Vector3f pR = KRKinv * Vector3f(can.u, can.v, 1);
-    Vector3f p_far = pR + Kt * can.d_inv_min;
+    float d_inv_min = can.get_d_inv_min();
+    Vector3f p_far = pR + Kt * d_inv_min;
 
     float u_far = p_far.hnormalized()(0);
     float v_far = p_far.hnormalized()(1);
 
     if (is_in_image(cam, u_far, v_far)) {
-        can.status = CandidateStatus::OOB;
+        can.status = (can.status == CandidateStatus::NOT_INITIALIZED)
+                         ? CandidateStatus::BAD
+                         : CandidateStatus::OOB;
         return;
     }
 
     float dist, u_near, v_near;
     Vector3f p_near;
-    if (std::isfinite(can.d_inv_max)) {
-        p_near = pR + Kt * can.d_inv_max;
+    if (can.status != CandidateStatus::NOT_INITIALIZED) {
+        p_near = pR + Kt * can.get_d_inv_max();
         u_near = p_near.hnormalized()(0);
         v_near = p_near.hnormalized()(1);
 
@@ -154,20 +159,8 @@ void CandidateManager::update_depth_on_old_frame(Candidate& can,
             return;
         }
 
-        // ============== check their distance. everything below 2px is OK (->
-        // skip). ===================
         dist = (p_far - p_near).head(2).norm();
-        if (dist < 2.0f) {
-            can.last_search_interval = 0;
-            if (!isinf(can.d_inv) &&
-                (std::abs(can.d_inv_line_search / can.d_inv - 1) < 5e-2)) {
-                can.status = CandidateStatus::IS_MAP_POINT;
-                return;
-            }
 
-            can.status = CandidateStatus::NOT_MAP_BUT_CONVERGE;
-            return;
-        }
     } else {
         dist = max_search_range;
 
@@ -183,14 +176,16 @@ void CandidateManager::update_depth_on_old_frame(Candidate& can,
         v_near = v_far + dist * (v_near - v_far) * d;
 
         // may still be out!
-        if (is_in_image(cam, u_far, v_far)) {
-            can.status = CandidateStatus::OOB;
+        if (is_in_image(cam, u_near, v_near)) {
+            can.status = (can.status == CandidateStatus::NOT_INITIALIZED)
+                             ? CandidateStatus::BAD
+                             : CandidateStatus::OOB;
             return;
         }
     }
 
     // set OOB if scale change too big.
-    if (!(can.d_inv_min < 0 || (p_far[2] > 0.5 && p_far[2] < 1.5))) {
+    if (!(d_inv_min < -1e-10 || (p_far[2] > 0.5 && p_far[2] < 1.5))) {
         can.status = CandidateStatus::OOB;
         return;
     }
@@ -205,17 +200,9 @@ void CandidateManager::update_depth_on_old_frame(Candidate& can,
     float b =
         (Vector2f(dy, -dx).transpose() * can.structure_mat * Vector2f(dy, -dx));
     float errorInPixel = 0.2f + 0.2f * (a + b) / a;
-    std::cout << "error in pixle " << errorInPixel << "      dist " << dist
-              << "     last search interval " << can.last_search_interval
-              << '\n';
-    if (errorInPixel > 0.5 * dist && std::isfinite(can.d_inv_max)) {
-        can.status = CandidateStatus::ILL_CONDITIONED;
-        return;
-    }
 
-    if (errorInPixel > 10) {
-        errorInPixel = 10;
-        can.last_search_interval = 2 * errorInPixel;
+    if (errorInPixel > 0.5 * dist) {
+        can.status = CandidateStatus::ILL_CONDITIONED;
         return;
     }
 
@@ -335,7 +322,7 @@ void CandidateManager::update_depth_on_old_frame(Candidate& can,
         if (fabsf(stepBack) < 0.1) break;
     }
 
-    if (!(bestEnergy < 20.f)) {
+    if (!(bestEnergy < 200.f)) {
         can.status = (can.status == CandidateStatus::OUTLIER)
                          ? CandidateStatus::OOB
                          : CandidateStatus::OUTLIER;
@@ -344,47 +331,46 @@ void CandidateManager::update_depth_on_old_frame(Candidate& can,
 
     // ============== set new interval ===================
     // dx here is cos , dy is sin
-    float d_inv_min, d_inv_max;
+    float d_inv_min_obs, d_inv_max_obs;
     if (dx * dx > dy * dy) {
-        d_inv_min = (pR[2] * (bestU - errorInPixel * dx) - pR[0]) /
-                    (Kt[0] - Kt[2] * (bestU - errorInPixel * dx));
-        d_inv_max = (pR[2] * (bestU + errorInPixel * dx) - pR[0]) /
-                    (Kt[0] - Kt[2] * (bestU + errorInPixel * dx));
+        d_inv_min_obs = (pR[2] * (bestU - errorInPixel * dx) - pR[0]) /
+                        (Kt[0] - Kt[2] * (bestU - errorInPixel * dx));
+        d_inv_max_obs = (pR[2] * (bestU + errorInPixel * dx) - pR[0]) /
+                        (Kt[0] - Kt[2] * (bestU + errorInPixel * dx));
     } else {
-        d_inv_min = (pR[2] * (bestV - errorInPixel * dy) - pR[1]) /
-                    (Kt[1] - Kt[2] * (bestV - errorInPixel * dy));
-        d_inv_max = (pR[2] * (bestV + errorInPixel * dy) - pR[1]) /
-                    (Kt[1] - Kt[2] * (bestV + errorInPixel * dy));
+        d_inv_min_obs = (pR[2] * (bestV - errorInPixel * dy) - pR[1]) /
+                        (Kt[1] - Kt[2] * (bestV - errorInPixel * dy));
+        d_inv_max_obs = (pR[2] * (bestV + errorInPixel * dy) - pR[1]) /
+                        (Kt[1] - Kt[2] * (bestV + errorInPixel * dy));
     }
-    if (d_inv_min > d_inv_max) std::swap<float>(d_inv_max, d_inv_min);
+    if (d_inv_min_obs > d_inv_max_obs)
+        std::swap<float>(d_inv_max_obs, d_inv_min_obs);
 
-    if (!std::isfinite(d_inv_min) || !std::isfinite(d_inv_max) ||
-        (d_inv_max < 0)) {
+    if (!std::isfinite(d_inv_min_obs) || !std::isfinite(d_inv_max_obs) ||
+        (d_inv_max_obs < 0)) {
         can.status = CandidateStatus::OUTLIER;
         return;
     }
 
-    float d_inv_line_search_old = can.d_inv_line_search;
+    float d_inv_old = can.d_inv;
 
-    can.update(d_inv_min, d_inv_max);
+    can.update((d_inv_max_obs + d_inv_min_obs) / 2,
+               std::pow(d_inv_max_obs - d_inv_min_obs, 2));
 
-    if (!std::isinf(can.d_inv)) {
-        float diff = std::abs(can.d_inv / can.d_inv_line_search - 1);
+    if (!std::isinf(can.d_inv_synetic_im)) {
+        float diff = std::abs(can.d_inv_synetic_im / can.d_inv - 1);
         if (diff < 1e-2) {
             can.status = CandidateStatus::IS_MAP_POINT;
-            can.last_search_interval = errorInPixel * 2;
             return;
         }
     }
 
-    if (!std::isinf(d_inv_line_search_old)) {
-        float diff =
-            std::abs(can.d_inv_line_search / d_inv_line_search_old - 1);
-        std::cout << "diff" << diff << '\n';
+    if (!std::isinf(d_inv_old)) {
+        float diff = std::abs(can.d_inv / d_inv_old - 1);
+        // std::cout << "diff" << diff << '\n';
 
         if (diff < 1e-2) {
             can.status = CandidateStatus::NOT_MAP_BUT_CONVERGE;
-            can.last_search_interval = errorInPixel * 2;
             return;
         } else if (diff > 2e-1) {
             can.status = CandidateStatus::OUTLIER;
@@ -392,7 +378,6 @@ void CandidateManager::update_depth_on_old_frame(Candidate& can,
         }
     }
     can.status = CandidateStatus::ILL_CONDITIONED;
-    can.last_search_interval = errorInPixel * 2;
 
     return;
 }
@@ -430,7 +415,7 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
         int cnt = 0;
         for (auto& can : candidate_map[newst_KF]) {
             Eigen::Vector3f position = newst_KF->unproject(
-                Eigen::Vector2i(can.u, can.v), 1.0f / can.d_inv);
+                Eigen::Vector2i(can.u, can.v), 1.0f / can.d_inv_synetic_im);
 
             ++cnt;
             for (int lvl = 0; lvl < lvls; ++lvl) {
@@ -456,7 +441,7 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
                 }
 
                 Eigen::Vector3f P_host = host_frame->unproject(
-                    Eigen::Vector2i(can.u, can.v), can.d_inv_line_search);
+                    Eigen::Vector2i(can.u, can.v), can.d_inv);
 
                 Eigen::Vector3f P_newst_KF = T_newst_host * P_host;
                 Eigen::Vector2f p_newst_KF = newst_KF->project(P_newst_KF);

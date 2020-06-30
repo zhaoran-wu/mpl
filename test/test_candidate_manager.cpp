@@ -146,7 +146,7 @@ int main() {
         // draw after depth update
         for (const auto& can : candidates_updated) {
             Eigen::Vector2i pixle(can.u, can.v);
-            float d_inv = can.d_inv_line_search;
+            float d_inv = can.d_inv;
 
             Eigen::Vector3f P = key_frame->unproject(pixle, 1.0f / d_inv);
             Eigen::Vector2f p = curr_frame->project(in_out_T_curr_KF * P);
@@ -169,10 +169,9 @@ int main() {
             // draw with quality
 
             cv::Scalar color = cv::Scalar(255, 0, 255);
-            if (can.status != CandidateStatus::BAD &&
-                can.last_search_interval < 2.0f) {
-                cv::circle(im_depth_before_after, cv::Point2f(p(0), p(1)),
-                           1000 * (can.d_inv_max - can.d_inv_min), color, 2);
+            if (can.status != CandidateStatus::BAD && can.var < 1e-5f) {
+                cv::circle(im_depth_before_after, cv::Point2f(p(0), p(1)), 1,
+                           color, 2);
             }
         }
 
