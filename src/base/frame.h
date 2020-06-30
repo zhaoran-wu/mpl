@@ -13,7 +13,9 @@ class Frame {
     Frame(const uchar* const row_image_data);
     static Frame::ptr create(cv::Mat image);
     ImagePyramid::ptr getImagePyramid();
+    // T_w_c
     void set_pose(const Sophus::SE3f& pose);
+    // Aff_w_c
     void set_aff_light(const int alpha, const int beta);
     void set_state_curr_lastKF(const Sophus::SE3f& T_curr_lastKF,
                                const AffineLight& aff_light_curr_lastKF);

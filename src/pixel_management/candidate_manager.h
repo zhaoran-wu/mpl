@@ -1,18 +1,27 @@
 #pragma once
 #include "frame.h"
 #include "pixel_selector.h"
+#include "point_cloud_pyramid.h"
 #include <opencv2/core.hpp>
 #include <unordered_map>
 namespace mpl {
 
+/**
+ * @brief the status of candidate in the last search
+ *
+ */
 enum class CandidateStatus {
-    NOT_INITIALIZED,  // do not have benn searched
-    INITIALIZED,   // have been searched at least onece but bot converge so far
-    IS_MAP_POINT,  // d_inv_line_search is converge and close to d_inv after
-                   // some search
+    NOT_INITIALIZED,  // do not have benn searched even once
+    ILL_CONDITIONED,  // epi-polar line direction almost parallel with gradient
+                      // in last search
+    IS_MAP_POINT,     // d_inv_line_search is converge and close to d_inv after
+                      // some search
     NOT_MAP_BUT_CONVERGE,  // d_inv_line_search is converge but not close to
                            // d_inv
-    OUTLIER_OR_OOB         // minimal energy larger than threshold
+    OUTLIER,  // minimal energy larger than threshold, if occur twice --> out of
+              // boundary
+    OOB,      // out of boundary --> to be marginalize
+    BAD       // can not be used
 };
 
 struct Candidate {
@@ -26,6 +35,7 @@ struct Candidate {
     float d_inv_min = 0;
     float d_inv_max = std::numeric_limits<float>::infinity();
     float d_inv_line_search = std::numeric_limits<float>::infinity();
+    float last_search_interval = std::numeric_limits<float>::infinity();
 
     Eigen::Matrix2f structure_mat;
     // bool is_oob = false;  // is oob or outlier
@@ -52,6 +62,8 @@ class CandidateManager {
     void select_candidate(const Frame::ptr frame,
                           const cv::Mat synetic_depth_im);
 
+    PointCloudPyramid::ptr get_point_cloud_pyramid();
+
     std::vector<Candidate> get_candidate(const Frame::ptr frame);
 
    private:
@@ -66,6 +78,7 @@ class CandidateManager {
 
     // map frame ptr to it's candidate
     std::unordered_map<Frame::ptr, std::vector<Candidate>> candidate_map;
+    Frame::ptr newst_KF;
     // add candidate covariance info
     PixelSelector pixle_selector;
 };

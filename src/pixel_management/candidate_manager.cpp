@@ -13,30 +13,30 @@ inline bool is_in_image(CamData& cam, int u, int v) {
     return !(u > 1 && v > 1 && u < cam.width[0] - 2 && cam.height[0] - 2);
 }
 
-void CandidateManager::update_depth_per_frame(const Frame::ptr curr_frame) {
-    Frame::ptr lasfKF = curr_frame->get_ref_frame();
-    Sophus::SE3f T_lastKF_w = lasfKF->get_pose<Sophus::SE3f>();
-    AffineLight aff_lastKF_w = lasfKF->get_aff_light();
+void CandidateManager::update_depth_per_frame(const Frame::ptr new_frame) {
+    Frame::ptr lasfKF = new_frame->get_ref_frame();
+
+    Sophus::SE3f T_new_lastKF = new_frame->get_T_curr_lastKF();
+    Sophus::SE3f T_w_lastKF = lasfKF->get_pose<Sophus::SE3f>();
+    Sophus::SE3f T_new_w = T_new_lastKF * T_w_lastKF.inverse();
+
+    AffineLight aff_w_lastKF = lasfKF->get_aff_light();
+    AffineLight aff_new_lastKF = new_frame->get_aff_curr_lastKF();
+    AffineLight aff_w_new =
+        AffineLight::calc_dst_global_aff(aff_w_lastKF, aff_new_lastKF);
 
     for (auto it = candidate_map.begin(); it != candidate_map.end(); ++it) {
         Frame::ptr old_frame = it->first;
-        if (old_frame == curr_frame) continue;
+        if (old_frame == new_frame) continue;
 
-        Sophus::SE3f T_old_w = old_frame->get_pose<Sophus::SE3f>();
+        SE3f T_w_old = old_frame->get_pose<SE3f>().inverse();
+        SE3f T_new_old = T_new_w * T_w_old;
 
-        SE3f T_old_lastKF = T_old_w * T_lastKF_w.inverse();
-        SE3f T_curr_old =
-            curr_frame->get_T_curr_lastKF() * T_old_lastKF.inverse();
-
-        AffineLight aff_curr = AffineLight::calc_dst_global_aff(
-            lasfKF->get_aff_light(), curr_frame->get_aff_curr_lastKF());
-
-        AffineLight aff_curr_old = AffineLight::calc_aff_map_src_to_dst(
-            old_frame->get_aff_light(), aff_curr);
+        AffineLight aff_new_old = AffineLight::calc_aff_map_src_to_dst(
+            old_frame->get_aff_light(), aff_w_new);
 
         for (auto& can : it->second) {
-            update_depth_on_old_frame(can, T_curr_old, aff_curr_old,
-                                      curr_frame);
+            update_depth_on_old_frame(can, T_new_old, aff_new_old, new_frame);
         }
     }
 }
@@ -62,7 +62,7 @@ void CandidateManager::select_candidate(const Frame::ptr frame,
         calc_structure_mat(frame, can);
         candidate_vec.push_back(can);
     }
-
+    newst_KF = frame;
     candidate_map[frame] = candidate_vec;
 }
 
@@ -120,17 +120,17 @@ std::vector<Candidate> CandidateManager::get_candidate(const Frame::ptr frame) {
 }
 
 void CandidateManager::update_depth_on_old_frame(Candidate& can,
-                                                 const Sophus::SE3f T_curr_old,
-                                                 const AffineLight aff_curr_old,
-                                                 Frame::ptr curr_frame) {
-    if (can.status == CandidateStatus::OUTLIER_OR_OOB) return;
+                                                 const Sophus::SE3f T_new_old,
+                                                 const AffineLight aff_new_old,
+                                                 Frame::ptr new_frame) {
+    if (can.status == CandidateStatus::OOB) return;
 
     auto& cam = CamData::getInstance();
 
-    Matrix3f KRKinv = cam.K[0] * T_curr_old.rotationMatrix() * cam.K_inv[0];
-    Vector3f Kt = cam.K[0] * T_curr_old.translation();
+    Matrix3f KRKinv = cam.K[0] * T_new_old.rotationMatrix() * cam.K_inv[0];
+    Vector3f Kt = cam.K[0] * T_new_old.translation();
 
-    float max_search_range = (cam.width[0] + cam.height[0]) * 0.03f;
+    float max_search_range = (cam.width[0] + cam.height[0]) * 0.04f;
     Vector3f pR = KRKinv * Vector3f(can.u, can.v, 1);
     Vector3f p_far = pR + Kt * can.d_inv_min;
 
@@ -138,28 +138,29 @@ void CandidateManager::update_depth_on_old_frame(Candidate& can,
     float v_far = p_far.hnormalized()(1);
 
     if (is_in_image(cam, u_far, v_far)) {
-        can.status = CandidateStatus::OUTLIER_OR_OOB;
+        can.status = CandidateStatus::OOB;
         return;
     }
 
     float dist, u_near, v_near;
     Vector3f p_near;
-    if (can.status == CandidateStatus::INITIALIZED) {
+    if (can.status != CandidateStatus::NOT_INITIALIZED) {
         p_near = pR + Kt * can.d_inv_max;
         u_near = p_near.hnormalized()(0);
         v_near = p_near.hnormalized()(1);
 
         if (is_in_image(cam, u_far, v_far)) {
-            can.status = CandidateStatus::OUTLIER_OR_OOB;
+            can.status = CandidateStatus::OOB;
             return;
         }
 
         // ============== check their distance. everything below 2px is OK (->
         // skip). ===================
         dist = (p_far - p_near).head(2).norm();
-        if (dist < 0.5f) {
+        if (dist < 2.0f) {
+            can.last_search_interval = 0;
             if (!isinf(can.d_inv) &&
-                (std::abs(can.d_inv_line_search / can.d_inv - 1) < 6e-2)) {
+                (std::abs(can.d_inv_line_search / can.d_inv - 1) < 5e-2)) {
                 can.status = CandidateStatus::IS_MAP_POINT;
                 return;
             }
@@ -183,14 +184,14 @@ void CandidateManager::update_depth_on_old_frame(Candidate& can,
 
         // may still be out!
         if (is_in_image(cam, u_far, v_far)) {
-            can.status = CandidateStatus::OUTLIER_OR_OOB;
+            can.status = CandidateStatus::OOB;
             return;
         }
     }
 
     // set OOB if scale change too big.
-    if (!(can.d_inv_min < 0 || (p_far[2] > 0.75 && p_far[2] < 1.5))) {
-        can.status = CandidateStatus::OUTLIER_OR_OOB;
+    if (!(can.d_inv_min < 0 || (p_far[2] > 0.5 && p_far[2] < 1.5))) {
+        can.status = CandidateStatus::OOB;
         return;
     }
 
@@ -204,12 +205,18 @@ void CandidateManager::update_depth_on_old_frame(Candidate& can,
     float b =
         (Vector2f(dy, -dx).transpose() * can.structure_mat * Vector2f(dy, -dx));
     float errorInPixel = 0.2f + 0.2f * (a + b) / a;
-
-    if (errorInPixel * 2 > dist && std::isfinite(can.d_inv_max)) {
+    std::cout << "error in pixle " << errorInPixel << "      dist " << dist
+              << '\n';
+    if (errorInPixel > 0.5 * dist && std::isfinite(can.d_inv_max)) {
+        can.status = CandidateStatus::ILL_CONDITIONED;
         return;
     }
 
-    if (errorInPixel > 10) errorInPixel = 10;
+    if (errorInPixel > 10) {
+        errorInPixel = 10;
+        can.last_search_interval = 2 * errorInPixel;
+        return;
+    }
 
     // ============== do the discrete search ===================
     dx /= dist;
@@ -234,14 +241,14 @@ void CandidateManager::update_depth_on_old_frame(Candidate& can,
             Rplane * Vector2f(pattern[idx][0], pattern[idx][1]);
 
     if (!std::isfinite(dx) || !std::isfinite(dy)) {
-        can.status = CandidateStatus::OUTLIER_OR_OOB;
+        can.status = CandidateStatus::OUTLIER;
         return;
     }
 
     float bestU = 0, bestV = 0, bestEnergy = 1e10;
     if (numSteps >= 100) numSteps = 99;
 
-    auto image_pyramid = curr_frame->getImagePyramid();
+    auto image_pyramid = new_frame->getImagePyramid();
     for (int i = 0; i < numSteps; i++) {
         float energy = 0;
         for (int idx = 0; idx < 8; idx++) {
@@ -253,8 +260,8 @@ void CandidateManager::update_depth_on_old_frame(Candidate& can,
                 continue;
             }
             float residual =
-                hitColor - (float)(exp(aff_curr_old.alpha()) * can.color[idx] +
-                                   aff_curr_old.beta());
+                hitColor - (float)(exp(aff_new_old.alpha()) * can.color[idx] +
+                                   aff_new_old.beta());
             float hw = fabs(residual) < 15 ? 1 : 15 / fabs(residual);
             energy += hw * residual * residual * (2 - hw);
         }
@@ -273,7 +280,7 @@ void CandidateManager::update_depth_on_old_frame(Candidate& can,
     float uBak = bestU, vBak = bestV, gnstepsize = 1, stepBack = 0;
     bestEnergy = 1e5;
     int gnStepsGood = 0, gnStepsBad = 0;
-    auto im_pyramid = *(curr_frame->getImagePyramid());
+    auto im_pyramid = *(new_frame->getImagePyramid());
     for (int it = 0; it < 3; it++) {
         float H = 1, b = 0, energy = 0;
         for (int idx = 0; idx < 8; idx++) {
@@ -285,8 +292,8 @@ void CandidateManager::update_depth_on_old_frame(Candidate& can,
                 continue;
             }
             float residual = im_pyramid(0, u, v) -
-                             (exp(aff_curr_old.alpha()) * can.color[idx] +
-                              aff_curr_old.beta());
+                             (exp(aff_new_old.alpha()) * can.color[idx] +
+                              aff_new_old.beta());
             float dResdDist =
                 dx * im_pyramid.dx(0, u, v) + dy * im_pyramid.dy(0, u, v);
             float hw = fabs(residual) < 15 ? 1 : 15 / fabs(residual);
@@ -327,13 +334,15 @@ void CandidateManager::update_depth_on_old_frame(Candidate& can,
         if (fabsf(stepBack) < 0.1) break;
     }
 
-    std::cout << bestEnergy << " @@@@@@@@@" << '\n';
     if (!(bestEnergy < 30.f)) {
-        can.status = CandidateStatus::OUTLIER_OR_OOB;
+        can.status = (can.status == CandidateStatus::OUTLIER)
+                         ? CandidateStatus::OOB
+                         : CandidateStatus::OUTLIER;
         return;
     }
 
     // ============== set new interval ===================
+    // dx here is cos , dy is sin
     if (dx * dx > dy * dy) {
         can.d_inv_min = (pR[2] * (bestU - errorInPixel * dx) - pR[0]) /
                         (Kt[0] - Kt[2] * (bestU - errorInPixel * dx));
@@ -350,30 +359,39 @@ void CandidateManager::update_depth_on_old_frame(Candidate& can,
 
     if (!std::isfinite(can.d_inv_min) || !std::isfinite(can.d_inv_max) ||
         (can.d_inv_max < 0)) {
-        can.status = CandidateStatus::OUTLIER_OR_OOB;
+        can.status = CandidateStatus::OUTLIER;
         return;
     }
 
     float d_inv_line_search_old = can.d_inv_line_search;
     can.d_inv_line_search = (can.d_inv_max + can.d_inv_min) / 2;
 
-    if (!std::isinf(can.d_inv) &&
-        std::abs(can.d_inv / can.d_inv_line_search - 1) < 6e-2) {
-        /*         std::cout << "@@@@@@@@@d : " << 1 / can.d_inv << '\n';
-                std::cout << "@@@@@@@@@d_line : " << 1 / can.d_inv_line_search
-           << '\n' */
-        ;
-        can.status = CandidateStatus::IS_MAP_POINT;
-        return;
+    if (!std::isinf(can.d_inv)) {
+        float diff = std::abs(can.d_inv / can.d_inv_line_search - 1);
+        if (diff < 1e-2) {
+            can.status = CandidateStatus::IS_MAP_POINT;
+            can.last_search_interval = errorInPixel * 2;
+            return;
+        }
     }
 
-    if (!std::isinf(d_inv_line_search_old) &&
-        std::abs(can.d_inv_line_search / d_inv_line_search_old - 1) < 6e-2) {
-        can.status = CandidateStatus::NOT_MAP_BUT_CONVERGE;
-        return;
-    }
+    if (!std::isinf(d_inv_line_search_old)) {
+        float diff =
+            std::abs(can.d_inv_line_search / d_inv_line_search_old - 1);
+        std::cout << "diff" << diff << '\n';
 
-    can.status = CandidateStatus::INITIALIZED;
+        if (diff < 1e-2) {
+            can.status = CandidateStatus::NOT_MAP_BUT_CONVERGE;
+            can.last_search_interval = errorInPixel * 2;
+            return;
+        } else if (diff > 2e-1) {
+            can.status = CandidateStatus::OUTLIER;
+            return;
+        }
+    }
+    can.status = CandidateStatus::ILL_CONDITIONED;
+    can.last_search_interval = errorInPixel * 2;
+
     return;
 }
 
@@ -392,7 +410,7 @@ void CandidateManager::calc_structure_mat(Frame::ptr host_frame,
 
         can.color[idx] = ip->operator()(0, u, v);
         can.structure_mat += dxdy * dxdy.transpose();
-        float w = -std::sqrt(std::pow(can.color[idx] - can.color[0], 2) / 500);
+        float w = -std::sqrt(std::pow(can.color[idx] - can.color[0], 2) / 800);
         can.weight[idx] = exp(w);
         sum += can.weight[idx];
     }
@@ -402,4 +420,59 @@ void CandidateManager::calc_structure_mat(Frame::ptr host_frame,
     }
 }
 
+PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
+    PointCloudPyramid::ptr pcp(new PointCloudPyramid);
+    const int lvls = pcp->lvls();
+
+    if (candidate_map.size() == 1) {
+        int cnt = 0;
+        for (auto& can : candidate_map[newst_KF]) {
+            Eigen::Vector3f position = newst_KF->unproject(
+                Eigen::Vector2i(can.u, can.v), 1.0f / can.d_inv);
+
+            ++cnt;
+            for (int lvl = 0; lvl < lvls; ++lvl) {
+                if ((lvl != 0 && cnt % lvl == 0) || lvl == 0) {
+                    (*pcp)[lvl].emplace_back(position, can.color[0]);
+                }
+            }
+        }
+    } else {
+        auto& cam = CamData::getInstance();
+        for (auto it = candidate_map.begin(); it != candidate_map.end(); ++it) {
+            Frame::ptr host_frame = it->first;
+            if (host_frame == newst_KF) continue;
+            auto candidates = it->second;
+            SE3f T_host = host_frame->get_pose<SE3f>();
+            SE3f T_newst = newst_KF->get_pose<SE3f>();
+            SE3f T_newst_host = T_newst.inverse() * T_host;
+            for (auto& can : candidates) {
+                // todo
+                if (can.status == CandidateStatus::ILL_CONDITIONED ||
+                    can.status == CandidateStatus::OUTLIER) {
+                    continue;
+                }
+
+                Eigen::Vector3f P_host = host_frame->unproject(
+                    Eigen::Vector2i(can.u, can.v), can.d_inv_line_search);
+
+                Eigen::Vector3f P_newst_KF = T_newst_host * P_host;
+                Eigen::Vector2f p_newst_KF = newst_KF->project(P_newst_KF);
+
+                if (!is_in_image(cam, p_newst_KF(0), p_newst_KF(1))) {
+                    continue;
+                }
+
+                int cnt = 0;
+                for (int lvl = 0; lvl < lvls; ++lvl) {
+                    if ((lvl != 0 && cnt % lvl == 0) || lvl == 0) {
+                        (*pcp)[lvl].emplace_back(P_newst_KF, can.color[0]);
+                    }
+                }
+            }
+        }
+    }
+
+    return pcp;
+}
 }  // namespace mpl

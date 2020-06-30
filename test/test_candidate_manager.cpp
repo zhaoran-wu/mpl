@@ -30,7 +30,7 @@ int main() {
     std::string data_path = "/home/zhaoran/dataset/KITTI/sequences/00/image_0/";
     std::vector<cv::Mat> img_vec;
     std::vector<cv::Mat> img_draw_vec;
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < 8; ++i) {
         int im_id = 80 + i;
         string im_name = (im_id < 100) ? "0000" + to_string(im_id) + ".png"
                                        : "000" + to_string(im_id) + ".png";
@@ -60,22 +60,22 @@ int main() {
     std::vector<Candidate> candidates = cm.get_candidate(key_frame);
 
     // generate depth map pyramid
-    int lvls = config.PYRAMID_LVLS;
-    std::vector<cv::Mat> depth_pyramid;
-    for (int i = 0; i < lvls; ++i) {
-        if (i == 0) {
-            depth_pyramid.push_back(depth_im);
-            cv::imshow("depth", depth_im);
-            cv::waitKey(0);
-            continue;
-        }
-        cv::Mat tmp(cam.height[i], cam.width[i], CV_16U);
-        cv::resize(depth_im, tmp, cv::Size(cam.width[i], cam.height[i]));
-        depth_pyramid.push_back(tmp);
-    }
+    /*     int lvls = config.PYRAMID_LVLS;
+        std::vector<cv::Mat> depth_pyramid;
+        for (int i = 0; i < lvls; ++i) {
+            if (i == 0) {
+                depth_pyramid.push_back(depth_im);
+                cv::imshow("depth", depth_im);
+                cv::waitKey(0);
+                continue;
+            }
+            cv::Mat tmp(cam.height[i], cam.width[i], CV_16U);
+            cv::resize(depth_im, tmp, cv::Size(cam.width[i], cam.height[i]));
+            depth_pyramid.push_back(tmp);
+        } */
 
     // generate pointcloud pyramid
-    cv::Mat key_frame_vis = img_draw_vec[0];
+    /* cv::Mat key_frame_vis = img_draw_vec[0];
     PointCloudPyramid::ptr pcp(new PointCloudPyramid);
     for (int lvl = 0; lvl < lvls; ++lvl) {
         for (size_t i = 0; i < candidates.size(); ++i) {
@@ -111,8 +111,9 @@ int main() {
                 lvl, candidates[i].u >> (lvl), candidates[i].v >> (lvl));
             (*pcp)[lvl].push_back(Voxel(p3d, intensity));
         }
-    }
+    } */
 
+    PointCloudPyramid::ptr pcp = cm.get_point_cloud_pyramid();
     Tracker tracker;
     tracker.set_tracking_ref(key_frame, pcp);
 
@@ -120,10 +121,8 @@ int main() {
                                                  Eigen::Vector3f(0, 0, -0.5));
     AffineLight in_out_aff_light_curr_KF(0, 0);
 
-    cv::imshow("KF", key_frame_vis);
-
     // draw candidates before and after tracking
-    for (int i = 1; i < 5; ++i) {
+    for (int i = 1; i < 8; ++i) {
         Frame::ptr curr_frame = Frame::create(img_vec[i]);
 
         Sophus::SE3f old_T_curr_KF = in_out_T_curr_KF;
@@ -131,8 +130,7 @@ int main() {
         tracker.tracking(curr_frame, in_out_T_curr_KF,
                          in_out_aff_light_curr_KF);
 
-        cv::Mat im_to_vis = img_draw_vec[i];
-        cv::Mat im_depth_before_after = im_to_vis.clone();
+        cv::Mat im_depth_before_after = img_draw_vec[i].clone();
 
         // draw before depth update
         /*         for (const auto& can : candidates) {
@@ -152,23 +150,36 @@ int main() {
 
             Eigen::Vector3f P = key_frame->unproject(pixle, 1.0f / d_inv);
             Eigen::Vector2f p = curr_frame->project(in_out_T_curr_KF * P);
+            // draw with status
+            /*             cv::Scalar color;
+                        if (can.status == CandidateStatus::IS_MAP_POINT) {
+                            color = cv::Scalar(255, 0, 0);  // blue
+                        } else if (can.status ==
+               CandidateStatus::NOT_MAP_BUT_CONVERGE) { color = cv::Scalar(0,
+               255, 0);  // green } else if (can.status ==
+               CandidateStatus::INITIALIZED) { color = cv::Scalar(0, 0, 255); //
+               red } else if (can.status == CandidateStatus::OOB) { color =
+               cv::Scalar(0, 255, 255);  // yellow } else { color =
+               cv::Scalar(255, 0, 255);
+                        }
 
-            cv::Scalar color;
-            if (can.status == CandidateStatus::IS_MAP_POINT) {
-                color = cv::Scalar(255, 0, 0);  // blue
-            } else if (can.status == CandidateStatus::NOT_MAP_BUT_CONVERGE) {
-                color = cv::Scalar(0, 255, 0);  // green
-            } else if (can.status == CandidateStatus::INITIALIZED) {
-                color = cv::Scalar(0, 0, 255);  // red
-            } else {
-                color = cv::Scalar(0, 255, 255);  // yellow
+                        cv::circle(im_depth_before_after, cv::Point2f(p(0),
+               p(1)), 1, color, 2); */
+
+            // draw with quality
+
+            cv::Scalar color = cv::Scalar(255, 0, 255);
+            if (can.status != CandidateStatus::OUTLIER &&
+                can.last_search_interval < 3.0f) {
+                cv::circle(im_depth_before_after, cv::Point2f(p(0), p(1)), 1,
+                           color, 2);
             }
-
-            cv::circle(im_depth_before_after, cv::Point2f(p(0), p(1)), 1, color,
-                       2);
         }
 
         // draw before after optimization
+
+        cv::Mat im_to_vis = img_draw_vec[i];
+        cv::Mat key_frame_vis = img_draw_vec[0];
         for (auto& pcd : pcp->operator[](0)) {
             Eigen::Vector3f point = in_out_T_curr_KF * pcd.position;
             Eigen::Vector3f point_before_optimization =
@@ -176,13 +187,19 @@ int main() {
             Eigen::Vector2f hit_pixel = curr_frame->project(point);
             Eigen::Vector2f hit_pixel_no_op =
                 curr_frame->project(point_before_optimization);
+
+            Eigen::Vector2f candidate = key_frame->project(pcd.position);
+
+            cv::circle(key_frame_vis, cv::Point2f(candidate(0), candidate(1)),
+                       1, cv::Scalar(0, 0, 255), 2);
+
             cv::circle(im_to_vis,
                        cv::Point2f(hit_pixel_no_op(0), hit_pixel_no_op(1)), 1,
                        cv::Scalar(0, 0, 255), 2);
             cv::circle(im_to_vis, cv::Point2f(hit_pixel(0), hit_pixel(1)), 1,
                        cv::Scalar(0, 255, 0), 2);
         }
-
+        cv::imshow("KF", key_frame_vis);
         cv::imshow("curr_frame", im_to_vis);
         cv::imshow("depth update", im_depth_before_after);
         cv::waitKey(0);

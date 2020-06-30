@@ -39,6 +39,7 @@ class AffineLight {
                                                const AffineLight& dst);
 
     // calc absolute affine param of dst
+    // dst_src: Aff param map src to dst
     static AffineLight calc_dst_global_aff(const AffineLight& src,
                                            const AffineLight& dst_src);
 
