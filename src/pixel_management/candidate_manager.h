@@ -37,6 +37,8 @@ struct Candidate {
     float d_inv_line_search = std::numeric_limits<float>::infinity();
     float last_search_interval = std::numeric_limits<float>::infinity();
 
+    void update(float d_inv_min, float d_inv_max);
+
     Eigen::Matrix2f structure_mat;
     // bool is_oob = false;  // is oob or outlier
     bool is_depth_safe =
@@ -82,4 +84,26 @@ class CandidateManager {
     // add candidate covariance info
     PixelSelector pixle_selector;
 };
+
+inline void Candidate::update(float d_inv_min_obs, float d_inv_max_obs) {
+    assert(std::isfinite(d_inv_max_obs) && std::isfinite(d_inv_min_obs));
+
+    if (!std::isfinite(d_inv_line_search)) {
+        d_inv_min = d_inv_min_obs;
+        d_inv_max = d_inv_max_obs;
+        d_inv_line_search = (d_inv_max + d_inv_min) / 2;
+        return;
+    }
+
+    float var = std::pow(d_inv_max_obs - d_inv_min_obs, 2);
+    float obs = (d_inv_max_obs + d_inv_min_obs) / 2;
+
+    float var_old = std::pow(d_inv_max - d_inv_min, 2);
+    float var_new = var * var_old / (var + var_old);
+
+    d_inv_line_search =
+        (d_inv_line_search * var + obs * var_old) / (var + var_old);
+    d_inv_min = d_inv_line_search - sqrt(var_new);
+    d_inv_max = d_inv_line_search + sqrt(var_new);
+}
 }  // namespace mpl

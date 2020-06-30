@@ -144,7 +144,7 @@ void CandidateManager::update_depth_on_old_frame(Candidate& can,
 
     float dist, u_near, v_near;
     Vector3f p_near;
-    if (can.status != CandidateStatus::NOT_INITIALIZED) {
+    if (std::isfinite(can.d_inv_max)) {
         p_near = pR + Kt * can.d_inv_max;
         u_near = p_near.hnormalized()(0);
         v_near = p_near.hnormalized()(1);
@@ -206,6 +206,7 @@ void CandidateManager::update_depth_on_old_frame(Candidate& can,
         (Vector2f(dy, -dx).transpose() * can.structure_mat * Vector2f(dy, -dx));
     float errorInPixel = 0.2f + 0.2f * (a + b) / a;
     std::cout << "error in pixle " << errorInPixel << "      dist " << dist
+              << "     last search interval " << can.last_search_interval
               << '\n';
     if (errorInPixel > 0.5 * dist && std::isfinite(can.d_inv_max)) {
         can.status = CandidateStatus::ILL_CONDITIONED;
@@ -334,7 +335,7 @@ void CandidateManager::update_depth_on_old_frame(Candidate& can,
         if (fabsf(stepBack) < 0.1) break;
     }
 
-    if (!(bestEnergy < 30.f)) {
+    if (!(bestEnergy < 20.f)) {
         can.status = (can.status == CandidateStatus::OUTLIER)
                          ? CandidateStatus::OOB
                          : CandidateStatus::OUTLIER;
@@ -343,28 +344,29 @@ void CandidateManager::update_depth_on_old_frame(Candidate& can,
 
     // ============== set new interval ===================
     // dx here is cos , dy is sin
+    float d_inv_min, d_inv_max;
     if (dx * dx > dy * dy) {
-        can.d_inv_min = (pR[2] * (bestU - errorInPixel * dx) - pR[0]) /
-                        (Kt[0] - Kt[2] * (bestU - errorInPixel * dx));
-        can.d_inv_max = (pR[2] * (bestU + errorInPixel * dx) - pR[0]) /
-                        (Kt[0] - Kt[2] * (bestU + errorInPixel * dx));
+        d_inv_min = (pR[2] * (bestU - errorInPixel * dx) - pR[0]) /
+                    (Kt[0] - Kt[2] * (bestU - errorInPixel * dx));
+        d_inv_max = (pR[2] * (bestU + errorInPixel * dx) - pR[0]) /
+                    (Kt[0] - Kt[2] * (bestU + errorInPixel * dx));
     } else {
-        can.d_inv_min = (pR[2] * (bestV - errorInPixel * dy) - pR[1]) /
-                        (Kt[1] - Kt[2] * (bestV - errorInPixel * dy));
-        can.d_inv_max = (pR[2] * (bestV + errorInPixel * dy) - pR[1]) /
-                        (Kt[1] - Kt[2] * (bestV + errorInPixel * dy));
+        d_inv_min = (pR[2] * (bestV - errorInPixel * dy) - pR[1]) /
+                    (Kt[1] - Kt[2] * (bestV - errorInPixel * dy));
+        d_inv_max = (pR[2] * (bestV + errorInPixel * dy) - pR[1]) /
+                    (Kt[1] - Kt[2] * (bestV + errorInPixel * dy));
     }
-    if (can.d_inv_min > can.d_inv_max)
-        std::swap<float>(can.d_inv_max, can.d_inv_min);
+    if (d_inv_min > d_inv_max) std::swap<float>(d_inv_max, d_inv_min);
 
-    if (!std::isfinite(can.d_inv_min) || !std::isfinite(can.d_inv_max) ||
-        (can.d_inv_max < 0)) {
+    if (!std::isfinite(d_inv_min) || !std::isfinite(d_inv_max) ||
+        (d_inv_max < 0)) {
         can.status = CandidateStatus::OUTLIER;
         return;
     }
 
     float d_inv_line_search_old = can.d_inv_line_search;
-    can.d_inv_line_search = (can.d_inv_max + can.d_inv_min) / 2;
+
+    can.update(d_inv_min, d_inv_max);
 
     if (!std::isinf(can.d_inv)) {
         float diff = std::abs(can.d_inv / can.d_inv_line_search - 1);
