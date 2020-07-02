@@ -11,14 +11,8 @@ PointCloudPyramid::PointCloudPyramid(
     cv::Mat rendered_depth, const std::vector<Candidate>& semi_dense_depth) {
     auto& config = Config::getInstance();
     pyramid_.resize(config.PYRAMID_LVLS);
-
-    generate_pyramid(rendered_depth, semi_dense_depth);
 }
 
-void PointCloudPyramid::generate_pyramid(
-    cv::Mat rendered_depth, const std::vector<Candidate>& semi_dense_depth) {
-    // todo we don't need rendered depth here
-}
 PointCloud& PointCloudPyramid::operator[](const int lvl) {
     return pyramid_[lvl];
 }
