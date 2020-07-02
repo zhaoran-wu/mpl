@@ -9,8 +9,9 @@ using namespace std;
 using namespace Eigen;
 using namespace Sophus;
 
-inline bool is_in_image(CamData& cam, int u, int v) {
-    return !(u > 1 && v > 1 && u < cam.width[0] - 2 && cam.height[0] - 2);
+inline bool is_in_img(CamData& cam, const Eigen::Vector2f& p) {
+    return (p(0) > 1 && p(1) > 1 && p(0) < cam.width[0] - 2 &&
+            p(1) < cam.height[0] - 2);
 }
 
 void CandidateManager::update_depth_per_frame(const Frame::ptr new_frame) {
@@ -132,226 +133,93 @@ void CandidateManager::update_depth_on_old_frame(Candidate& can,
     Matrix3f KRKinv = cam.K[0] * T_new_old.rotationMatrix() * cam.K_inv[0];
     Vector3f Kt = cam.K[0] * T_new_old.translation();
 
-    float max_search_range = (cam.width[0] + cam.height[0]) * 0.04f;
     Vector3f pR = KRKinv * Vector3f(can.u, can.v, 1);
-    float d_inv_min = can.get_d_inv_min();
-    Vector3f p_far = pR + Kt * d_inv_min;
 
-    float u_far = p_far.hnormalized()(0);
-    float v_far = p_far.hnormalized()(1);
+    // get search area
+    auto p_near_p_far = get_search_range(can, pR, Kt);
+    const auto& p_near = p_near_p_far.first;
+    const auto& p_far = p_near_p_far.second;
 
-    if (is_in_image(cam, u_far, v_far)) {
+    if (!is_in_img(cam, p_near) || !is_in_img(cam, p_far)) {
         can.status = (can.status == CandidateStatus::NOT_INITIALIZED)
                          ? CandidateStatus::BAD
                          : CandidateStatus::OOB;
         return;
     }
 
-    float dist, u_near, v_near;
-    Vector3f p_near;
-    if (can.status != CandidateStatus::NOT_INITIALIZED) {
-        p_near = pR + Kt * can.get_d_inv_max();
-        u_near = p_near.hnormalized()(0);
-        v_near = p_near.hnormalized()(1);
-
-        if (is_in_image(cam, u_far, v_far)) {
-            can.status = CandidateStatus::OOB;
-            return;
-        }
-
-        dist = (p_far - p_near).head(2).norm();
-
-    } else {
-        dist = max_search_range;
-
-        // project to arbitrary depth to get direction.
-        p_near = pR + Kt * 0.01f;
-        u_near = p_near.hnormalized()(0);
-        v_near = p_near.hnormalized()(1);
-
-        // direction.
-        float d = 1.0f / (p_far - p_near).head(2).norm();
-
-        u_near = u_far + dist * (u_near - u_far) * d;
-        v_near = v_far + dist * (v_near - v_far) * d;
-
-        // may still be out!
-        if (is_in_image(cam, u_near, v_near)) {
-            can.status = (can.status == CandidateStatus::NOT_INITIALIZED)
-                             ? CandidateStatus::BAD
-                             : CandidateStatus::OOB;
-            return;
-        }
+    // calc corrected pattern
+    Matrix2f Rplane = KRKinv.topLeftCorner<2, 2>();
+    Vector2f rotatetPattern[8];
+    for (int idx = 0; idx < 8; idx++) {
+        rotatetPattern[idx] =
+            Rplane * Vector2f(pattern[idx][0], pattern[idx][1]);
     }
 
-    // set OOB if scale change too big.
-    if (!(d_inv_min < -1e-10 || (p_far[2] > 0.5 && p_far[2] < 1.5))) {
-        can.status = CandidateStatus::OOB;
+    // line search
+    float u_best, v_best;
+    float energy_best = line_search(u_best, v_best, can, new_frame, p_near,
+                                    p_far, rotatetPattern, aff_new_old);
+
+    if (!(energy_best < 50.f)) {
+        if (can.status == CandidateStatus::NOT_INITIALIZED) {
+            can.status = CandidateStatus::BAD;
+        } else {
+            can.status = (can.status == CandidateStatus::OUTLIER)
+                             ? CandidateStatus::OOB
+                             : CandidateStatus::OUTLIER;
+        }
         return;
     }
 
-    // ============== compute error-bounds on result in pixel. if the new
-    // interval is not at least 1/2 of the old, SKIP ===================
-    float dx = u_near - u_far;
-    float dy = v_near - v_far;
+    // optimization
+    Vector2f vec_far_to_near = p_near - p_far;
+    Vector2f direction = vec_far_to_near.normalized();
+    float energy_best_optimize = optimize(
+        u_best, v_best, can, direction, new_frame, rotatetPattern, aff_new_old);
+    std::cout << can.u << "   " << can.v << "    best u : " << u_best
+              << "  v_best : " << v_best << "   energy before :" << energy_best
+              << "    energy after : " << energy_best_optimize << '\n';
 
+    // update
+    update(u_best, v_best, can, direction, pR, Kt);
+}
+
+void CandidateManager::update(const float u_best, const float v_best,
+                              Candidate& can, const Eigen::Vector2f& direction,
+                              const Eigen::Vector3f& pR,
+                              const Eigen::Vector3f& Kt) {
+    float dx = direction(0);
+    float dy = direction(1);
     float a =
         (Vector2f(dx, dy).transpose() * can.structure_mat * Vector2f(dx, dy));
     float b =
         (Vector2f(dy, -dx).transpose() * can.structure_mat * Vector2f(dy, -dx));
     float errorInPixel = 0.2f + 0.2f * (a + b) / a;
 
-    if (errorInPixel > 0.5 * dist) {
-        can.status = CandidateStatus::ILL_CONDITIONED;
-        return;
-    }
-
-    // ============== do the discrete search ===================
-    dx /= dist;
-    dy /= dist;
-
-    if (dist > max_search_range) {
-        u_near = u_far + max_search_range * dx;
-        v_near = v_far + max_search_range * dy;
-        dist = max_search_range;
-    }
-
-    int numSteps = 1.9999f + dist;
-    Matrix2f Rplane = KRKinv.topLeftCorner<2, 2>();
-
-    float randShift = u_far * 1000 - floorf(u_far * 1000);
-    float ptx = u_far - randShift * dx;
-    float pty = v_far - randShift * dy;
-
-    Vector2f rotatetPattern[8];
-    for (int idx = 0; idx < 8; idx++)
-        rotatetPattern[idx] =
-            Rplane * Vector2f(pattern[idx][0], pattern[idx][1]);
-
-    if (!std::isfinite(dx) || !std::isfinite(dy)) {
-        can.status = CandidateStatus::OUTLIER;
-        return;
-    }
-
-    float bestU = 0, bestV = 0, bestEnergy = 1e10;
-    if (numSteps >= 100) numSteps = 99;
-
-    auto image_pyramid = new_frame->getImagePyramid();
-    for (int i = 0; i < numSteps; i++) {
-        float energy = 0;
-        for (int idx = 0; idx < 8; idx++) {
-            float hitColor = image_pyramid->operator()(
-                0, ptx + rotatetPattern[idx][0], pty + rotatetPattern[idx][1]);
-
-            if (!std::isfinite(hitColor)) {
-                energy += 1e5;
-                continue;
-            }
-            float residual =
-                hitColor - (float)(exp(aff_new_old.alpha()) * can.color[idx] +
-                                   aff_new_old.beta());
-            float hw = fabs(residual) < 15 ? 1 : 15 / fabs(residual);
-            energy += hw * residual * residual * (2 - hw);
-        }
-
-        if (energy < bestEnergy) {
-            bestU = ptx;
-            bestV = pty;
-            bestEnergy = energy;
-        }
-
-        ptx += dx;
-        pty += dy;
-    }
-
-    // ============== do GN optimization ===================
-    float uBak = bestU, vBak = bestV, gnstepsize = 1, stepBack = 0;
-    bestEnergy = 1e5;
-    int gnStepsGood = 0, gnStepsBad = 0;
-    auto im_pyramid = *(new_frame->getImagePyramid());
-    for (int it = 0; it < 3; it++) {
-        float H = 1, b = 0, energy = 0;
-        for (int idx = 0; idx < 8; idx++) {
-            float u = bestU + rotatetPattern[idx][0];
-            float v = bestV + rotatetPattern[idx][1];
-
-            if (!std::isfinite(im_pyramid(0, u, v))) {
-                energy += 1e5;
-                continue;
-            }
-            float residual = im_pyramid(0, u, v) -
-                             (exp(aff_new_old.alpha()) * can.color[idx] +
-                              aff_new_old.beta());
-            float dResdDist =
-                dx * im_pyramid.dx(0, u, v) + dy * im_pyramid.dy(0, u, v);
-            float hw = fabs(residual) < 15 ? 1 : 15 / fabs(residual);
-
-            H += hw * dResdDist * dResdDist;
-            b += hw * residual * dResdDist;
-            energy += can.weight[idx] * can.weight[idx] * hw * residual *
-                      residual * (2 - hw);
-        }
-
-        if (energy > bestEnergy) {
-            gnStepsBad++;
-
-            // do a smaller step from old point.
-            stepBack *= 0.5;
-            bestU = uBak + stepBack * dx;
-            bestV = vBak + stepBack * dy;
-        } else {
-            gnStepsGood++;
-
-            float step = -gnstepsize * b / H;
-            if (step < -0.5)
-                step = -0.5;
-            else if (step > 0.5)
-                step = 0.5;
-
-            if (!std::isfinite(step)) step = 0;
-
-            uBak = bestU;
-            vBak = bestV;
-            stepBack = step;
-
-            bestU += step * dx;
-            bestV += step * dy;
-            bestEnergy = energy;
-        }
-
-        if (fabsf(stepBack) < 0.1) break;
-    }
-
-    if (!(bestEnergy < 200.f)) {
-        can.status = (can.status == CandidateStatus::OUTLIER)
-                         ? CandidateStatus::OOB
-                         : CandidateStatus::OUTLIER;
-        return;
-    }
-
-    // ============== set new interval ===================
-    // dx here is cos , dy is sin
     float d_inv_min_obs, d_inv_max_obs;
     if (dx * dx > dy * dy) {
-        d_inv_min_obs = (pR[2] * (bestU - errorInPixel * dx) - pR[0]) /
-                        (Kt[0] - Kt[2] * (bestU - errorInPixel * dx));
-        d_inv_max_obs = (pR[2] * (bestU + errorInPixel * dx) - pR[0]) /
-                        (Kt[0] - Kt[2] * (bestU + errorInPixel * dx));
+        d_inv_min_obs = (pR[2] * (u_best - errorInPixel * dx) - pR[0]) /
+                        (Kt[0] - Kt[2] * (u_best - errorInPixel * dx));
+        d_inv_max_obs = (pR[2] * (u_best + errorInPixel * dx) - pR[0]) /
+                        (Kt[0] - Kt[2] * (u_best + errorInPixel * dx));
     } else {
-        d_inv_min_obs = (pR[2] * (bestV - errorInPixel * dy) - pR[1]) /
-                        (Kt[1] - Kt[2] * (bestV - errorInPixel * dy));
-        d_inv_max_obs = (pR[2] * (bestV + errorInPixel * dy) - pR[1]) /
-                        (Kt[1] - Kt[2] * (bestV + errorInPixel * dy));
+        d_inv_min_obs = (pR[2] * (v_best - errorInPixel * dy) - pR[1]) /
+                        (Kt[1] - Kt[2] * (v_best - errorInPixel * dy));
+        d_inv_max_obs = (pR[2] * (v_best + errorInPixel * dy) - pR[1]) /
+                        (Kt[1] - Kt[2] * (v_best + errorInPixel * dy));
     }
     if (d_inv_min_obs > d_inv_max_obs)
         std::swap<float>(d_inv_max_obs, d_inv_min_obs);
-
+    /*     std::cout << "Error : " << errorInPixel << "u:   " << can.u
+                  << "    v:   " << can.v << "   min : " << d_inv_min_obs
+                  << "   max : " << d_inv_max_obs << '\n'; */
     if (!std::isfinite(d_inv_min_obs) || !std::isfinite(d_inv_max_obs) ||
-        (d_inv_max_obs < 0)) {
-        can.status = CandidateStatus::OUTLIER;
+        (d_inv_min_obs < 0)) {
+        can.status = (can.status == CandidateStatus::NOT_INITIALIZED)
+                         ? CandidateStatus::BAD
+                         : CandidateStatus::OUTLIER;
         return;
     }
-
     float d_inv_old = can.d_inv;
 
     can.update((d_inv_max_obs + d_inv_min_obs) / 2,
@@ -365,21 +233,147 @@ void CandidateManager::update_depth_on_old_frame(Candidate& can,
         }
     }
 
-    if (!std::isinf(d_inv_old)) {
+    if (d_inv_old != 0) {
         float diff = std::abs(can.d_inv / d_inv_old - 1);
-        // std::cout << "diff" << diff << '\n';
-
         if (diff < 1e-2) {
             can.status = CandidateStatus::NOT_MAP_BUT_CONVERGE;
-            return;
-        } else if (diff > 2e-1) {
-            can.status = CandidateStatus::OUTLIER;
             return;
         }
     }
     can.status = CandidateStatus::ILL_CONDITIONED;
 
     return;
+}
+
+float CandidateManager::optimize(float& u_best, float& v_best,
+                                 const Candidate& can,
+                                 const Eigen::Vector2f& direction,
+                                 const Frame::ptr frame,
+                                 const Eigen::Vector2f* rotatetPattern,
+                                 const AffineLight& aff) const {
+    auto im_pyramid = *(frame->getImagePyramid());
+
+    float u_old = u_best, v_old = v_best, gnstepsize = 1, stepBack = 0;
+    int gnStepsGood = 0, gnStepsBad = 0;
+
+    float energy_best = 1e5;
+
+    for (int it = 0; it < 3; it++) {
+        float H = 1, b = 0, energy = 0;
+        for (int idx = 0; idx < 8; idx++) {
+            float u = u_best + rotatetPattern[idx][0];
+            float v = v_best + rotatetPattern[idx][1];
+
+            if (!std::isfinite(im_pyramid(0, u, v))) {
+                energy += 1e5;
+                continue;
+            }
+            float residual = im_pyramid(0, u, v) -
+                             (exp(aff.alpha()) * can.color[idx] + aff.beta());
+            float dResdDist = direction(0) * im_pyramid.dx(0, u, v) +
+                              direction(1) * im_pyramid.dy(0, u, v);
+            float hw = fabs(residual) < 10 ? 1 : 10 / fabs(residual);
+
+            H += hw * dResdDist * dResdDist;
+            b += hw * residual * dResdDist;
+            energy += can.weight[idx] * can.weight[idx] * hw * residual *
+                      residual * (2 - hw);
+        }
+
+        if (energy > energy_best) {
+            gnStepsBad++;
+
+            // do a smaller step from old point.
+            stepBack *= 0.5;
+            u_best = u_old + stepBack * direction(0);
+            v_best = v_old + stepBack * direction(1);
+        } else {
+            gnStepsGood++;
+
+            float step = -gnstepsize * b / H;
+            if (step < -0.5)
+                step = -0.5;
+            else if (step > 0.5)
+                step = 0.5;
+
+            if (!std::isfinite(step)) step = 0;
+
+            u_old = u_best;
+            v_old = v_best;
+            stepBack = step;
+
+            u_best += step * direction(0);
+            v_best += step * direction(1);
+            energy_best = energy;
+        }
+
+        if (fabsf(stepBack) < 0.1) break;
+    }
+    return energy_best;
+}
+
+std::pair<Eigen::Vector2f, Eigen::Vector2f> CandidateManager::get_search_range(
+    Candidate& can, const Eigen::Vector3f& pR, const Eigen::Vector3f& Kt) {
+    pair<Vector2f, Vector2f> p_near_p_far;
+
+    if (can.status == CandidateStatus::NOT_INITIALIZED) {
+        p_near_p_far.second = pR.hnormalized();
+        // p_near
+        Vector3f p_near = pR + Kt * 0.01f;
+        Vector2f direction =
+            (p_near.hnormalized() - p_near_p_far.second).normalized();
+        p_near_p_far.first = p_near_p_far.second + 40 * direction;
+    } else {
+        // std::cout << " d_inv " << can.d_inv << "  var : " << can.var << '\n';
+        assert(can.d_inv != 0 && isfinite(can.var));
+        p_near_p_far.second = (pR + Kt * can.get_d_inv_min()).hnormalized();
+        p_near_p_far.first = (pR + Kt * can.get_d_inv_max()).hnormalized();
+    }
+    return p_near_p_far;
+}
+
+float CandidateManager::line_search(
+    float& u_best, float& v_best, const Candidate& can, const Frame::ptr frame,
+    const Eigen::Vector2f& p_near, const Eigen::Vector2f& p_far,
+    const Vector2f* rotatetPattern, const AffineLight& aff) const {
+    Vector2f vec_far_to_near = p_near - p_far;
+    Vector2f direction = vec_far_to_near.normalized();
+
+    auto image_pyramid = frame->getImagePyramid();
+
+    float max_range_in_pixel =
+        std::max(std::min(vec_far_to_near.norm(), 40.0f), 2.0f);
+    float ptx = p_far(0), pty = p_far(1);
+
+    float best_energy = std::numeric_limits<float>::max();
+
+    for (int i = 0; i < max_range_in_pixel; i++) {
+        float energy = 0;
+        for (int idx = 0; idx < 8; idx++) {
+            float hitColor = image_pyramid->operator()(
+                0, ptx + rotatetPattern[idx][0], pty + rotatetPattern[idx][1]);
+
+            if (!std::isfinite(hitColor)) {
+                energy += 1e5;
+                continue;
+            }
+            float residual =
+                hitColor - (exp(aff.alpha()) * can.color[idx] + aff.beta());
+            float hw = fabs(residual) < 10 ? 1 : 10 / fabs(residual);
+            energy += can.weight[idx] * can.weight[idx] * hw * residual *
+                      residual * (2 - hw);
+        }
+
+        if (energy < best_energy) {
+            u_best = ptx;
+            v_best = pty;
+            best_energy = energy;
+        }
+
+        ptx += direction(0);
+        pty += direction(1);
+    }
+    return best_energy;
 }
 
 void CandidateManager::calc_structure_mat(Frame::ptr host_frame,
@@ -446,7 +440,7 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
                 Eigen::Vector3f P_newst_KF = T_newst_host * P_host;
                 Eigen::Vector2f p_newst_KF = newst_KF->project(P_newst_KF);
 
-                if (!is_in_image(cam, p_newst_KF(0), p_newst_KF(1))) {
+                if (!is_in_img(cam, p_newst_KF)) {
                     continue;
                 }
 

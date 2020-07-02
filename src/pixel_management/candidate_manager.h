@@ -33,7 +33,7 @@ struct Candidate {
 
     // line search
     float d_inv = 0;  // var is max, set d_inv to random value;
-    float var = std::numeric_limits<float>::max();
+    float var = 1e10;
     void update(float d_inv_obs, float var_obs);
     float get_d_inv_min();
     float get_d_inv_max();
@@ -52,6 +52,7 @@ class CandidateManager {
    public:
     CandidateManager() = default;
     void update_depth_per_frame(const Frame::ptr frame);
+
     /**
      * @brief select candidate in key frame, and initial depth with
      * synetic_depth_im
@@ -67,12 +68,27 @@ class CandidateManager {
     std::vector<Candidate> get_candidate(const Frame::ptr frame);
 
    private:
+    std::pair<Eigen::Vector2f, Eigen::Vector2f> get_search_range(
+        Candidate& can, const Eigen::Vector3f& pR, const Eigen::Vector3f& Kt);
     cv::Mat generate_depth_safe_mask(const cv::Mat synetic_depth_im) const;
 
-    void update_depth_on_old_frame(Candidate& can,
-                                   const Sophus::SE3f T_curr_old,
-                                   const AffineLight aff_curr_old,
-                                   Frame::ptr curr_frame);
+    float line_search(float& u_best, float& v_best, const Candidate& can,
+                      const Frame::ptr frame, const Eigen::Vector2f& p_near,
+                      const Eigen::Vector2f& p_far,
+                      const Eigen::Vector2f* rotatetPattern,
+                      const AffineLight& aff) const;
+
+    float optimize(float& u_best, float& v_best, const Candidate& can,
+                   const Eigen::Vector2f& direction, const Frame::ptr frame,
+                   const Eigen::Vector2f* rotatetPattern,
+                   const AffineLight& aff) const;
+
+    void update(const float u_best, const float v_best, Candidate& can,
+                const Eigen::Vector2f& vec_far_to_near,
+                const Eigen::Vector3f& pR, const Eigen::Vector3f& Kt);
+    void update_depth_on_old_frame(Candidate& can, const Sophus::SE3f T_new_old,
+                                   const AffineLight aff_new_old,
+                                   Frame::ptr new_frame);
 
     void calc_structure_mat(Frame::ptr host_frame, Candidate& can);
 
@@ -86,7 +102,10 @@ class CandidateManager {
 inline void Candidate::update(float d_inv_obs, float var_obs) {
     d_inv = (d_inv * var_obs + d_inv_obs * var) / (var + var_obs);
     var = var * var_obs / (var + var_obs);
-    std::cout << " var " << var << '\n';
+
+    /*     std::cout << " u : " << u << "  v : " << v << "    d_inv : " << d_inv
+                  << "  var: " << var << '\n' */
+    ;
 }
 inline float Candidate::get_d_inv_min() {
     float tmp = d_inv - sqrt(var);

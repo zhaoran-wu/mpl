@@ -169,7 +169,7 @@ int main() {
             // draw with quality
 
             cv::Scalar color = cv::Scalar(255, 0, 255);
-            if (can.status != CandidateStatus::BAD && can.var < 1e-5f) {
+            if (can.status != CandidateStatus::BAD && can.var < 1e-5) {
                 cv::circle(im_depth_before_after, cv::Point2f(p(0), p(1)), 1,
                            color, 2);
             }
