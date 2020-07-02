@@ -146,9 +146,9 @@ int main() {
         // draw after depth update
         for (const auto& can : candidates_updated) {
             Eigen::Vector2i pixle(can.u, can.v);
-            float d_inv = can.d_inv;
 
-            Eigen::Vector3f P = key_frame->unproject(pixle, 1.0f / d_inv);
+            Eigen::Vector3f P = key_frame->unproject(pixle, 1.0f / can.d_inv);
+            // std::cout << "can.inv " << can.d_inv << '\n';
             Eigen::Vector2f p = curr_frame->project(in_out_T_curr_KF * P);
             // draw with status
             /*             cv::Scalar color;
@@ -169,7 +169,8 @@ int main() {
             // draw with quality
 
             cv::Scalar color = cv::Scalar(255, 0, 255);
-            if (can.status != CandidateStatus::BAD && can.var < 1e-5) {
+            if (can.status != CandidateStatus::OUTLIER &&
+                can.status != CandidateStatus::BAD) {
                 cv::circle(im_depth_before_after, cv::Point2f(p(0), p(1)), 1,
                            color, 2);
             }

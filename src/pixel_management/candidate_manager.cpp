@@ -140,7 +140,7 @@ void CandidateManager::update_depth_on_old_frame(Candidate& can,
     const auto& p_near = p_near_p_far.first;
     const auto& p_far = p_near_p_far.second;
 
-    if (!is_in_img(cam, p_near) || !is_in_img(cam, p_far)) {
+    if (!is_in_img(cam, p_near) && !is_in_img(cam, p_far)) {
         can.status = (can.status == CandidateStatus::NOT_INITIALIZED)
                          ? CandidateStatus::BAD
                          : CandidateStatus::OOB;
@@ -190,6 +190,8 @@ void CandidateManager::update(const float u_best, const float v_best,
                               const Eigen::Vector3f& Kt) {
     float dx = direction(0);
     float dy = direction(1);
+
+    assert(abs(dx * dx + dy * dy - 1.f) < 1e-3);
     float a =
         (Vector2f(dx, dy).transpose() * can.structure_mat * Vector2f(dx, dy));
     float b =
@@ -210,11 +212,11 @@ void CandidateManager::update(const float u_best, const float v_best,
     }
     if (d_inv_min_obs > d_inv_max_obs)
         std::swap<float>(d_inv_max_obs, d_inv_min_obs);
-    /*     std::cout << "Error : " << errorInPixel << "u:   " << can.u
+    /*     std::cout << "Error :   " << errorInPixel << "  u:   " << can.u
                   << "    v:   " << can.v << "   min : " << d_inv_min_obs
                   << "   max : " << d_inv_max_obs << '\n'; */
-    if (!std::isfinite(d_inv_min_obs) || !std::isfinite(d_inv_max_obs) ||
-        (d_inv_min_obs < 0)) {
+    float d_inv_obs = (d_inv_max_obs + d_inv_min_obs) / 2;
+    if ((d_inv_obs < 0)) {
         can.status = (can.status == CandidateStatus::NOT_INITIALIZED)
                          ? CandidateStatus::BAD
                          : CandidateStatus::OUTLIER;
@@ -222,8 +224,7 @@ void CandidateManager::update(const float u_best, const float v_best,
     }
     float d_inv_old = can.d_inv;
 
-    can.update((d_inv_max_obs + d_inv_min_obs) / 2,
-               std::pow(d_inv_max_obs - d_inv_min_obs, 2));
+    can.update(d_inv_obs, std::pow(d_inv_max_obs - d_inv_min_obs, 2));
 
     if (!std::isinf(can.d_inv_synetic_im)) {
         float diff = std::abs(can.d_inv_synetic_im / can.d_inv - 1);
@@ -241,7 +242,6 @@ void CandidateManager::update(const float u_best, const float v_best,
         }
     }
     can.status = CandidateStatus::ILL_CONDITIONED;
-
     return;
 }
 
@@ -272,12 +272,10 @@ float CandidateManager::optimize(float& u_best, float& v_best,
                              (exp(aff.alpha()) * can.color[idx] + aff.beta());
             float dResdDist = direction(0) * im_pyramid.dx(0, u, v) +
                               direction(1) * im_pyramid.dy(0, u, v);
-            float hw = fabs(residual) < 10 ? 1 : 10 / fabs(residual);
 
-            H += hw * dResdDist * dResdDist;
-            b += hw * residual * dResdDist;
-            energy += can.weight[idx] * can.weight[idx] * hw * residual *
-                      residual * (2 - hw);
+            H += dResdDist * dResdDist;
+            b += residual * dResdDist;
+            energy += can.weight[idx] * can.weight[idx] * residual * residual;
         }
 
         if (energy > energy_best) {
@@ -317,12 +315,23 @@ std::pair<Eigen::Vector2f, Eigen::Vector2f> CandidateManager::get_search_range(
     pair<Vector2f, Vector2f> p_near_p_far;
 
     if (can.status == CandidateStatus::NOT_INITIALIZED) {
-        p_near_p_far.second = pR.hnormalized();
-        // p_near
-        Vector3f p_near = pR + Kt * 0.01f;
-        Vector2f direction =
-            (p_near.hnormalized() - p_near_p_far.second).normalized();
-        p_near_p_far.first = p_near_p_far.second + 40 * direction;
+        if (!isfinite(can.d_inv_synetic_im)) {
+            p_near_p_far.second = pR.hnormalized();
+            // p_near
+            Vector3f p_near = pR + Kt * 0.01f;
+            Vector2f direction =
+                (p_near.hnormalized() - p_near_p_far.second).normalized();
+            p_near_p_far.first = p_near_p_far.second + 40 * direction;
+        } else {
+            p_near_p_far.second =
+                (pR + Kt * (0.3f * can.d_inv_synetic_im)).hnormalized();
+            p_near_p_far.first =
+                (pR + Kt * (1.7f * can.d_inv_synetic_im)).hnormalized();
+
+            std::cout << " range : "
+                      << (p_near_p_far.first - p_near_p_far.second).norm()
+                      << '\n';
+        }
     } else {
         // std::cout << " d_inv " << can.d_inv << "  var : " << can.var << '\n';
         assert(can.d_inv != 0 && isfinite(can.var));
@@ -342,13 +351,14 @@ float CandidateManager::line_search(
     auto image_pyramid = frame->getImagePyramid();
 
     float max_range_in_pixel =
-        std::max(std::min(vec_far_to_near.norm(), 40.0f), 2.0f);
+        std::max(std::min(vec_far_to_near.norm(), 80.0f), 2.0f);
     float ptx = p_far(0), pty = p_far(1);
 
     float best_energy = std::numeric_limits<float>::max();
-
+    CamData& cam = CamData::getInstance();
     for (int i = 0; i < max_range_in_pixel; i++) {
         float energy = 0;
+        if (!is_in_img(cam, Eigen::Vector2f(ptx, pty))) continue;
         for (int idx = 0; idx < 8; idx++) {
             float hitColor = image_pyramid->operator()(
                 0, ptx + rotatetPattern[idx][0], pty + rotatetPattern[idx][1]);
@@ -359,9 +369,8 @@ float CandidateManager::line_search(
             }
             float residual =
                 hitColor - (exp(aff.alpha()) * can.color[idx] + aff.beta());
-            float hw = fabs(residual) < 10 ? 1 : 10 / fabs(residual);
-            energy += can.weight[idx] * can.weight[idx] * hw * residual *
-                      residual * (2 - hw);
+
+            energy += can.weight[idx] * can.weight[idx] * residual * residual;
         }
 
         if (energy < best_energy) {
@@ -391,13 +400,13 @@ void CandidateManager::calc_structure_mat(Frame::ptr host_frame,
 
         can.color[idx] = ip->operator()(0, u, v);
         can.structure_mat += dxdy * dxdy.transpose();
-        float w = -std::sqrt(std::pow(can.color[idx] - can.color[0], 2) / 800);
+        float w = -std::sqrt(std::pow(can.color[idx] - can.color[0], 2)) / 7;
         can.weight[idx] = exp(w);
         sum += can.weight[idx];
     }
 
     for (int i = 0; i < 8; ++i) {
-        can.weight[i] /= sum;
+        can.weight[i] = 0.125;  //= sum;
     }
 }
 
