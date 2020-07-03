@@ -98,20 +98,16 @@ void Tracker::generate_movement_predictions() {
     movement_prediction[1] = Sophus::SE3f::exp(half_movement);
     // 2x movement
     movement_prediction[2] = Sophus::SE3f::exp(2 * se3_priori);
-    // 2* (0.25x movement + turn left , 0.5x movement + turn right)
+    // 2* (movement + turn left , movement + turn right)
     Sophus::SE3f turn_right_small = Sophus::SE3f::rotY(0.01f);
     Sophus::SE3f turn_right_large = Sophus::SE3f::rotY(0.02f);
     Sophus::SE3f turn_left_small = Sophus::SE3f::rotY(-0.01f);
     Sophus::SE3f turn_left_large = Sophus::SE3f::rotY(-0.02f);
 
-    movement_prediction[3] =
-        turn_right_small * Sophus::SE3f::exp(0.5f * half_movement);
-    movement_prediction[4] =
-        turn_right_large * Sophus::SE3f::exp(0.5f * half_movement);
-    movement_prediction[5] =
-        turn_left_small * Sophus::SE3f::exp(0.5f * half_movement);
-    movement_prediction[6] =
-        turn_left_large * Sophus::SE3f::exp(0.5f * half_movement);
+    movement_prediction[3] = turn_right_small * Sophus::SE3f::exp(se3_priori);
+    movement_prediction[4] = turn_right_large * Sophus::SE3f::exp(se3_priori);
+    movement_prediction[5] = turn_left_small * Sophus::SE3f::exp(se3_priori);
+    movement_prediction[6] = turn_left_large * Sophus::SE3f::exp(se3_priori);
     // no movement
     movement_prediction[7] =
         Sophus::SE3f(Eigen::Quaternionf::Identity(), Eigen::Vector3f::Zero());

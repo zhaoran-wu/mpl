@@ -56,13 +56,11 @@ int main() {
     Sophus::SE3f render_pose =
         Sophus::SE3f(Eigen::Quaternionf::Identity(), Eigen::Vector3f(0, 0, 0));
 
-    std::vector<cv::Mat> syn_im_vec = synetic_image.renderingAt(render_pose);
-    cv::Mat depth_im = syn_im_vec[1];
-
     Frame::ptr key_frame = Frame::create(img_vec[0]);
-
+    std::vector<cv::Mat> syn_im_vec_curr =
+        synetic_image.renderingAt(render_pose);
     CandidateManager cm;
-    cm.select_candidate(key_frame, syn_im_vec[1]);
+    cm.select_candidate(key_frame, syn_im_vec_curr[1]);
     std::vector<Candidate> candidates = cm.get_candidate(key_frame);
 
     PointCloudPyramid::ptr pcp = cm.get_point_cloud_pyramid();
@@ -72,7 +70,7 @@ int main() {
 
     // draw candidates before and after tracking
     cv::Mat key_frame_vis = img_draw_vec[0];
-    std::vector<cv::Mat> syn_im_vec_curr;
+
     Frame::ptr last_frame = key_frame;
 
     for (size_t i = 1; i < img_vec.size(); ++i) {
@@ -86,9 +84,9 @@ int main() {
         // draw before after optimization
         cv::Mat im_to_vis = img_draw_vec[i].clone();
         for (auto& pcd : pcp->operator[](0)) {
-            Eigen::Vector3f point = T_curr_KF * pcd.position;
             Eigen::Vector3f point_before_optimization =
                 T_last_KF * pcd.position;
+            Eigen::Vector3f point = T_curr_KF * pcd.position;
             Eigen::Vector2f hit_pixel = curr_frame->project(point);
             Eigen::Vector2f hit_pixel_no_op =
                 curr_frame->project(point_before_optimization);
@@ -105,7 +103,10 @@ int main() {
                        cv::Scalar(0, 255, 0), 2);
         }
         cv::imshow("KF", key_frame_vis);
+        cv::waitKey(0);
         cv::imshow("curr_frame", im_to_vis);
+        cv::waitKey(0);
+        cv::imshow("kf depth", syn_im_vec_curr[1]);
         cv::waitKey(0);
 
         bool is_KF = (i % 2 == 0);
@@ -113,8 +114,7 @@ int main() {
             render_pose = curr_frame->get_pose<Sophus::SE3f>();
             syn_im_vec_curr = synetic_image.renderingAt(render_pose);
             key_frame_vis = img_draw_vec[i].clone();
-            cv::imshow("kf depth", syn_im_vec_curr[1]);
-            cv::waitKey(0);
+
             cm.select_candidate(curr_frame, syn_im_vec_curr[1]);
             pcp = cm.get_point_cloud_pyramid();
 

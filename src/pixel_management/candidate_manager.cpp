@@ -10,7 +10,7 @@ using namespace Eigen;
 using namespace Sophus;
 
 inline bool is_in_img(CamData& cam, const Eigen::Vector2f& p) {
-    return (p(0) > 1 && p(1) > 1 && p(0) < cam.width[0] - 2 &&
+    return (p(0) > 2 && p(1) > 2 && p(0) < cam.width[0] - 2 &&
             p(1) < cam.height[0] - 2);
 }
 
@@ -52,6 +52,8 @@ void CandidateManager::select_candidate(const Frame::ptr frame,
 
     Candidate can;
     for (const auto& p : pixle_selected) {
+        if (!is_in_img(CamData::getInstance(), p.head(2).cast<float>()))
+            continue;
         can.u = p(0);
         can.v = p(1);
         can.is_depth_safe = !(mask.at<float>(can.v, can.u));
