@@ -203,6 +203,10 @@ inline void SyneticImage::rendering_normal_image(
     mesh.draw(normal_shader);
 }
 
+void SyneticImage::set_start_pose(const Eigen::Isometry3f& pose) {
+    this->start_T_w_c0 = Sophus::SE3f(pose.rotation(), pose.translation());
+}
+
 std::vector<cv::Mat> SyneticImage::renderingAt(const Eigen::Isometry3f& pose) {
     view = (pose * extrinsic_T_c_cgl).inverse();
 
@@ -289,6 +293,12 @@ std::vector<cv::Mat> SyneticImage::renderingAt(const Eigen::Isometry3f& pose) {
     results.push_back(normal);
 
     return results;
+}
+
+std::vector<cv::Mat> SyneticImage::renderingAt(const Sophus::SE3f& pose) {
+    Eigen::Isometry3f T_w_c =
+        static_cast<Eigen::Isometry3f>((start_T_w_c0 * pose).matrix());
+    return renderingAt(T_w_c);
 }
 
 void SyneticImage::shut() {

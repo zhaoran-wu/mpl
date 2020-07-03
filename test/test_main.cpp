@@ -100,7 +100,7 @@ int main() {
         cv::waitKey(0);
         auto& T_curr_lastKF = in_out_T_curr_lastKF;
         auto& aff_light_curr_lastKF = in_out_aff_light_curr_lastKF;
-        curr_frame->set_state_curr_lastKF(T_curr_lastKF, aff_light_curr_lastKF);
+        curr_frame->set_state(T_curr_lastKF, aff_light_curr_lastKF);
         sw.add_tracked_frame(curr_frame, syn_im_vec);
 
         sw.optimize_window();

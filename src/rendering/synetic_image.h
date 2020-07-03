@@ -5,6 +5,7 @@
 #include "shader.h"
 #include <GLFW/glfw3.h>
 #include <glad/glad.h>
+#include <sophus/se3.hpp>
 
 #include <opencv2/core.hpp>
 #include <string>
@@ -18,13 +19,31 @@ class SyneticImage {
      * @brief return rendering image from model and texture at given pose, and
      * mode
      *
-     * @param pose T_world_c, transformation from camera frame to world frame(assume that world frame is consistent with
-     * opengl world frame)
-     * @param mode support color image ,depth image(mm, store in ushort), and normal image
+     * @param pose T_world_c, transformation from camera frame to world
+     * frame(assume that world frame is consistent with opengl world frame)
+     * @param mode support color image ,depth image(mm, store in ushort), and
+     * normal image
      * @return cv::Mat
      */
-    cv::Mat renderingAt(const Eigen::Isometry3f& pose, const RenderingMode mode);
+    cv::Mat renderingAt(const Eigen::Isometry3f& pose,
+                        const RenderingMode mode);
+
     std::vector<cv::Mat> renderingAt(const Eigen::Isometry3f& pose);
+    /**
+     * @brief Set the start pose  T_w_c0, camera relative to map origin
+     * then we can rendering with relative pose to the first camera
+     *
+     * @param pose
+     * @return * pose:,
+     */
+    void set_start_pose(const Eigen::Isometry3f& pose);
+    /**
+     * @brief rendering with relative pose
+     *
+     * @param pose : T_c0_c , c0 set with interface set_start_pose
+     * @return std::vector<cv::Mat>
+     */
+    std::vector<cv::Mat> renderingAt(const Sophus::SE3f& pose);
 
     void shut();
 
@@ -61,11 +80,13 @@ class SyneticImage {
     GLuint pbo_arr[3];
 
     // uniform parameters for opengl
-    Eigen::Matrix4f projection;           //! projection matrix of opengl
-    Eigen::Isometry3f view;               //! view matix of opengl, correspond to Tgl_w
-    Eigen::Vector2f zn_zf;                //! z_near and z_far;
-    Eigen::Matrix3f Rb_w;                 // ! world to body frame
+    Eigen::Matrix4f projection;  //! projection matrix of opengl
+    Eigen::Isometry3f view;      //! view matix of opengl, correspond to Tgl_w
+    Eigen::Vector2f zn_zf;       //! z_near and z_far;
+    Eigen::Matrix3f Rb_w;        // ! world to body frame
     Eigen::Isometry3f extrinsic_T_c_cgl;  // ! opengl camera to body frame
+
+    Sophus::SE3f start_T_w_c0;
 
     const float z_n = 1.f;
     const float z_f = 60.f;

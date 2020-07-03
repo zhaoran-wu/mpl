@@ -67,6 +67,8 @@ class CandidateManager {
 
     std::vector<Candidate> get_candidate(const Frame::ptr frame);
 
+    void activate_candidate();
+
    private:
     std::pair<Eigen::Vector2f, Eigen::Vector2f> get_search_range(
         Candidate& can, const Eigen::Vector3f& pR, const Eigen::Vector3f& Kt);

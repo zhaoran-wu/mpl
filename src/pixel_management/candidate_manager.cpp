@@ -176,9 +176,11 @@ void CandidateManager::update_depth_on_old_frame(Candidate& can,
     Vector2f direction = vec_far_to_near.normalized();
     float energy_best_optimize = optimize(
         u_best, v_best, can, direction, new_frame, rotatetPattern, aff_new_old);
-    std::cout << can.u << "   " << can.v << "    best u : " << u_best
-              << "  v_best : " << v_best << "   energy before :" << energy_best
-              << "    energy after : " << energy_best_optimize << '\n';
+    /*     std::cout << can.u << "   " << can.v << "    best u : " << u_best
+                  << "  v_best : " << v_best << "   energy before :" <<
+       energy_best
+                  << "    energy after : " << energy_best_optimize << '\n' */
+    ;
 
     // update
     update(u_best, v_best, can, direction, pR, Kt);
@@ -328,13 +330,14 @@ std::pair<Eigen::Vector2f, Eigen::Vector2f> CandidateManager::get_search_range(
             p_near_p_far.first =
                 (pR + Kt * (1.7f * can.d_inv_synetic_im)).hnormalized();
 
-            std::cout << " range : "
-                      << (p_near_p_far.first - p_near_p_far.second).norm()
-                      << '\n';
+            /*             std::cout << " range : "
+                                  << (p_near_p_far.first -
+               p_near_p_far.second).norm()
+                                  << '\n' */
+            ;
         }
     } else {
         // std::cout << " d_inv " << can.d_inv << "  var : " << can.var << '\n';
-        assert(can.d_inv != 0 && isfinite(can.var));
         p_near_p_far.second = (pR + Kt * can.get_d_inv_min()).hnormalized();
         p_near_p_far.first = (pR + Kt * can.get_d_inv_max()).hnormalized();
     }
@@ -413,10 +416,10 @@ void CandidateManager::calc_structure_mat(Frame::ptr host_frame,
 PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
     PointCloudPyramid::ptr pcp(new PointCloudPyramid);
     const int lvls = pcp->lvls();
-
-    if (candidate_map.size() == 1) {
+    if (candidate_map.size() < 10) {
         int cnt = 0;
         for (auto& can : candidate_map[newst_KF]) {
+            if (!can.is_depth_safe) continue;
             Eigen::Vector3f position = newst_KF->unproject(
                 Eigen::Vector2i(can.u, can.v), 1.0f / can.d_inv_synetic_im);
 
@@ -427,7 +430,25 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
                 }
             }
         }
-    } else {
+    }
+
+    /*     const int lvls = pcp->lvls();
+        if (candidate_map.size() < 3) {
+            int cnt = 0;
+            for (auto& can : candidate_map[newst_KF]) {
+                if (!can.is_depth_safe) continue;
+                Eigen::Vector3f position = newst_KF->unproject(
+                    Eigen::Vector2i(can.u, can.v), 1.0f / can.d_inv_synetic_im);
+
+                ++cnt;
+                for (int lvl = 0; lvl < lvls; ++lvl) {
+                    if ((lvl != 0 && cnt % lvl == 0) || lvl == 0) {
+                        (*pcp)[lvl].emplace_back(position, can.color[0]);
+                    }
+                }
+            }
+        } */
+    else {
         auto& cam = CamData::getInstance();
         for (auto it = candidate_map.begin(); it != candidate_map.end(); ++it) {
             Frame::ptr host_frame = it->first;

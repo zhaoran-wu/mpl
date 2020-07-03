@@ -17,8 +17,8 @@ class Frame {
     void set_pose(const Sophus::SE3f& pose);
     // Aff_w_c
     void set_aff_light(const int alpha, const int beta);
-    void set_state_curr_lastKF(const Sophus::SE3f& T_curr_lastKF,
-                               const AffineLight& aff_light_curr_lastKF);
+    void set_state(const Sophus::SE3f& T_curr_lastKF,
+                   const AffineLight& aff_light_curr_lastKF);
     Sophus::SE3f get_T_curr_lastKF();
     AffineLight get_aff_curr_lastKF();
 
@@ -72,11 +72,17 @@ inline void Frame::set_aff_light(const int alpha, const int beta) {
     this->affine_light = AffineLight(alpha, beta);
 }
 
-inline void Frame::set_state_curr_lastKF(
+inline void Frame::set_state(
+    // relative info
     const Sophus::SE3f& T_curr_lastKF,
     const AffineLight& aff_light_curr_lastKF) {
     this->T_curr_lastKF = T_curr_lastKF;
     this->aff_light_curr_lastKF = aff_light_curr_lastKF;
+
+    // inital global info
+    this->pose = this->last_KF_ref->pose * T_curr_lastKF.inverse();
+    this->affine_light = AffineLight::calc_dst_global_aff(
+        this->last_KF_ref->affine_light, aff_light_curr_lastKF);
 }
 
 // return T_w_c

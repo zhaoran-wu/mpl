@@ -51,7 +51,7 @@ bool Tracker::tracking(Frame::ptr to_track_frame, Sophus::SE3f& pose_in_out,
     pose_in_out = optimizer.getT();
     affine_in_out = optimizer.getAffineLight();
 
-    to_track_frame->set_state_curr_lastKF(pose_in_out, affine_in_out);
+    to_track_frame->set_state(pose_in_out, affine_in_out);
 
     return true;
 }
