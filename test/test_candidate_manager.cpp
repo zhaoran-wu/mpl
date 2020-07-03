@@ -117,18 +117,15 @@ int main() {
     Tracker tracker;
     tracker.set_tracking_ref(key_frame, pcp);
 
-    Sophus::SE3f in_out_T_curr_KF = Sophus::SE3f(Eigen::Quaternionf::Identity(),
-                                                 Eigen::Vector3f(0, 0, -0.5));
-    AffineLight in_out_aff_light_curr_KF(0, 0);
+    Frame::ptr last_frame = key_frame;
 
     // draw candidates before and after tracking
     for (int i = 1; i < 8; ++i) {
         Frame::ptr curr_frame = Frame::create(img_vec[i]);
 
-        Sophus::SE3f old_T_curr_KF = in_out_T_curr_KF;
-
-        tracker.tracking(curr_frame, in_out_T_curr_KF,
-                         in_out_aff_light_curr_KF);
+        Sophus::SE3f T_last_KF = last_frame->get_T_curr_lastKF();
+        tracker.tracking(curr_frame);
+        Sophus::SE3f T_curr_KF = curr_frame->get_T_curr_lastKF();
 
         cv::Mat im_depth_before_after = img_draw_vec[i].clone();
 
@@ -149,7 +146,7 @@ int main() {
 
             Eigen::Vector3f P = key_frame->unproject(pixle, 1.0f / can.d_inv);
             // std::cout << "can.inv " << can.d_inv << '\n';
-            Eigen::Vector2f p = curr_frame->project(in_out_T_curr_KF * P);
+            Eigen::Vector2f p = curr_frame->project(T_curr_KF * P);
             // draw with status
             /*             cv::Scalar color;
                         if (can.status == CandidateStatus::IS_MAP_POINT) {
@@ -181,9 +178,9 @@ int main() {
         cv::Mat im_to_vis = img_draw_vec[i];
         cv::Mat key_frame_vis = img_draw_vec[0];
         for (auto& pcd : pcp->operator[](0)) {
-            Eigen::Vector3f point = in_out_T_curr_KF * pcd.position;
+            Eigen::Vector3f point = T_curr_KF * pcd.position;
             Eigen::Vector3f point_before_optimization =
-                old_T_curr_KF * pcd.position;
+                T_last_KF * pcd.position;
             Eigen::Vector2f hit_pixel = curr_frame->project(point);
             Eigen::Vector2f hit_pixel_no_op =
                 curr_frame->project(point_before_optimization);

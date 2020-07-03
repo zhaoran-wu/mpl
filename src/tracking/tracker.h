@@ -28,11 +28,10 @@ class Tracker {
      * @param affine_in_out A map I of ref to I of new frame
      * @return if the tracking convergence
      */
-    bool tracking(Frame::ptr to_track_frame, Sophus::SE3f& pose_in_out,
-                  AffineLight& affine_in_out);
+    bool tracking(Frame::ptr to_track_frame);
 
    private:
-    void generate_movement_predictions(const Sophus::SE3f& pose_in_out);
+    void generate_movement_predictions();
 
     // we update our 10 movement predection each times a new frame is tracked
     // those movement prediction are designed for autonomous car
@@ -49,5 +48,8 @@ class Tracker {
     Frame::ptr curr_ref_frame;
 
     // movement pridiction part
+    Sophus::SE3f T_last_lastKF =
+        Sophus::SE3f(Eigen::Quaternionf::Identity(), Eigen::Vector3f(0, 0, 0));
+    AffineLight aff_last_lastKF = AffineLight(0, 0);
 };
 }  // namespace mpl

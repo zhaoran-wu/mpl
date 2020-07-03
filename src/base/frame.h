@@ -46,8 +46,9 @@ class Frame {
     ImagePyramid::ptr pyramid;
     // relative info
     Frame::ptr last_KF_ref;
-    Sophus::SE3f T_curr_lastKF;
-    AffineLight aff_light_curr_lastKF;
+    Sophus::SE3f T_curr_lastKF =
+        Sophus::SE3f(Eigen::Quaternionf::Identity(), Eigen::Vector3f(0, 0, 0));
+    AffineLight aff_light_curr_lastKF = AffineLight(0, 0);
     // global info
     Sophus::SE3f pose;  // T_c_w;
     AffineLight affine_light;

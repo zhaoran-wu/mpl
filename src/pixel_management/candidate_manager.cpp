@@ -101,7 +101,7 @@ cv::Mat CandidateManager::generate_depth_safe_mask(
     cv::threshold(mag, mask, threshold_value, 1, cv::THRESH_BINARY);
 
     // dilation
-    int dilation_size = 10;
+    int dilation_size = 8;  // 10
     cv::Mat element = cv::getStructuringElement(
         cv::MORPH_ELLIPSE,
         cv::Size(2 * dilation_size + 1, 2 * dilation_size + 1),

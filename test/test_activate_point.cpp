@@ -70,29 +70,25 @@ int main() {
     Tracker tracker;
     tracker.set_tracking_ref(key_frame, pcp);
 
-    // initial pose for next to track frame
-    Sophus::SE3f in_out_T_curr_KF = Sophus::SE3f(Eigen::Quaternionf::Identity(),
-                                                 Eigen::Vector3f(0, 0, -0.4f));
-    AffineLight in_out_aff_light_curr_KF(0, 0);
-
     // draw candidates before and after tracking
     cv::Mat key_frame_vis = img_draw_vec[0];
     std::vector<cv::Mat> syn_im_vec_curr;
+    Frame::ptr last_frame = key_frame;
+
     for (size_t i = 1; i < img_vec.size(); ++i) {
         Frame::ptr curr_frame = Frame::create(img_vec[i]);
 
-        Sophus::SE3f old_T_curr_KF = in_out_T_curr_KF;
+        Sophus::SE3f T_last_KF = last_frame->get_T_curr_lastKF();
+        tracker.tracking(curr_frame);
+        Sophus::SE3f T_curr_KF = curr_frame->get_T_curr_lastKF();
 
-        tracker.tracking(curr_frame, in_out_T_curr_KF,
-                         in_out_aff_light_curr_KF);
-
-        cm.update_depth_per_frame(curr_frame);
+        //! test : cm.update_depth_per_frame(curr_frame);
         // draw before after optimization
         cv::Mat im_to_vis = img_draw_vec[i].clone();
         for (auto& pcd : pcp->operator[](0)) {
-            Eigen::Vector3f point = in_out_T_curr_KF * pcd.position;
+            Eigen::Vector3f point = T_curr_KF * pcd.position;
             Eigen::Vector3f point_before_optimization =
-                old_T_curr_KF * pcd.position;
+                T_last_KF * pcd.position;
             Eigen::Vector2f hit_pixel = curr_frame->project(point);
             Eigen::Vector2f hit_pixel_no_op =
                 curr_frame->project(point_before_optimization);
@@ -123,10 +119,8 @@ int main() {
             pcp = cm.get_point_cloud_pyramid();
 
             tracker.set_tracking_ref(curr_frame, pcp);
-            in_out_T_curr_KF = Sophus::SE3f(Eigen::Quaternionf::Identity(),
-                                            Eigen::Vector3f(0, 0, -0.4));
-
-            in_out_aff_light_curr_KF = AffineLight(0, 0);
         }
+
+        last_frame = curr_frame;
     }
 }
