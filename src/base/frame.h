@@ -58,7 +58,8 @@ class Frame {
 inline Eigen::Vector3f Frame::unproject(const Eigen::Vector2i& pixel,
                                         const float depth,
                                         const int lvl) const {
-    return depth * cam->K_inv[lvl] * pixel.cast<float>().homogeneous();
+    return depth * cam->K_inv[lvl] *
+           (pixel.cast<float>() + Eigen::Vector2f(0.5f, 0.5f)).homogeneous();
 }
 
 inline Eigen::Vector2f Frame::project(const Eigen::Vector3f& point,
@@ -120,4 +121,11 @@ inline Eigen::Vector2f unproject_trans_project(const float d_inv,
         src_frame->get_pose<Eigen::Isometry3f>();
     return target_frame->project(T_target_src * src_point, lvl);
 }
+
+Sophus::SE3f get_src_to_dst_transform(const Frame::ptr src,
+                                      const Frame::ptr dst);
+
+AffineLight get_src_to_dst_aff_light(const Frame::ptr src,
+                                     const Frame::ptr dst);
+
 }  // namespace mpl

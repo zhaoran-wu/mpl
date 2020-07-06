@@ -25,8 +25,8 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
     float min_energy = std::numeric_limits<float>::max();
     int idx = 0;
     int lvls = point_cloud_pyramid_->lvls();
-    int iterations = 10;
-    float lamda_init = 1e-2;
+    int iterations = 15;
+    float lamda_init = 1;
     int huber_radius = 100;
     float lamda_min = 1e-5;
 

@@ -1,11 +1,11 @@
 #pragma once
+#include "distance_map.h"
 #include "frame.h"
 #include "pixel_selector.h"
 #include "point_cloud_pyramid.h"
 #include <opencv2/core.hpp>
 #include <unordered_map>
 namespace mpl {
-
 /**
  * @brief the status of candidate in the last search
  *
@@ -29,23 +29,29 @@ struct Candidate {
     float weight[8];  // pattern weight
     int u;
     int v;
-    float d_inv_synetic_im;  // in m, initialized with synetic depth map
+    float d_inv_synetic_im;  // in m, initialized with synetic depth map, = 0 if
+                             // the synetic depth is not valid
 
     // line search
     float d_inv = 0;  // var is max, set d_inv to random value;
     float var = 1e10;
+
     void update(float d_inv_obs, float var_obs);
-    float get_d_inv_min();
-    float get_d_inv_max();
+    float get_d_inv_min() const;
+    float get_d_inv_max() const;
 
     Eigen::Matrix2f structure_mat;
-    // bool is_oob = false;  // is oob or outlier
+
+    bool is_active = false;  // only active will join the optimization
     bool is_depth_safe =
         false;  // has a small depth gradient on synetic depth image
     // bool is_converge = false;   // d_inv almost not changed
     // bool is_map_point = false;  //  d_inv almost not change in the first
     // update float delta_d; bool is_active = false;
     CandidateStatus status = CandidateStatus::NOT_INITIALIZED;
+
+    Eigen::Vector2f projection_on_newst_KF = Eigen::Vector2f(0, 0);
+    int age = 0;
 };
 
 class CandidateManager {
@@ -70,35 +76,48 @@ class CandidateManager {
     void activate_candidate();
 
    private:
+    bool is_synetic_depth_valid(
+        const Candidate& can, const Frame::ptr host_frame,
+        const Frame::ptr target_frame, const Sophus::SE3f T_old_new,
+        const AffineLight& aff_old_new,
+        const std::vector<Eigen::Vector2f> rotated_pattern) const;
+
     std::pair<Eigen::Vector2f, Eigen::Vector2f> get_search_range(
-        Candidate& can, const Eigen::Vector3f& pR, const Eigen::Vector3f& Kt);
+        const Candidate& can, const Eigen::Vector3f& pR,
+        const Eigen::Vector3f& Kt) const;
     cv::Mat generate_depth_safe_mask(const cv::Mat synetic_depth_im) const;
 
     float line_search(float& u_best, float& v_best, const Candidate& can,
                       const Frame::ptr frame, const Eigen::Vector2f& p_near,
                       const Eigen::Vector2f& p_far,
-                      const Eigen::Vector2f* rotatetPattern,
+                      const std::vector<Eigen::Vector2f>& rotatetPattern,
                       const AffineLight& aff) const;
 
     float optimize(float& u_best, float& v_best, const Candidate& can,
                    const Eigen::Vector2f& direction, const Frame::ptr frame,
-                   const Eigen::Vector2f* rotatetPattern,
+                   const std::vector<Eigen::Vector2f>& rotatetPattern,
                    const AffineLight& aff) const;
 
     void update(const float u_best, const float v_best, Candidate& can,
                 const Eigen::Vector2f& vec_far_to_near,
                 const Eigen::Vector3f& pR, const Eigen::Vector3f& Kt);
-    void update_depth_on_old_frame(Candidate& can, const Sophus::SE3f T_new_old,
-                                   const AffineLight aff_new_old,
+    void update_depth_on_old_frame(Candidate& can,
+                                   const Sophus::SE3f& T_new_old,
+                                   const AffineLight& aff_new_old,
                                    Frame::ptr new_frame);
 
     void calc_structure_mat(Frame::ptr host_frame, Candidate& can);
 
     // map frame ptr to it's candidate
     std::unordered_map<Frame::ptr, std::vector<Candidate>> candidate_map;
-    Frame::ptr newst_KF;
+    Frame::ptr newst_KF = nullptr;
     // add candidate covariance info
     PixelSelector pixle_selector;
+    // distance map
+    DistanceMap dist_map;
+    int min_dist_to_active = 5;
+
+    bool is_initialized = false;
 };
 
 inline void Candidate::update(float d_inv_obs, float var_obs) {
@@ -109,12 +128,31 @@ inline void Candidate::update(float d_inv_obs, float var_obs) {
                   << "  var: " << var << '\n' */
     ;
 }
-inline float Candidate::get_d_inv_min() {
+inline float Candidate::get_d_inv_min() const {
     float tmp = d_inv - sqrt(var);
     return (tmp < 0) ? 0 : tmp;
 }
 
-inline float Candidate::get_d_inv_max() {
+inline float Candidate::get_d_inv_max() const {
     return d_inv + sqrt(var);
 }
+
+inline bool is_in_img(CamData& cam, const Eigen::Vector2f& p) {
+    return (p(0) > 2 && p(1) > 2 && p(0) < cam.width[0] - 2 &&
+            p(1) < cam.height[0] - 2);
+}
+
+// project with inv depth on synetic image
+
+inline Eigen::Vector2f unproject_trans_project(const Candidate& can,
+                                               const Frame::ptr host_frame,
+                                               const Frame::ptr target_frame) {
+    Eigen::Vector3f P_host = host_frame->unproject(
+        Eigen::Vector2i(can.u, can.v), 1.f / can.d_inv_synetic_im);
+    Eigen::Isometry3f T_target_host =
+        target_frame->get_pose<Eigen::Isometry3f>().inverse() *
+        host_frame->get_pose<Eigen::Isometry3f>();
+    return target_frame->project(T_target_host * P_host);
+}
+
 }  // namespace mpl

@@ -88,8 +88,9 @@ class SyneticImage {
 
     Sophus::SE3f start_T_w_c0;
 
-    const float z_n = 1.f;
-    const float z_f = 60.f;
+    const float z_n = 1.f;  // control the minimal depth in m
+    const float z_f = std::numeric_limits<ushort>::max() /
+                      1000.f;  // control the maxmal depth in m
 
     // window
     GLFWwindow* window;

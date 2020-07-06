@@ -31,7 +31,7 @@ int main() {
     std::string data_path = "/home/zhaoran/dataset/KITTI/sequences/00/image_0/";
     std::vector<cv::Mat> img_vec;
     std::vector<cv::Mat> img_draw_vec;
-    for (int i = 0; i < 30; ++i) {
+    for (int i = 0; i < 200; ++i) {
         int im_id = 80 + i;
         string im_name = (im_id < 100) ? "0000" + to_string(im_id) + ".png"
                                        : "000" + to_string(im_id) + ".png";
@@ -80,7 +80,9 @@ int main() {
         tracker.tracking(curr_frame);
         Sophus::SE3f T_curr_KF = curr_frame->get_T_curr_lastKF();
 
-        //! test : cm.update_depth_per_frame(curr_frame);
+        // !cm.update_depth_per_frame(curr_frame); we use now only valid depth,
+        // !do not update depth, which is not valid in the map
+
         // draw before after optimization
         cv::Mat im_to_vis = img_draw_vec[i].clone();
         for (auto& pcd : pcp->operator[](0)) {
@@ -96,9 +98,9 @@ int main() {
             cv::circle(key_frame_vis, cv::Point2f(candidate(0), candidate(1)),
                        1, cv::Scalar(0, 0, 255), 2);
 
-            cv::circle(im_to_vis,
-                       cv::Point2f(hit_pixel_no_op(0), hit_pixel_no_op(1)), 1,
-                       cv::Scalar(0, 0, 255), 2);
+            /*             cv::circle(im_to_vis,
+                                   cv::Point2f(hit_pixel_no_op(0),
+               hit_pixel_no_op(1)), 1, cv::Scalar(0, 0, 255), 2); */
             cv::circle(im_to_vis, cv::Point2f(hit_pixel(0), hit_pixel(1)), 1,
                        cv::Scalar(0, 255, 0), 2);
         }
@@ -108,7 +110,7 @@ int main() {
         cv::waitKey(0);
         cv::imshow("kf depth", syn_im_vec_curr[1]);
         cv::waitKey(0);
-
+        // todo : a best way to choose KF
         bool is_KF = (i % 2 == 0);
         if (is_KF) {
             render_pose = curr_frame->get_pose<Sophus::SE3f>();
@@ -116,6 +118,7 @@ int main() {
             key_frame_vis = img_draw_vec[i].clone();
 
             cm.select_candidate(curr_frame, syn_im_vec_curr[1]);
+            //! test best way to generate a depth map
             pcp = cm.get_point_cloud_pyramid();
 
             tracker.set_tracking_ref(curr_frame, pcp);
