@@ -95,8 +95,8 @@ bool CandidateManager::is_synetic_depth_valid(
                                           1.0f / can.d_inv_synetic_im));
 
     if (!target_frame->is_in_image(0, point_on_lastKF(0), point_on_lastKF(1)))
-        return true;  // for not in range pixel, we keep the synetic depth as
-                      // valid
+        return false;
+    // valid
 
     float energy = 0;
     for (int i = 0; i < 8; ++i) {
@@ -104,15 +104,17 @@ bool CandidateManager::is_synetic_depth_valid(
         float v = point_on_lastKF(1) + rotated_pattern[i][1];
 
         energy +=
+            can.weight[i] *
             abs(target_frame->getImagePyramid()->operator()(0, u, v) -
                 exp(aff_old_new.alpha()) * can.color[i] - aff_old_new.beta());
     }
     static int cnt = 0;
 
-    std::cout << " curr energy : " << energy << " outlier num: " << cnt << '\n';
+    // std::cout << " curr energy : " << energy << " outlier num: " << cnt <<
+    // '\n';
 
-    if (energy >= 250.f) ++cnt;
-    return (energy < 250.0f);
+    if (energy >= 30.f) ++cnt;
+    return (energy < 30.0f);
 }
 
 cv::Mat CandidateManager::generate_depth_safe_mask(
@@ -439,14 +441,14 @@ void CandidateManager::calc_structure_mat(Frame::ptr host_frame,
     can.structure_mat.setZero();
     float sum = 0;
     for (int idx = 0; idx < 8; idx++) {
-        float u = pattern[idx][0] + can.u;
-        float v = pattern[idx][1] + can.v;
+        int u = pattern[idx][0] + can.u;
+        int v = pattern[idx][1] + can.v;
 
         Vector2f dxdy;
         dxdy(0) = ip->dx(0, u, v);
         dxdy(1) = ip->dy(0, u, v);
 
-        can.color[idx] = ip->operator()(0, u, v);
+        can.color[idx] = (float)ip->operator()(0, u, v);
         can.structure_mat += dxdy * dxdy.transpose();
         float w = -std::sqrt(std::pow(can.color[idx] - can.color[0], 2)) / 7;
         can.weight[idx] = exp(w);
@@ -454,7 +456,7 @@ void CandidateManager::calc_structure_mat(Frame::ptr host_frame,
     }
 
     for (int i = 0; i < 8; ++i) {
-        can.weight[i] = 0.125;  //= sum;
+        can.weight[i] /= sum;
     }
 }
 
@@ -526,7 +528,6 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
     // before get a new reference point cloud we need to update our active point
     // set
     activate_candidate();
-
     if (!is_initialized) {
         const int lvls = pcp->lvls();
         if (candidate_map.size() < 1e10) {
@@ -554,7 +555,7 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
                  ++it) {
                 if (it->first == newst_KF) continue;
                 for (auto& can : it->second) {
-                    if (!can.is_depth_safe || can.age > 7) continue;
+                    if (/* !can.is_depth_safe || */ can.age > 5) continue;
                     if (can.is_active) {
                         Eigen::Vector3f position =
                             (newst_KF->get_pose<Isometry3f>().inverse() *
@@ -564,12 +565,43 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
 
                         ++cnt;
                         for (int lvl = 0; lvl < lvls; ++lvl) {
+                            //! to estimate aff param, use color on newst kf
                             if ((lvl != 0 && cnt % lvl == 0) || lvl == 0) {
-                                (*pcp)[lvl].emplace_back(position,
-                                                         can.color[0]);
+                                // remove outlier
+                                float color =
+                                    newst_KF->getImagePyramid()->operator()(
+                                        0, can.projection_on_newst_KF(0),
+                                        can.projection_on_newst_KF(1));
+                                auto aff = get_src_to_dst_aff_light(it->first,
+                                                                    newst_KF);
+                                float color_diff = std::abs(
+                                    color - exp(aff.alpha()) * can.color[0] -
+                                    aff.beta());
+                                std::cout << "color diff " << color_diff
+                                          << '\n';
+                                if (color_diff > 70) continue;
+                                (*pcp)[lvl].emplace_back(position, color);
                                 ++can.age;
                             }
                         }
+                    }
+                }
+            }
+            // for all can in newst KF(not active yet)
+            for (auto& can : candidate_map[newst_KF]) {
+                if (can.d_inv_synetic_im == 0) continue;  // not valid
+
+                if (dist_map.dist(can.u, can.v) < 25) continue;
+                dist_map.add(Eigen::Vector2f(can.u, can.v));
+
+                Eigen::Vector3f position = newst_KF->unproject(
+                    Eigen::Vector2i(can.u, can.v), 1.0f / can.d_inv_synetic_im);
+
+                ++cnt;
+                for (int lvl = 0; lvl < lvls; ++lvl) {
+                    if ((lvl != 0 && cnt % lvl == 0) || lvl == 0) {
+                        (*pcp)[lvl].emplace_back(position, can.color[0]);
+                        ++can.age;
                     }
                 }
             }

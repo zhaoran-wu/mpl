@@ -72,7 +72,7 @@ void DistanceMap::compute(
             can.projection_on_newst_KF = point_in_frame;
 
             // check active point
-            if (!can.is_active || can.age > 7) continue;
+            if (!can.is_active || can.age > 5) continue;
 
             int x = static_cast<int>(point_in_frame[0]);
             int y = static_cast<int>(point_in_frame[1]);

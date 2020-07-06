@@ -114,12 +114,15 @@ int main() {
     AffineLight in_out_aff_light_curr_KF(0, 0);
 
     cv::imshow("KF", key_frame_vis);
+    Frame::ptr last_frame = key_frame;
     for (int i = 1; i < 16; ++i) {
         Frame::ptr curr_frame = Frame::create(img_vec[i]);
 
-        Sophus::SE3f old_T_curr_KF = in_out_T_curr_KF;
+        Sophus::SE3f old_T_curr_KF = last_frame->get_T_curr_lastKF();
 
         tracker.tracking(curr_frame);
+
+        in_out_T_curr_KF = curr_frame->get_T_curr_lastKF();
 
         cv::Mat im_to_vis = img_draw_vec[i];
         for (auto& pcd : pcp->operator[](0)) {
@@ -146,5 +149,7 @@ int main() {
         }
         cv::imshow("curr_frame", im_to_vis);
         cv::waitKey(0);
+
+        last_frame = curr_frame;
     }
 }

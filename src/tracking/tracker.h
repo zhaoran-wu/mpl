@@ -31,6 +31,7 @@ class Tracker {
     bool tracking(Frame::ptr to_track_frame);
 
    private:
+    // generate pediction T_curr_last
     void generate_movement_predictions();
 
     // we update our 10 movement predection each times a new frame is tracked
@@ -41,7 +42,7 @@ class Tracker {
     // 2* (0.5x movement + turn left , 0.5x movement + turn right)
     // no movement
     // forward movement
-    Sophus::SE3f movement_prediction[10];
+    Sophus::SE3f movement_prediction[24];
     PointCloudPyramid::ptr point_cloud_pyramid_;
     TrackingOptimizer optimizer;
 
@@ -51,5 +52,8 @@ class Tracker {
     Sophus::SE3f T_last_lastKF =
         Sophus::SE3f(Eigen::Quaternionf::Identity(), Eigen::Vector3f(0, 0, 0));
     AffineLight aff_last_lastKF = AffineLight(0, 0);
+
+    Frame::ptr last_frame = nullptr;
+    Frame::ptr over_last_frame = nullptr;
 };
 }  // namespace mpl
