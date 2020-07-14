@@ -10,6 +10,7 @@ Frame::Frame(const uchar* const row_image_data)
       affine_light(0, 0),
       id(++id_cnt) {
     cam = &CamData::getInstance();
+    frame_block = std::make_unique<FrameParameterBlock>();
     assert(cam != nullptr);
 }
 

@@ -5,9 +5,9 @@
 
 #include "ceres/ceres.h"
 
-#include "PhotometricBAConfig.h"
 #include "bundle_adjustment.h"
 #include "candidate_manager.h"
+#include "ceres/PhotometricBAConfig.h"
 
 namespace mpl {
 class Frame;

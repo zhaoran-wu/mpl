@@ -2,7 +2,7 @@ add_library(${PROJECT_NAME}_window_optimization
 ba_residual_block.cpp
 bundle_adjustment.cpp
 ./ceres/FrameParameterBlock.cpp
-./ceres/PhotometricBA.cpp
+PhotometricBA.cpp
 ./ceres/PhotometricBAConfig.cpp 
 ./ceres/PhotometricBAIterationCallback.cpp 
 ./ceres/PhotometricResidual.cpp 

@@ -276,10 +276,10 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters,
     }
 
     // check outlier
-    if (numBad / PATTERN_SIZE > 0.5 || gradient < 10.0) {
+    if ((float)numBad / PATTERN_SIZE > 0.5 || gradient < 10.0) {
         this->residual_->state_ = Visibility::OUTLIER;
-        std::cout << "bad ratio:" << numBad / PATTERN_SIZE
-                  << "   gradient: " << gradient << '\n';
+        // std::cout << "bad ratio:" << (float)numBad / PATTERN_SIZE
+        //          << "   gradient: " << gradient << '\n';
         if (numBad / PATTERN_SIZE > 0.75) {
             this->discardOutlier(jacobians);
         }

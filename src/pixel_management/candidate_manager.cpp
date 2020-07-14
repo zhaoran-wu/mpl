@@ -39,6 +39,11 @@ void CandidateManager::update_depth_per_frame(const Frame::ptr new_frame) {
 
 void CandidateManager::select_candidate(const Frame::ptr frame,
                                         const cv::Mat synetic_depth_im) {
+    // frame is key frame --> set frame block data
+    frame->get_frame_block()->setPose(
+        frame->get_pose<Sophus::SE3f>().inverse().cast<double>());
+    frame->get_frame_block()->setAffineLight(frame->get_aff_light());
+
     std::vector<Eigen::Vector3i> pixle_selected;
     pixle_selector.select(frame->getImagePyramid(), pixle_selected);
 
@@ -61,6 +66,7 @@ void CandidateManager::select_candidate(const Frame::ptr frame,
 
     for (const auto& p : pixle_selected) {
         Candidate can;
+        can.host_frame = frame;
         if (p(2) != 0 ||
             !is_in_img(CamData::getInstance(), p.head(2).cast<float>()))
             continue;  // choose a safe point only
@@ -76,7 +82,7 @@ void CandidateManager::select_candidate(const Frame::ptr frame,
 
         if (!is_synetic_depth_valid(can, frame, newst_KF, T_old_new,
                                     aff_old_new, rotated_pattern)) {
-            can.d_inv_synetic_im = 0;
+            can.d_inv_synetic_im = 0.0f;
         }
         candidate_vec.push_back(std::move(can));
     }
@@ -480,7 +486,7 @@ void CandidateManager::activate_candidate() {
     Config& config = Config::getInstance();
 
     int num_active = dist_map.get_num_obstacles();
-    float ratio = (float)num_active / config.PIXEL_SELECTION_NUM;
+    float ratio = (float)num_active / 1500;
 
     if (ratio > 1.7f)
         min_dist_to_active += 3;
@@ -507,7 +513,8 @@ void CandidateManager::activate_candidate() {
     for (auto it = candidate_map.begin(); it != candidate_map.end(); ++it) {
         if (it->first == newst_KF) continue;
         for (auto& can : it->second) {
-            if (can.is_active == true || can.d_inv == 0.f) continue;
+            if (can.is_active == true && can.status != CandidateStatus::BAD)
+                continue;
 
             //! decide now only with distmap
             // bool can_be_activated = (can.status != CandidateStatus::BAD &&
@@ -518,6 +525,7 @@ void CandidateManager::activate_candidate() {
             // check dist on dist map
             float dist = dist_map.dist(can.projection_on_newst_KF(0),
                                        can.projection_on_newst_KF(1));
+
             if (dist > static_cast<float>(min_square_dist)) {
                 // check and remove outlier
                 // remove outlier
@@ -527,13 +535,14 @@ void CandidateManager::activate_candidate() {
                 auto aff = get_src_to_dst_aff_light(it->first, newst_KF);
                 float color_diff = std::abs(
                     color - exp(aff.alpha()) * can.color[0] - aff.beta());
-                std::cout << "color diff " << color_diff << '\n';
+                // std::cout << "color diff " << color_diff << '\n';
                 if (color_diff > 70) {
                     continue;
                 }
 
-                can.is_active = true;
+                can.is_active = true;  // activate candidate
                 dist_map.add(can.projection_on_newst_KF);
+                can.point_block->setIDepth((double)can.d_inv);
 
                 // check and add obsevations
                 std::unique_ptr<PhotometricResidual> obs =
@@ -549,7 +558,7 @@ void CandidateManager::activate_candidate() {
                     if (is_in_img(cam, projection)) {
                         obs = std::make_unique<PhotometricResidual>(&can,
                                                                     it2->first);
-                        can.observations[newst_KF] = std::move(obs);
+                        can.observations[it2->first] = std::move(obs);
                     }
                 }
             }

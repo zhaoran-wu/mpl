@@ -57,8 +57,8 @@ class Frame {
         Sophus::SE3f(Eigen::Quaternionf::Identity(), Eigen::Vector3f(0, 0, 0));
     AffineLight aff_light_curr_lastKF = AffineLight(0, 0);
     // global info
-    Sophus::SE3f pose;  // T_c_w;
-    AffineLight affine_light;
+    Sophus::SE3f pose = Sophus::SE3f::transZ(0.0f);  // T_c_w;
+    AffineLight affine_light = AffineLight(0, 0);
     CamData* cam;
     int id;
 

@@ -104,4 +104,18 @@ ${PROJECT_NAME}_pixel_management
 ${PROJECT_NAME}_rendering
 )
 
+add_executable(test_window_optimization test_window_optimization.cpp)
+target_link_libraries(test_window_optimization         
+${CERES_LIBRARIES}
+${OpenCV_LIBRARIES}
+${Eigen_LIBRARIES}
+${Boost_LIBRARIES}
+util
+${PROJECT_NAME}_base
+${PROJECT_NAME}_tracking
+${PROJECT_NAME}_pixel_management
+${PROJECT_NAME}_rendering
+${PROJECT_NAME}_window_optimization
+)
+
 

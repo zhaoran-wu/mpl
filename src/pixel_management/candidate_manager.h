@@ -64,7 +64,8 @@ struct Candidate {
         observations;
 
     // ceres optimization param
-    std::unique_ptr<PointParameterBlock> point_block;
+    std::unique_ptr<PointParameterBlock> point_block =
+        std::make_unique<PointParameterBlock>();
 };
 
 class CandidateManager {

@@ -1,9 +1,9 @@
 #include "PhotometricBA.h"
-#include "FrameParameterBlock.h"
-#include "PhotometricBAIterationCallback.h"
-#include "PhotometricResidual.h"
-#include "PointParameterBlock.h"
 #include "cam_data.h"
+#include "ceres/FrameParameterBlock.h"
+#include "ceres/PhotometricBAIterationCallback.h"
+#include "ceres/PhotometricResidual.h"
+#include "ceres/PointParameterBlock.h"
 #include "config.h"
 #include "frame.h"
 #include "pattern.h"
@@ -31,6 +31,7 @@ void PhotometricBA::reset() {
 
 void PhotometricBA::solve(CandidateManager& cm) {
     const auto& config = Config::getInstance();
+    candidate_map_ptr = &cm.get_candidate_map();
 
     // reset internal data
     this->reset();
@@ -55,7 +56,7 @@ void PhotometricBA::solve(CandidateManager& cm) {
     this->mergeOptimization(cm, obsToRemove);
 
     // remove bad observations
-    this->removeBadObservations(obsToRemove);
+    // this->removeBadObservations(obsToRemove);
 }
 
 void PhotometricBA::prepareOptimization(CandidateManager& cm,
