@@ -1,11 +1,11 @@
 #pragma once
 #include "affine_light.h"
+#include "ceres/FrameParameterBlock.h"
 #include "image_pyramid.h"
 #include <Eigen/Geometry>
 #include <opencv2/core.hpp>
 #include <sophus/se3.hpp>
 namespace mpl {
-
 class Frame {
    public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -42,6 +42,13 @@ class Frame {
     // get the frame, which used to tracking curr frame;
     Frame::ptr get_ref_frame();
 
+    // get ceres param block
+    const std::unique_ptr<FrameParameterBlock>& get_frame_block() const;
+
+    int get_id();
+
+    void merge_optimization_result();
+
    private:
     ImagePyramid::ptr pyramid;
     // relative info
@@ -53,8 +60,16 @@ class Frame {
     Sophus::SE3f pose;  // T_c_w;
     AffineLight affine_light;
     CamData* cam;
+    int id;
+
+    static int id_cnt;
+    // ceres optimization params
+    std::unique_ptr<FrameParameterBlock> frame_block;
 };
 
+inline int Frame::get_id() {
+    return id;
+}
 inline Eigen::Vector3f Frame::unproject(const Eigen::Vector2i& pixel,
                                         const float depth,
                                         const int lvl) const {
@@ -127,5 +142,15 @@ Sophus::SE3f get_src_to_dst_transform(const Frame::ptr src,
 
 AffineLight get_src_to_dst_aff_light(const Frame::ptr src,
                                      const Frame::ptr dst);
+
+inline const std::unique_ptr<FrameParameterBlock>& Frame::get_frame_block()
+    const {
+    return frame_block;
+}
+
+inline void Frame::merge_optimization_result() {
+    this->pose = frame_block->getPose().inverse().cast<float>();
+    this->affine_light = frame_block->getAffineLight();
+}
 
 }  // namespace mpl

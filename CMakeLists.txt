@@ -1,10 +1,11 @@
 cmake_minimum_required(VERSION 3.1)
 
 project(mpl)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
 
 if(NOT CMAKE_BUILD_TYPE)
-	set(CMAKE_BUILD_TYPE RELEASE)
+	set(CMAKE_BUILD_TYPE DEBUG)
 endif()
 
 # gprof

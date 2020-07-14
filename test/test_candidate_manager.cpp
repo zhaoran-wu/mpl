@@ -1,7 +1,6 @@
 #include "cam_data.h"
 #include "candidate_manager.h"
 #include "config.h"
-#include "sliding_window.h"
 #include "synetic_image.h"
 #include "tracker.h"
 #include <opencv2/opencv.hpp>
@@ -57,7 +56,7 @@ int main() {
 
     CandidateManager cm;
     cm.select_candidate(key_frame, syn_im_vec[1]);
-    std::vector<Candidate> candidates = cm.get_candidate(key_frame);
+    std::vector<Candidate>& candidates = cm.get_candidate(key_frame);
 
     // generate depth map pyramid
     /*     int lvls = config.PYRAMID_LVLS;
@@ -139,7 +138,7 @@ int main() {
                 } */
 
         cm.update_depth_per_frame(curr_frame);
-        auto candidates_updated = cm.get_candidate(key_frame);
+        auto& candidates_updated = cm.get_candidate(key_frame);
         // draw after depth update
         for (const auto& can : candidates_updated) {
             Eigen::Vector2i pixle(can.u, can.v);

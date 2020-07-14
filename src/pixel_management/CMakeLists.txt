@@ -7,4 +7,5 @@ distance_map.cpp
 target_link_libraries(${PROJECT_NAME}_pixel_management
 util
 ${PROJECT_NAME}_base
+${PROJECT_NAME}_window_optimization
 )

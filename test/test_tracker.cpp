@@ -1,7 +1,6 @@
 #include "cam_data.h"
 #include "candidate_manager.h"
 #include "config.h"
-#include "sliding_window.h"
 #include "synetic_image.h"
 #include "tracker.h"
 #include <opencv2/opencv.hpp>
@@ -53,7 +52,7 @@ int main() {
 
     CandidateManager cm;
     cm.select_candidate(key_frame, depth_vec[0]);
-    std::vector<Candidate> candidates = cm.get_candidate(key_frame);
+    std::vector<Candidate>& candidates = cm.get_candidate(key_frame);
 
     // generate depth map vec
     cv::Mat depth_im = depth_vec[0];
@@ -138,7 +137,7 @@ int main() {
         }
 
         cm.update_depth_per_frame(curr_frame);
-        auto cans = cm.get_candidate(key_frame);
+        auto& cans = cm.get_candidate(key_frame);
         for (const auto& can : cans) {
             Eigen::Vector2i pixle(can.u, can.v);
             Eigen::Vector3f P =

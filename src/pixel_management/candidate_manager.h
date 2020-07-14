@@ -1,4 +1,6 @@
 #pragma once
+#include "ceres/PhotometricResidual.h"
+#include "ceres/PointParameterBlock.h"
 #include "distance_map.h"
 #include "frame.h"
 #include "pixel_selector.h"
@@ -39,7 +41,8 @@ struct Candidate {
     void update(float d_inv_obs, float var_obs);
     float get_d_inv_min() const;
     float get_d_inv_max() const;
-
+    const std::unique_ptr<PointParameterBlock>& get_point_block() const;
+    void merge_optimization_result();
     Eigen::Matrix2f structure_mat;
 
     bool is_active = false;  // only active will join the optimization
@@ -50,8 +53,18 @@ struct Candidate {
     // update float delta_d; bool is_active = false;
     CandidateStatus status = CandidateStatus::NOT_INITIALIZED;
 
+    // use for activate
     Eigen::Vector2f projection_on_newst_KF = Eigen::Vector2f(0, 0);
     int age = 0;
+
+    // host frame
+    Frame::ptr host_frame;
+
+    std::unordered_map<Frame::ptr, std::unique_ptr<PhotometricResidual>>
+        observations;
+
+    // ceres optimization param
+    std::unique_ptr<PointParameterBlock> point_block;
 };
 
 class CandidateManager {
@@ -71,9 +84,13 @@ class CandidateManager {
 
     PointCloudPyramid::ptr get_point_cloud_pyramid();
 
-    std::vector<Candidate> get_candidate(const Frame::ptr frame);
+    std::vector<Candidate>& get_candidate(const Frame::ptr frame);
+
+    std::unordered_map<Frame::ptr, std::vector<Candidate>>& get_candidate_map();
 
     void activate_candidate();
+
+    std::vector<Frame::ptr>& get_key_frames();
 
    private:
     bool is_synetic_depth_valid(
@@ -87,6 +104,7 @@ class CandidateManager {
         const Eigen::Vector3f& Kt) const;
     cv::Mat generate_depth_safe_mask(const cv::Mat synetic_depth_im) const;
 
+    // line search part
     float line_search(float& u_best, float& v_best, const Candidate& can,
                       const Frame::ptr frame, const Eigen::Vector2f& p_near,
                       const Eigen::Vector2f& p_far,
@@ -111,6 +129,7 @@ class CandidateManager {
     // map frame ptr to it's candidate
     std::unordered_map<Frame::ptr, std::vector<Candidate>> candidate_map;
     Frame::ptr newst_KF = nullptr;
+    std::vector<Frame::ptr> key_frames;
     // add candidate covariance info
     PixelSelector pixle_selector;
     // distance map
@@ -137,7 +156,13 @@ inline float Candidate::get_d_inv_max() const {
     return d_inv + sqrt(var);
 }
 
-inline bool is_in_img(CamData& cam, const Eigen::Vector2f& p) {
+inline const std::unique_ptr<PointParameterBlock>& Candidate::get_point_block()
+    const {
+    return point_block;
+}
+
+template <typename T>
+inline bool is_in_img(CamData& cam, const T& p) {
     return (p(0) > 2 && p(1) > 2 && p(0) < cam.width[0] - 2 &&
             p(1) < cam.height[0] - 2);
 }
@@ -155,4 +180,7 @@ inline Eigen::Vector2f unproject_trans_project(const Candidate& can,
     return target_frame->project(T_target_host * P_host);
 }
 
+inline void Candidate::merge_optimization_result() {
+    this->d_inv = point_block->getIDepth();
+}
 }  // namespace mpl

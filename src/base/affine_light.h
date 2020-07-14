@@ -42,6 +42,8 @@ class AffineLight {
     // dst_src: Aff param map src to dst
     static AffineLight calc_dst_global_aff(const AffineLight& src,
                                            const AffineLight& dst_src);
+    static const int DoF = 2;
+    static const int num_parameters = 2;
 
    private:
     float alpha_;

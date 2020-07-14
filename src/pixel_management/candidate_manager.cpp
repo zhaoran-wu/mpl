@@ -18,6 +18,10 @@ vector<Vector2f> get_rotatet_pattern(const Matrix2f& R) {
     return rotatetPattern;
 }
 
+std::vector<Frame::ptr>& CandidateManager::get_key_frames() {
+    return key_frames;
+}
+
 void CandidateManager::update_depth_per_frame(const Frame::ptr new_frame) {
     for (auto it = candidate_map.begin(); it != candidate_map.end(); ++it) {
         Frame::ptr old_frame = it->first;
@@ -55,8 +59,8 @@ void CandidateManager::select_candidate(const Frame::ptr frame,
                 .topLeftCorner<2, 2>());
     }
 
-    Candidate can;
     for (const auto& p : pixle_selected) {
+        Candidate can;
         if (p(2) != 0 ||
             !is_in_img(CamData::getInstance(), p.head(2).cast<float>()))
             continue;  // choose a safe point only
@@ -74,11 +78,12 @@ void CandidateManager::select_candidate(const Frame::ptr frame,
                                     aff_old_new, rotated_pattern)) {
             can.d_inv_synetic_im = 0;
         }
-        candidate_vec.push_back(can);
+        candidate_vec.push_back(std::move(can));
     }
     // set newst_KF to new add key frame
+    key_frames.push_back(frame);
     newst_KF = frame;
-    candidate_map[frame] = candidate_vec;
+    candidate_map[frame] = std::move(candidate_vec);
 }
 
 bool CandidateManager::is_synetic_depth_valid(
@@ -166,8 +171,14 @@ cv::Mat CandidateManager::generate_depth_safe_mask(
     return mask_dilated;
 }
 
-std::vector<Candidate> CandidateManager::get_candidate(const Frame::ptr frame) {
+std::vector<Candidate>& CandidateManager::get_candidate(
+    const Frame::ptr frame) {
     return candidate_map[frame];
+}
+
+std::unordered_map<Frame::ptr, std::vector<Candidate>>&
+CandidateManager::get_candidate_map() {
+    return candidate_map;
 }
 
 void CandidateManager::update_depth_on_old_frame(Candidate& can,
@@ -461,6 +472,7 @@ void CandidateManager::calc_structure_mat(Frame::ptr host_frame,
 }
 
 void CandidateManager::activate_candidate() {
+    auto& cam = CamData::getInstance();
     // pre-compute the distance map of (already) active points
     dist_map.compute(candidate_map, newst_KF);
 
@@ -495,7 +507,7 @@ void CandidateManager::activate_candidate() {
     for (auto it = candidate_map.begin(); it != candidate_map.end(); ++it) {
         if (it->first == newst_KF) continue;
         for (auto& can : it->second) {
-            if (can.is_active == true) continue;
+            if (can.is_active == true || can.d_inv == 0.f) continue;
 
             //! decide now only with distmap
             // bool can_be_activated = (can.status != CandidateStatus::BAD &&
@@ -507,9 +519,39 @@ void CandidateManager::activate_candidate() {
             float dist = dist_map.dist(can.projection_on_newst_KF(0),
                                        can.projection_on_newst_KF(1));
             if (dist > static_cast<float>(min_square_dist)) {
+                // check and remove outlier
+                // remove outlier
+                float color = newst_KF->getImagePyramid()->operator()(
+                    0, can.projection_on_newst_KF(0),
+                    can.projection_on_newst_KF(1));
+                auto aff = get_src_to_dst_aff_light(it->first, newst_KF);
+                float color_diff = std::abs(
+                    color - exp(aff.alpha()) * can.color[0] - aff.beta());
+                std::cout << "color diff " << color_diff << '\n';
+                if (color_diff > 70) {
+                    continue;
+                }
+
                 can.is_active = true;
                 dist_map.add(can.projection_on_newst_KF);
-                // todo : add to ref point cloud
+
+                // check and add obsevations
+                std::unique_ptr<PhotometricResidual> obs =
+                    std::make_unique<PhotometricResidual>(&can, newst_KF);
+                can.observations[newst_KF] = std::move(obs);
+
+                for (auto it2 = candidate_map.begin();
+                     it2 != candidate_map.end(); ++it2) {
+                    if (it2->first == newst_KF || it2->first == can.host_frame)
+                        continue;
+                    Eigen::Vector2f projection = unproject_trans_project(
+                        can, can.host_frame, it2->first);
+                    if (is_in_img(cam, projection)) {
+                        obs = std::make_unique<PhotometricResidual>(&can,
+                                                                    it2->first);
+                        can.observations[newst_KF] = std::move(obs);
+                    }
+                }
             }
         }
     }
@@ -565,21 +607,14 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
 
                         ++cnt;
                         for (int lvl = 0; lvl < lvls; ++lvl) {
-                            //! to estimate aff param, use color on newst kf
                             if ((lvl != 0 && cnt % lvl == 0) || lvl == 0) {
-                                // remove outlier
                                 float color =
                                     newst_KF->getImagePyramid()->operator()(
                                         0, can.projection_on_newst_KF(0),
                                         can.projection_on_newst_KF(1));
-                                auto aff = get_src_to_dst_aff_light(it->first,
-                                                                    newst_KF);
-                                float color_diff = std::abs(
-                                    color - exp(aff.alpha()) * can.color[0] -
-                                    aff.beta());
-                                std::cout << "color diff " << color_diff
-                                          << '\n';
-                                if (color_diff > 70) continue;
+                                //! use color on newst kf to estimate the aff
+                                //! param;
+
                                 (*pcp)[lvl].emplace_back(position, color);
                                 ++can.age;
                             }

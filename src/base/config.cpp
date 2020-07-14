@@ -22,6 +22,7 @@ bool Config::readYamlFile(const std::string& file_path) {
     read(OPTIMIZATION_ROTATION_SCALE, float);
     read(OPTIMIZATION_ALPHA_SCALE, float);
     read(OPTIMIZATION_BETA_SCALE, float);
+    read(OPTIMIZATION_IDEPTH_SCALE, float);
 
     read(OPTIMIZATION_STEP_MIN, float);
     read(OPTIMIZATION_LAMDA_MAX, float);

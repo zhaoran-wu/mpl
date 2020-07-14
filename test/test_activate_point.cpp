@@ -2,7 +2,6 @@
 #include "cam_data.h"
 #include "candidate_manager.h"
 #include "config.h"
-#include "sliding_window.h"
 #include "synetic_image.h"
 #include "tracker.h"
 #include <opencv2/opencv.hpp>
@@ -61,7 +60,7 @@ int main() {
         synetic_image.renderingAt(render_pose);
     CandidateManager cm;
     cm.select_candidate(key_frame, syn_im_vec_curr[1]);
-    std::vector<Candidate> candidates = cm.get_candidate(key_frame);
+    std::vector<Candidate>& candidates = cm.get_candidate(key_frame);
 
     PointCloudPyramid::ptr pcp = cm.get_point_cloud_pyramid();
 
