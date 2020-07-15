@@ -15,6 +15,7 @@ enum RenderingMode { PHTOMETRIC, DEPTH, NORMAL };
 class SyneticImage {
    public:
     SyneticImage(const std::string project_path);
+
     /**
      * @brief return rendering image from model and texture at given pose, and
      * mode
@@ -25,8 +26,7 @@ class SyneticImage {
      * normal image
      * @return cv::Mat
      */
-    cv::Mat renderingAt(const Eigen::Isometry3f& pose,
-                        const RenderingMode mode);
+    cv::Mat renderingAt(const Eigen::Isometry3f& pose, const RenderingMode mode);
 
     std::vector<cv::Mat> renderingAt(const Eigen::Isometry3f& pose);
     /**
@@ -80,17 +80,16 @@ class SyneticImage {
     GLuint pbo_arr[3];
 
     // uniform parameters for opengl
-    Eigen::Matrix4f projection;  //! projection matrix of opengl
-    Eigen::Isometry3f view;      //! view matix of opengl, correspond to Tgl_w
-    Eigen::Vector2f zn_zf;       //! z_near and z_far;
-    Eigen::Matrix3f Rb_w;        // ! world to body frame
+    Eigen::Matrix4f projection;           //! projection matrix of opengl
+    Eigen::Isometry3f view;               //! view matix of opengl, correspond to Tgl_w
+    Eigen::Vector2f zn_zf;                //! z_near and z_far;
+    Eigen::Matrix3f Rb_w;                 // ! world to body frame
     Eigen::Isometry3f extrinsic_T_c_cgl;  // ! opengl camera to body frame
 
     Sophus::SE3f start_T_w_c0;
 
-    const float z_n = 1.f;  // control the minimal depth in m
-    const float z_f = std::numeric_limits<ushort>::max() /
-                      1000.f;  // control the maxmal depth in m
+    const float z_n = 1.f;                                          // control the minimal depth in m
+    const float z_f = std::numeric_limits<ushort>::max() / 1000.f;  // control the maxmal depth in m
 
     // window
     GLFWwindow* window;

@@ -21,8 +21,7 @@ class PhotometricCostFunction : public ceres::CostFunction {
 
     virtual ~PhotometricCostFunction();
 
-    bool Evaluate(double const* const* parameters, double* residuals,
-                  double** jacobians) const;
+    bool Evaluate(double const* const* parameters, double* residuals, double** jacobians) const;
 
    private:
     void discardOutlier(double** jacobians) const;
@@ -41,8 +40,7 @@ class PhotometricResidual : public BAResidualBlock {
 
     friend class PhotometricCostFunction;
 
-    PhotometricResidual(Candidate* point,
-                        const std::shared_ptr<Frame>& targetFrame);
+    PhotometricResidual(Candidate* point, const std::shared_ptr<Frame>& targetFrame);
     virtual ~PhotometricResidual();
 
     // avoid copying

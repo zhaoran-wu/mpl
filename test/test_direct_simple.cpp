@@ -22,19 +22,17 @@ T getPixelValue(double x, double y, const cv::Mat* im) {
     T* data = &im->data[int(y) * im->step + int(x)];
     double xx = x - floor(x);
     double yy = y - floor(y);
-    return T((1 - xx) * (1 - yy) * data[0] + xx * (1 - yy) * data[1] +
-             (1 - xx) * yy * data[im->step] + xx * yy * data[im->step + 1]);
+    return T((1 - xx) * (1 - yy) * data[0] + xx * (1 - yy) * data[1] + (1 - xx) * yy * data[im->step] +
+             xx * yy * data[im->step + 1]);
 }
-inline Eigen::Vector3d project2Dto3D(int x, int y, ushort d, float fx, float fy,
-                                     float cx, float cy, float scale) {
+inline Eigen::Vector3d project2Dto3D(int x, int y, ushort d, float fx, float fy, float cx, float cy, float scale) {
     float zz = float(d) / scale;
     float xx = zz * (x + 0.5f - cx) / fx;
     float yy = zz * (y + 0.5f - cy) / fy;
     return Eigen::Vector3d(xx, yy, zz);
 }
 
-inline cv::Point2d project3Dto2D(float x, float y, float z, float fx, float fy,
-                                 float cx, float cy) {
+inline cv::Point2d project3Dto2D(float x, float y, float z, float fx, float fy, float cx, float cy) {
     double u = fx * x / z + cx;
     double v = fy * y / z + cy;
     return cv::Point2d(u, v);
@@ -44,8 +42,7 @@ class PhotometicCostFunction : public ceres::SizedCostFunction<1, 9> {
    public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 
-    PhotometicCostFunction(Eigen::Vector3d point_, double intensity1_,
-                           double fx, double fy, double cx, double cy,
+    PhotometicCostFunction(Eigen::Vector3d point_, double intensity1_, double fx, double fy, double cx, double cy,
                            cv::Mat im2_, cv::Mat grad2x_, cv::Mat grad2y_)
         : point(point_),
           intensity1(intensity1_),
@@ -62,8 +59,7 @@ class PhotometicCostFunction : public ceres::SizedCostFunction<1, 9> {
 
     // params :
     //      [q,t,a,b]
-    virtual bool Evaluate(double const* const* parameters, double* residuals,
-                          double** jacobians) const override;
+    virtual bool Evaluate(double const* const* parameters, double* residuals, double** jacobians) const override;
 
    private:
     const Eigen::Vector3d point;  // 3d point in the im1 ccs
@@ -73,9 +69,7 @@ class PhotometicCostFunction : public ceres::SizedCostFunction<1, 9> {
     const cv::Mat grad2_x, grad2_y;  // gradient image in x and y direction
 };
 // implementation
-bool PhotometicCostFunction::Evaluate(double const* const* parameters,
-                                      double* residuals,
-                                      double** jacobians) const {
+bool PhotometicCostFunction::Evaluate(double const* const* parameters, double* residuals, double** jacobians) const {
     //* #######---compute photometic residual----######
     Eigen::Map<const Sophus::SE3d> const T(parameters[0]);
     Eigen::Vector3d p_3d = T * point;  // T21
@@ -89,8 +83,7 @@ bool PhotometicCostFunction::Evaluate(double const* const* parameters,
         residuals[0] = 0;
         return true;
     }
-    residuals[0] = -exp(parameters[0][7]) * intensity1 - parameters[0][8] +
-                   getPixelValue<uchar>(p_2d.x, p_2d.y, &im2);
+    residuals[0] = -exp(parameters[0][7]) * intensity1 - parameters[0][8] + getPixelValue<uchar>(p_2d.x, p_2d.y, &im2);
     //* #######---set Jacobdians J = [JT,Jab], with dimension 1*(6+2)----######
     // JT = dI/dT = dI/dp * dp / dT
     Eigen::Matrix<double, 1, 2> dIdp;
@@ -132,11 +125,9 @@ class Parameterization : public ceres::LocalParameterization {
     Parameterization() = default;
     virtual ~Parameterization() = default;
 
-    virtual bool Plus(const double* x, const double* delta,
-                      double* x_plus_delta) const override;
+    virtual bool Plus(const double* x, const double* delta, double* x_plus_delta) const override;
 
-    virtual bool ComputeJacobian(const double* x,
-                                 double* jacobian) const override {
+    virtual bool ComputeJacobian(const double* x, double* jacobian) const override {
         Eigen::Map<Eigen::Matrix<double, 9, 8, Eigen::RowMajor>> J(jacobian);
         J.setZero();
         J.block<8, 8>(0, 0).setIdentity();
@@ -155,8 +146,7 @@ class Parameterization : public ceres::LocalParameterization {
  *   implementation
  *
  */
-bool Parameterization::Plus(const double* x, const double* delta,
-                            double* x_plus_delta) const {
+bool Parameterization::Plus(const double* x, const double* delta, double* x_plus_delta) const {
     const Eigen::Map<const Sophus::SE3d> T(x);
     const Eigen::Map<const Sophus::Vector6d> delta_se3(delta);
     Eigen::Map<Sophus::SE3d> T_new(x_plus_delta);
@@ -178,8 +168,7 @@ bool Parameterization::Plus(const double* x, const double* delta,
     return true;
 }
 
-Eigen::Vector3d projectTo3d(const cv::Point pixel, const Eigen::Matrix3d K,
-                            const cv::Mat depth) {
+Eigen::Vector3d projectTo3d(const cv::Point pixel, const Eigen::Matrix3d K, const cv::Mat depth) {
     Eigen::Vector3d homo_pixel(pixel.x, pixel.y, 1);
     /*   float d = depth.at<uchar>(pixel) * 40 /
                 255.0f;  //100; //! 40 is z_far //255 -> 256 faster */
@@ -193,8 +182,7 @@ int main() {
     std::string config_path = "/home/zhaoran/thesis_ws/mpl/project/config.yaml";
     config.readYamlFile(config_path);
 
-    std::string calib_path =
-        "/home/zhaoran/thesis_ws/mpl/project/camera_tum.yaml";
+    std::string calib_path = "/home/zhaoran/thesis_ws/mpl/project/camera_tum.yaml";
     CamData& cam = CamData::getInstance();
     cam.readYamlFile(calib_path);
     const std::string im_path = "/home/zhaoran/thesis_ws/mpl/test_data/";
@@ -228,8 +216,7 @@ int main() {
     ceres::Problem problem;
     double* param = new double[9];
     Eigen::Map<Sophus::SE3d> T(param);
-    T = Sophus::SE3d(Eigen::Quaterniond::Identity(),
-                     Eigen::Vector3d(-0.00, -0.00, 0));  //! T21
+    T = Sophus::SE3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(-0.00, -0.00, 0));  //! T21
     param[7] = 0;
     param[8] = 0;
 
@@ -239,10 +226,9 @@ int main() {
     for (const auto& pixel : candidates) {
         if (depth1.at<ushort>(pixel) == 0) continue;
 
-        Eigen::Vector3d p_3d1 = project2Dto3D(
-            pixel.x, pixel.y, depth1.at<ushort>(pixel), fx, fy, cx, cy, 1000);
-        ceres::CostFunction* cost = new PhotometicCostFunction(
-            p_3d1, im1.at<uchar>(pixel), fx, fy, cx, cy, im2, grad2x, grad2y);
+        Eigen::Vector3d p_3d1 = project2Dto3D(pixel.x, pixel.y, depth1.at<ushort>(pixel), fx, fy, cx, cy, 1000);
+        ceres::CostFunction* cost =
+            new PhotometicCostFunction(p_3d1, im1.at<uchar>(pixel), fx, fy, cx, cy, im2, grad2x, grad2y);
         problem.AddResidualBlock(cost, loss, param);
         problem.SetParameterization(param, parameterization);
     }
@@ -250,8 +236,7 @@ int main() {
     for (const auto& p : candidates) {
         if (depth1.at<ushort>(p) == 0) continue;
         cv::circle(im1_clone, p, 1, cv::Scalar(0, 255, 0), 1, CV_FILLED);
-        Eigen::Vector3d p_3 =
-            project2Dto3D(p.x, p.y, depth1.at<ushort>(p), fx, fy, cx, cy, 1000);
+        Eigen::Vector3d p_3 = project2Dto3D(p.x, p.y, depth1.at<ushort>(p), fx, fy, cx, cy, 1000);
         Eigen::Vector3d p_x = p_3;
         cv::Point2d p_2 = project3Dto2D(p_x(0), p_x(1), p_x(2), fx, fy, cx, cy);
         cv::Point p_draw(p_2.x, p_2.y);
@@ -280,11 +265,11 @@ int main() {
     for (const auto& p : candidates) {
         if (depth1.at<ushort>(p) == 0) continue;
         cv::circle(im1_clone, p, 1, cv::Scalar(0, 255, 0), 1, CV_FILLED);
-        Eigen::Vector3d p_3 =
-            project2Dto3D(p.x, p.y, depth1.at<ushort>(p), fx, fy, cx, cy, 1000);
+        Eigen::Vector3d p_3 = project2Dto3D(p.x, p.y, depth1.at<ushort>(p), fx, fy, cx, cy, 1000);
         Eigen::Vector3d p_x = T_x * p_3;
         cv::Point2d p_2 = project3Dto2D(p_x(0), p_x(1), p_x(2), fx, fy, cx, cy);
         cv::Point p_draw(p_2.x, p_2.y);
+
         cv::circle(im2_clone, p_draw, 1, cv::Scalar(0, 0, 255), 1, CV_FILLED);
     }
     cv::imshow("im2_clone ", im2_clone);

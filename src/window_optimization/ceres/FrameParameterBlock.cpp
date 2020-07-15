@@ -9,8 +9,7 @@ FrameParameterization::FrameParameterization() {
 FrameParameterization::~FrameParameterization() {
 }
 
-bool FrameParameterization::Plus(const double* x, const double* delta,
-                                 double* x_plus_delta) const {
+bool FrameParameterization::Plus(const double* x, const double* delta, double* x_plus_delta) const {
     const auto& config = Config::getInstance();
 
     // x: 9 number of parameters
@@ -26,8 +25,7 @@ bool FrameParameterization::Plus(const double* x, const double* delta,
     // "Numerical Optimization" Nocedal et al. 2006, page 95
     Sophus::Vector6d poseDelta;
     poseDelta.segment<3>(0) = d.segment<3>(0) * config.OPTIMIZATION_TRANS_SCALE;
-    poseDelta.segment<3>(3) =
-        d.segment<3>(3) * config.OPTIMIZATION_ROTATION_SCALE;
+    poseDelta.segment<3>(3) = d.segment<3>(3) * config.OPTIMIZATION_ROTATION_SCALE;
 
     // pose left composition : exp(delta) * T
     T_plus_delta = Sophus::SE3d::exp(poseDelta) * T;
@@ -39,8 +37,7 @@ bool FrameParameterization::Plus(const double* x, const double* delta,
     return true;
 }
 
-bool FrameParameterization::ComputeJacobian(const double* x,
-                                            double* jacobian) const {
+bool FrameParameterization::ComputeJacobian(const double* x, double* jacobian) const {
     // trick to work directly in the tangent space
     // compute jacobians relative to the tangent space
     // and let this jacobian be the identity
@@ -62,21 +59,18 @@ int FrameParameterization::LocalSize() const {
 }
 
 // Parameter Block
-const std::unique_ptr<FrameParameterization>
-    FrameParameterBlock::frameParameterization =
-        std::make_unique<FrameParameterization>();
+const std::unique_ptr<FrameParameterization> FrameParameterBlock::frameParameterization =
+    std::make_unique<FrameParameterization>();
 
 FrameParameterBlock::FrameParameterBlock() : BAParameterBlock<9>() {
 }
 
-FrameParameterBlock::FrameParameterBlock(const Sophus::SE3d& camToWorld,
-                                         const AffineLight& affineLight)
+FrameParameterBlock::FrameParameterBlock(const Sophus::SE3d& camToWorld, const AffineLight& affineLight)
     : BAParameterBlock<9>() {
     this->setPose(camToWorld);
     this->setAffineLight(affineLight);
     this->backup();
-    this->setLocalParameterization(
-        FrameParameterBlock::frameParameterization.get());
+    this->setLocalParameterization(FrameParameterBlock::frameParameterization.get());
 }
 
 FrameParameterBlock::~FrameParameterBlock() {
@@ -86,9 +80,7 @@ void FrameParameterBlock::setPose(const Sophus::SE3d& camToWorld) {
     // copy values
     // the internal order is: qx, qy, qz, qw, tx, ty, tz
     // the same as in Eigen and Sophus
-    std::copy(camToWorld.data(),
-              camToWorld.data() + Sophus::SE3f::num_parameters,
-              this->parameters_.data());
+    std::copy(camToWorld.data(), camToWorld.data() + Sophus::SE3f::num_parameters, this->parameters_.data());
 }
 
 void FrameParameterBlock::setAffineLight(const AffineLight& affineLight) {
@@ -108,14 +100,12 @@ Sophus::SE3d FrameParameterBlock::getPose() const {
 
 AffineLight FrameParameterBlock::getAffineLight() const {
     // return a copy
-    return AffineLight((float)this->parameters_[7],
-                       (float)this->parameters_[8]);
+    return AffineLight((float)this->parameters_[7], (float)this->parameters_[8]);
 }
 
 Sophus::SE3d FrameParameterBlock::getPoseBackup() const {
     // map internal data
-    Eigen::Map<const Sophus::SE3d> const state_backup(
-        this->parameters_backup_.data());
+    Eigen::Map<const Sophus::SE3d> const state_backup(this->parameters_backup_.data());
 
     // return a copy
     return state_backup;
@@ -123,8 +113,7 @@ Sophus::SE3d FrameParameterBlock::getPoseBackup() const {
 
 AffineLight FrameParameterBlock::getAffineLightBackup() const {
     // return a copy
-    return AffineLight((float)this->parameters_backup_[7],
-                       (float)this->parameters_backup_[8]);
+    return AffineLight((float)this->parameters_backup_[7], (float)this->parameters_backup_[8]);
 }
 
 void FrameParameterBlock::step(Eigen::Matrix<double, 8, 1>& delta) const {

@@ -11,43 +11,31 @@ namespace mpl {
 // help function
 
 template <typename T>
-bool project_to_target_frame(T uj, T vj, T iDepth,
-                             const Eigen::Matrix<T, 3, 3>& K, int width,
-                             int height, const Eigen::Matrix<T, 3, 3>& R,
-                             const Eigen::Matrix<T, 3, 1>& t,
-                             Eigen::Matrix<T, 2, 1>& Xpn,
-                             Eigen::Matrix<T, 2, 1>& hit_pixel, T& newIDepth,
+bool project_to_target_frame(T uj, T vj, T iDepth, const Eigen::Matrix<T, 3, 3>& K, int width, int height,
+                             const Eigen::Matrix<T, 3, 3>& R, const Eigen::Matrix<T, 3, 1>& t,
+                             Eigen::Matrix<T, 2, 1>& Xpn, Eigen::Matrix<T, 2, 1>& hit_pixel, T& newIDepth,
                              T& ratio_inv_d);
 
 template <typename T>
-bool project_to_target_frame(T uj, T vj, T iDepth, int width, int height,
-                             const Eigen::Matrix<T, 3, 3>& KRKinv,
-                             const Eigen::Matrix<T, 3, 1>& Kt,
-                             Eigen::Matrix<T, 2, 1>& hit_pixle);
+bool project_to_target_frame(T uj, T vj, T iDepth, int width, int height, const Eigen::Matrix<T, 3, 3>& KRKinv,
+                             const Eigen::Matrix<T, 3, 1>& Kt, Eigen::Matrix<T, 2, 1>& hit_pixle);
 
 // Cost Function
 
-PhotometricCostFunction::PhotometricCostFunction(
-    PhotometricResidual* const residual)
-    : residual_(residual) {
+PhotometricCostFunction::PhotometricCostFunction(PhotometricResidual* const residual) : residual_(residual) {
     // number of residual
     this->set_num_residuals(PATTERN_SIZE);
 
     // parameter block sizes
-    this->mutable_parameter_block_sizes()->push_back(
-        9);  // owner frame: pose(7) + light(2)
-    this->mutable_parameter_block_sizes()->push_back(
-        9);  // target frame: pose(7) + light(2)
-    this->mutable_parameter_block_sizes()->push_back(
-        1);  // point inverse depth(1)
+    this->mutable_parameter_block_sizes()->push_back(9);  // owner frame: pose(7) + light(2)
+    this->mutable_parameter_block_sizes()->push_back(9);  // target frame: pose(7) + light(2)
+    this->mutable_parameter_block_sizes()->push_back(1);  // point inverse depth(1)
 }
 
 PhotometricCostFunction::~PhotometricCostFunction() {
 }
 
-bool PhotometricCostFunction::Evaluate(double const* const* parameters,
-                                       double* residuals,
-                                       double** jacobians) const {
+bool PhotometricCostFunction::Evaluate(double const* const* parameters, double* residuals, double** jacobians) const {
     Candidate* point = this->residual_->point();
     Frame::ptr ownerFrame = this->residual_->ownerFrame();
     Frame::ptr targetFrame = this->residual_->targetFrame();
@@ -79,13 +67,10 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters,
     const Eigen::Vector3d& t = ownerToTarget.translation();
 
     // affine light
-    const AffineLight ownerLight((float)parameters[0][7],
-                                 (float)parameters[0][8]);
-    const AffineLight targetLight((float)parameters[1][7],
-                                  (float)parameters[1][8]);
+    const AffineLight ownerLight((float)parameters[0][7], (float)parameters[0][8]);
+    const AffineLight targetLight((float)parameters[1][7], (float)parameters[1][8]);
 
-    const AffineLight relLight =
-        AffineLight::calc_aff_map_src_to_dst(ownerLight, targetLight);
+    const AffineLight relLight = AffineLight::calc_aff_map_src_to_dst(ownerLight, targetLight);
 
     const double light_a = relLight.a();
     const double light_b = relLight.b();
@@ -102,8 +87,7 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters,
         double newIDepth, ratio_inv_d;
 
         // project using central pixel
-        if (!project_to_target_frame((double)point->u, (double)point->v, iDepth,
-                                     K, width, height, R, t, Xpn, hit_pixel,
+        if (!project_to_target_frame((double)point->u, (double)point->v, iDepth, K, width, height, R, t, Xpn, hit_pixel,
                                      newIDepth, ratio_inv_d)) {
             // discard this residual
             this->residual_->state_ = Visibility::OOB;
@@ -156,8 +140,7 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters,
 
         Eigen::Vector2d hit_pixel;
 
-        if (!project_to_target_frame(uj, vj, iDepth, width, height, KRKinv, Kt,
-                                     hit_pixel)) {
+        if (!project_to_target_frame(uj, vj, iDepth, width, height, KRKinv, Kt, hit_pixel)) {
             // discard this residual
             this->residual_->state_ = Visibility::OOB;
             this->discardOOB(residuals, jacobians);
@@ -166,27 +149,22 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters,
         }
 
         // obtain bilinear interpolated intensity values
-        double hit_color =
-            (*target_im_pyramid)(0, (float)hit_pixel[0], (float)hit_pixel[1]);
+        double hit_color = (*target_im_pyramid)(0, (float)hit_pixel[0], (float)hit_pixel[1]);
 
         // residual with light compensation and weight
         double res = (double)color[idx] - light_a * hit_color - light_b;
 
         // image jacobian: dIj/du'
         Eigen::Matrix<double, 1, 2> JIJup;
-        JIJup(0, 0) =
-            target_im_pyramid->dx(0, (float)hit_pixel[0], (float)hit_pixel[1]);
-        JIJup(0, 1) =
-            target_im_pyramid->dy(0, (float)hit_pixel[0], (float)hit_pixel[1]);
+        JIJup(0, 0) = target_im_pyramid->dx(0, (float)hit_pixel[0], (float)hit_pixel[1]);
+        JIJup(0, 1) = target_im_pyramid->dy(0, (float)hit_pixel[0], (float)hit_pixel[1]);
 
         double squaredGrad = JIJup.squaredNorm();
 
         // observation weight based on gradient magnitude
         // set as the mean value between owner and target frames
-        double gradWeight =
-            point
-                ->weight[idx];  // sqrt(settings.weightConstant /
-                                //     (settings.weightConstant + squaredGrad));
+        double gradWeight = point->weight[idx];  // sqrt(settings.weightConstant /
+                                                 //     (settings.weightConstant + squaredGrad));
         // gradWeight = 0.5 * ((double)weight[idx] + gradWeight);
 
         // apply gradient weight first
@@ -224,15 +202,12 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters,
             // r: residual
             // c: parameter from block
 
-            const Eigen::Matrix<double, 1, 6> JIJT =
-                totalWeight * JIJup * JupJT;
-            const double JIJalpha =
-                totalWeight * light_a * (hit_color - targetLight_beta);
+            const Eigen::Matrix<double, 1, 6> JIJT = totalWeight * JIJup * JupJT;
+            const double JIJalpha = totalWeight * light_a * (hit_color - targetLight_beta);
 
             // owner frame: J1x9
             if (jacobians[0] != NULL) {
-                Eigen::Map<Eigen::Matrix<double, 1, 9>> Jowner(jacobians[0] +
-                                                               (idx * 9));
+                Eigen::Map<Eigen::Matrix<double, 1, 9>> Jowner(jacobians[0] + (idx * 9));
                 Jowner.segment<6>(0) = -JIJT;  // owner pose
                 Jowner[6] = -JIJalpha;         // owner alpha
                 Jowner[7] = -totalWeight;      // owner beta
@@ -248,8 +223,7 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters,
 
             // target frame: J1x9
             if (jacobians[1] != NULL) {
-                Eigen::Map<Eigen::Matrix<double, 1, 9>> Jtarget(jacobians[1] +
-                                                                (idx * 9));
+                Eigen::Map<Eigen::Matrix<double, 1, 9>> Jtarget(jacobians[1] + (idx * 9));
                 Jtarget.segment<6>(0) = JIJT;        // target pose
                 Jtarget[6] = JIJalpha;               // target alpha
                 Jtarget[7] = totalWeight * light_a;  // target beta
@@ -267,8 +241,7 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters,
             if (jacobians[2] != NULL) {
                 double iDepthJacob = -totalWeight * JIJup * JupJid;
 
-                jacobians[2][idx] =
-                    iDepthJacob * config.OPTIMIZATION_IDEPTH_SCALE;
+                jacobians[2][idx] = iDepthJacob * config.OPTIMIZATION_IDEPTH_SCALE;
 
                 hessian += iDepthJacob * iDepthJacob;
             }
@@ -296,8 +269,7 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters,
     return true;
 }
 
-void PhotometricCostFunction::discardOOB(double* residuals,
-                                         double** jacobians) const {
+void PhotometricCostFunction::discardOOB(double* residuals, double** jacobians) const {
     const int numPoints = PATTERN_SIZE;
 
     std::fill(residuals, residuals + numPoints, 0.0);
@@ -333,17 +305,14 @@ void PhotometricCostFunction::discardOutlier(double** jacobians) const {
     }
 }
 
-void PhotometricCostFunction::discardOutlier(double** jacobians,
-                                             int idx) const {
+void PhotometricCostFunction::discardOutlier(double** jacobians, int idx) const {
     if (jacobians != NULL) {
         if (jacobians[0] != NULL) {
-            Eigen::Map<Eigen::Matrix<double, 1, 9>> Jowner(jacobians[0] +
-                                                           (idx * 9));
+            Eigen::Map<Eigen::Matrix<double, 1, 9>> Jowner(jacobians[0] + (idx * 9));
             Jowner.setZero();
         }
         if (jacobians[1] != NULL) {
-            Eigen::Map<Eigen::Matrix<double, 1, 9>> Jtarget(jacobians[1] +
-                                                            (idx * 9));
+            Eigen::Map<Eigen::Matrix<double, 1, 9>> Jtarget(jacobians[1] + (idx * 9));
             Jtarget.setZero();
         }
         if (jacobians[2] != NULL) {
@@ -354,8 +323,7 @@ void PhotometricCostFunction::discardOutlier(double** jacobians,
 
 // Residual
 
-PhotometricResidual::PhotometricResidual(
-    Candidate* point, const std::shared_ptr<Frame>& targetFrame)
+PhotometricResidual::PhotometricResidual(Candidate* point, const std::shared_ptr<Frame>& targetFrame)
     : point_(point), ownerFrame_(point->host_frame), targetFrame_(targetFrame) {
     this->state_ = Visibility::VISIBLE;
 
@@ -534,18 +502,14 @@ double PhotometricResidual::lossWeight() const {
 // out - ratio_inv_d: scale between both inverse depths (newIDepth / iDepth)
 // return: if successfully projected or not due to OOB
 template <typename T>
-inline bool project_to_target_frame(T uj, T vj, T iDepth,
-                                    const Eigen::Matrix<T, 3, 3>& K, int width,
-                                    int height, const Eigen::Matrix<T, 3, 3>& R,
-                                    const Eigen::Matrix<T, 3, 1>& t,
-                                    Eigen::Matrix<T, 2, 1>& Xpn,
-                                    Eigen::Matrix<T, 2, 1>& hit_pixel,
-                                    T& newIDepth, T& ratio_inv_d) {
+inline bool project_to_target_frame(T uj, T vj, T iDepth, const Eigen::Matrix<T, 3, 3>& K, int width, int height,
+                                    const Eigen::Matrix<T, 3, 3>& R, const Eigen::Matrix<T, 3, 1>& t,
+                                    Eigen::Matrix<T, 2, 1>& Xpn, Eigen::Matrix<T, 2, 1>& hit_pixel, T& newIDepth,
+                                    T& ratio_inv_d) {
     auto& cam = CamData::getInstance();
 
     // unproject
-    const Eigen::Matrix<T, 3, 1> Xinv((uj - K(0, 2)) / K(0, 0),
-                                      (vj - K(1, 2)) / K(1, 1), 1);
+    const Eigen::Matrix<T, 3, 1> Xinv((uj - K(0, 2)) / K(0, 0), (vj - K(1, 2)) / K(1, 1), 1);
 
     // Xp: R*Xinv + t*iDepth
     const Eigen::Matrix<T, 3, 1> Xp = R * Xinv + t * iDepth;
@@ -587,14 +551,11 @@ inline bool project_to_target_frame(T uj, T vj, T iDepth,
 // out - hit_pixle: projected point in new image
 // return: if successfully projected or not due to OOB
 template <typename T>
-inline bool project_to_target_frame(T uj, T vj, T iDepth, int width, int height,
-                                    const Eigen::Matrix<T, 3, 3>& KRKinv,
-                                    const Eigen::Matrix<T, 3, 1>& Kt,
-                                    Eigen::Matrix<T, 2, 1>& hit_pixle) {
+inline bool project_to_target_frame(T uj, T vj, T iDepth, int width, int height, const Eigen::Matrix<T, 3, 3>& KRKinv,
+                                    const Eigen::Matrix<T, 3, 1>& Kt, Eigen::Matrix<T, 2, 1>& hit_pixle) {
     auto& cam = CamData::getInstance();
     // transform and project
-    const Eigen::Matrix<T, 3, 1> pt =
-        KRKinv * Eigen::Matrix<T, 3, 1>(uj, vj, 1) + Kt * iDepth;
+    const Eigen::Matrix<T, 3, 1> pt = KRKinv * Eigen::Matrix<T, 3, 1>(uj, vj, 1) + Kt * iDepth;
 
     // ratio_d_inv factor
     const T ratio_d_inv = 1 / pt[2];

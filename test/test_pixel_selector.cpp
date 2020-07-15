@@ -17,6 +17,7 @@ int main() {
     cam.readYamlFile(calib_path);
 
     std::string im_path = "/home/zhaoran/thesis_ws/mpl/test_data/000080.png";
+
     cv::Mat im = cv::imread(im_path);
     cv::Mat im_clone = im.clone();
     cv::cvtColor(im, im, CV_BGR2GRAY);
@@ -31,8 +32,7 @@ int main() {
 
     for (auto& p : candidate) {
         if (p(2) == 0) {
-            cv::circle(im_clone, cv::Point(p(0), p(1)), 1,
-                       cv::Scalar(0, 255, 0), 2, CV_FILLED);
+            cv::circle(im_clone, cv::Point(p(0), p(1)), 1, cv::Scalar(0, 255, 0), 2, CV_FILLED);
             /*         } else if (p(2) == 1) {
                         cv::circle(im_clone, cv::Point(p(0), p(1)), 2,
                                    cv::Scalar(0, 255, 0));
@@ -59,8 +59,7 @@ int main() {
 
     for (auto& p : candidate2) {
         if (p(2) == 0) {
-            cv::circle(im2_clone, cv::Point(p(0), p(1)), 1,
-                       cv::Scalar(0, 255, 0), 2, CV_FILLED);
+            cv::circle(im2_clone, cv::Point(p(0), p(1)), 1, cv::Scalar(0, 255, 0), 2, CV_FILLED);
             /*         } else if (p(2) == 1) {
                         cv::circle(im2_clone, cv::Point(p(0), p(1)), 2,
                                    cv::Scalar(0, 255, 0));

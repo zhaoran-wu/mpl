@@ -14,19 +14,15 @@ PixelSelector::PixelSelector() {
     thresh_block_num_x = ceil((float)cam->width[0] / thresh_block_dim);
     thresh_block_num_y = ceil((float)cam->height[0] / thresh_block_dim);
 
-    thresh_map = std::unique_ptr<float[]>(
-        new float[thresh_block_num_x * thresh_block_num_y]);
-    thresh_map_backup = std::unique_ptr<float[]>(
-        new float[thresh_block_num_x * thresh_block_num_y]);
+    thresh_map = std::unique_ptr<float[]>(new float[thresh_block_num_x * thresh_block_num_y]);
+    thresh_map_backup = std::unique_ptr<float[]>(new float[thresh_block_num_x * thresh_block_num_y]);
 
     recursive_count = 0;
 
-    candidates.reserve(
-        2 * config->PIXEL_SELECTION_NUM);  // todo experiment check this num
+    candidates.reserve(2 * config->PIXEL_SELECTION_NUM);  // todo experiment check this num
 }
 
-int PixelSelector::select(ImagePyramid::ptr pyramid_ptr,
-                          std::vector<Eigen::Vector3i>& candidates_out) {
+int PixelSelector::select(ImagePyramid::ptr pyramid_ptr, std::vector<Eigen::Vector3i>& candidates_out) {
     LOG_ASSERT(pyramid_ptr != nullptr);
     if (this->candidates.size()) {
         reset();
@@ -40,11 +36,9 @@ int PixelSelector::select(ImagePyramid::ptr pyramid_ptr,
     bool is_finish = select_adaptively(this->pot_dim);
     int time_cost = tictoc::toc();
     if (is_finish) {
-        std::move(candidates.begin(), candidates.end(),
-                  std::back_inserter(candidates_out));
+        std::move(candidates.begin(), candidates.end(), std::back_inserter(candidates_out));
 
-        LOG(INFO) << "PIXLE SELECTION :" << this->candidates.size()
-                  << " is selected" << '\n'
+        LOG(INFO) << "PIXLE SELECTION :" << this->candidates.size() << " is selected" << '\n'
                   << "time cost : " << time_cost / 1000.0f << " ms";
         return this->candidates.size();
     }
@@ -58,12 +52,9 @@ void PixelSelector::fill_thresh_map() {
         for (int block_y = 0; block_y < thresh_block_num_y; ++block_y) {
             // we sum each block the gradient magitude information
 
-            int x_max =
-                std::min((block_x + 1) * thresh_block_dim, cam->width[0]);
-            int y_max =
-                std::min((block_y + 1) * thresh_block_dim, cam->height[0]);
-            std::vector<float>
-                mag2_each_block;  // todo avoid allocate each time
+            int x_max = std::min((block_x + 1) * thresh_block_dim, cam->width[0]);
+            int y_max = std::min((block_y + 1) * thresh_block_dim, cam->height[0]);
+            std::vector<float> mag2_each_block;  // todo avoid allocate each time
 
             for (int x = block_x * thresh_block_dim; x < x_max; ++x) {
                 for (int y = block_y * thresh_block_dim; y < y_max; ++y) {
@@ -72,10 +63,8 @@ void PixelSelector::fill_thresh_map() {
                 }
             }
             // todo extract as mpl::median
-            std::nth_element(
-                mag2_each_block.begin(),
-                mag2_each_block.begin() + mag2_each_block.size() / 2,
-                mag2_each_block.end());
+            std::nth_element(mag2_each_block.begin(), mag2_each_block.begin() + mag2_each_block.size() / 2,
+                             mag2_each_block.end());
             float median = mag2_each_block[mag2_each_block.size() / 2];
             thresh_map[idx(thresh_block_num_x, block_x, block_y)] =
                 sqrt(median) + config->PIXEL_SELECTION_HERURISTIC_CONST;
@@ -84,8 +73,7 @@ void PixelSelector::fill_thresh_map() {
 }
 // apply gauss filtering
 void PixelSelector::filtering_thresh_map() {
-    memmove(thresh_map_backup.get(), thresh_map.get(),
-            thresh_block_num_x * thresh_block_num_y * sizeof(float));
+    memmove(thresh_map_backup.get(), thresh_map.get(), thresh_block_num_x * thresh_block_num_y * sizeof(float));
 
     for (int block_x = 0; block_x < thresh_block_num_x; ++block_x) {
         for (int block_y = 0; block_y < thresh_block_num_y; ++block_y) {
@@ -95,17 +83,13 @@ void PixelSelector::filtering_thresh_map() {
             //	-	-	-			1	2	1
             for (int x = -1; x < 2; ++x) {
                 for (int y = -1; y < 2; ++y) {
-                    int safe_block_x = std::min(std::max(block_x + x, 0),
-                                                thresh_block_num_x - 1);
-                    int safe_block_y = std::min(std::max(block_y + y, 0),
-                                                thresh_block_num_y - 1);
+                    int safe_block_x = std::min(std::max(block_x + x, 0), thresh_block_num_x - 1);
+                    int safe_block_y = std::min(std::max(block_y + y, 0), thresh_block_num_y - 1);
                     sum += weight[idx(3, x + 1, y + 1)] *
-                           thresh_map_backup[idx(thresh_block_num_x,
-                                                 safe_block_x, safe_block_y)];
+                           thresh_map_backup[idx(thresh_block_num_x, safe_block_x, safe_block_y)];
                 }
             }
-            thresh_map[idx(thresh_block_num_x, block_x, block_y)] =
-                sum * sum;  // we compare with sum^2
+            thresh_map[idx(thresh_block_num_x, block_x, block_y)] = sum * sum;  // we compare with sum^2
         }
     }
 }  // namespace mpl
@@ -151,8 +135,7 @@ bool PixelSelector::select_adaptively(int pot_dim_want) {
         return true;
     } else {
         int pot_dim_old = pot_dim_want;
-        int pot_dim_new =
-            pot_dim_old / sqrt(num_want / (float)num_selected) + 1;
+        int pot_dim_new = pot_dim_old / sqrt(num_want / (float)num_selected) + 1;
         ++recursive_count;
         return select_adaptively(pot_dim_new);
     }
@@ -176,9 +159,7 @@ void PixelSelector::select_in_one_grid(const int grid_x, const int grid_y) {
             for (int pot_x = 0; pot_x < 2; ++pot_x) {
                 for (int pot_y = 0; pot_y < 2; ++pot_y) {
                     Eigen::Vector3i candidate;
-                    float mag2_max =
-                        find_max_mag2(candidate, grid_x, grid_y, block_x,
-                                      block_y, pot_x, pot_y);
+                    float mag2_max = find_max_mag2(candidate, grid_x, grid_y, block_x, block_y, pot_x, pot_y);
                     if (mag2_max > thresh_map[thresh_idx(candidate)]) {
                         candidates.push_back(candidate);
                         is_one_pot_success = true;
@@ -187,10 +168,8 @@ void PixelSelector::select_in_one_grid(const int grid_x, const int grid_y) {
             }
             if (!is_one_pot_success) {
                 Eigen::Vector3i candidate;
-                float mag2_max =
-                    find_max_mag2(candidate, grid_x, grid_y, block_x, block_y);
-                if (mag2_max > thresh_map[thresh_idx(candidate)] *
-                                   config->PIXEL_SELECTION_DOWNWEIGHT) {
+                float mag2_max = find_max_mag2(candidate, grid_x, grid_y, block_x, block_y);
+                if (mag2_max > thresh_map[thresh_idx(candidate)] * config->PIXEL_SELECTION_DOWNWEIGHT) {
                     candidates.push_back(candidate);
                     is_one_block_success = true;
                 }
@@ -200,8 +179,7 @@ void PixelSelector::select_in_one_grid(const int grid_x, const int grid_y) {
     if (!is_one_block_success) {
         Eigen::Vector3i candidate;
         float mag2_max = find_max_mag2(candidate, grid_x, grid_y);
-        if (mag2_max > thresh_map[thresh_idx(candidate)] *
-                           config->PIXEL_SELECTION_DOWNWEIGHT *
+        if (mag2_max > thresh_map[thresh_idx(candidate)] * config->PIXEL_SELECTION_DOWNWEIGHT *
                            config->PIXEL_SELECTION_DOWNWEIGHT) {
             candidates.push_back(candidate);
             is_one_block_success = true;
@@ -209,10 +187,8 @@ void PixelSelector::select_in_one_grid(const int grid_x, const int grid_y) {
     }
 }
 
-float PixelSelector::find_max_mag2(Eigen::Vector3i& candidate, const int grid_x,
-                                   const int grid_y, const int block_x,
-                                   const int block_y, const int pot_x,
-                                   const int pot_y) {
+float PixelSelector::find_max_mag2(Eigen::Vector3i& candidate, const int grid_x, const int grid_y, const int block_x,
+                                   const int block_y, const int pot_x, const int pot_y) {
     SearchRegion search_region;
     if (pot_x != -1 && pot_y != -1) {
         search_region = SearchRegion::POT_LVL;
@@ -224,60 +200,42 @@ float PixelSelector::find_max_mag2(Eigen::Vector3i& candidate, const int grid_x,
 
     switch (search_region) {
         case SearchRegion::POT_LVL: {
-            int pot_right_bound =
-                grid_x * grid_dim + block_x * block_dim + (pot_x + 1) * pot_dim;
-            int pot_lower_bound =
-                grid_y * grid_dim + block_y * block_dim + (pot_y + 1) * pot_dim;
-            if (!(pot_right_bound < cam->width[0]) ||
-                !(pot_lower_bound < cam->height[0])) {
+            int pot_right_bound = grid_x * grid_dim + block_x * block_dim + (pot_x + 1) * pot_dim;
+            int pot_lower_bound = grid_y * grid_dim + block_y * block_dim + (pot_y + 1) * pot_dim;
+            if (!(pot_right_bound < cam->width[0]) || !(pot_lower_bound < cam->height[0])) {
                 return 0;
             }
-            float* pot_head_ptr =
-                get_pot_head(grid_x, grid_y, block_x, block_y, pot_x, pot_y);
+            float* pot_head_ptr = get_pot_head(grid_x, grid_y, block_x, block_y, pot_x, pot_y);
             // copy to a vector to use max_element
             for (int y = 0; y < pot_dim; ++y) {
-                memcpy(&pot_mag2_vec[y * pot_dim],
-                       &pot_head_ptr[y * cam->width[0]],
-                       pot_dim * sizeof(float));
+                memcpy(&pot_mag2_vec[y * pot_dim], &pot_head_ptr[y * cam->width[0]], pot_dim * sizeof(float));
             }
-            auto max_iter =
-                std::max_element(pot_mag2_vec.begin(), pot_mag2_vec.end());
+            auto max_iter = std::max_element(pot_mag2_vec.begin(), pot_mag2_vec.end());
             int distance = std::distance(pot_mag2_vec.begin(), max_iter);
 
             if (distance < 0) return 0;
-            candidate(0) = grid_x * grid_dim + block_x * block_dim +
-                           pot_x * pot_dim + distance % pot_dim;
-            candidate(1) = grid_y * grid_dim + block_y * block_dim +
-                           pot_y * pot_dim + distance / pot_dim;
+            candidate(0) = grid_x * grid_dim + block_x * block_dim + pot_x * pot_dim + distance % pot_dim;
+            candidate(1) = grid_y * grid_dim + block_y * block_dim + pot_y * pot_dim + distance / pot_dim;
             candidate(2) = 0;
 
             return *max_iter;
         } break;
         case SearchRegion::BLOCK_LVL: {
-            int block_right_bound =
-                grid_x * grid_dim + (block_x + 1) * block_dim;
-            int block_lower_bound =
-                grid_y * grid_dim + (block_y + 1) * block_dim;
-            if (!(block_right_bound < cam->width[0]) ||
-                !(block_lower_bound < cam->height[0])) {
+            int block_right_bound = grid_x * grid_dim + (block_x + 1) * block_dim;
+            int block_lower_bound = grid_y * grid_dim + (block_y + 1) * block_dim;
+            if (!(block_right_bound < cam->width[0]) || !(block_lower_bound < cam->height[0])) {
                 return 0;
             }
-            float* block_head_ptr =
-                get_block_head(grid_x, grid_y, block_x, block_y);
+            float* block_head_ptr = get_block_head(grid_x, grid_y, block_x, block_y);
             // copy to a vector to use max_element
             for (int y = 0; y < block_dim; ++y) {
-                memcpy(&block_mag2_vec[y * block_dim],
-                       &block_head_ptr[y * cam->width[0]],
-                       block_dim * sizeof(float));
+                memcpy(&block_mag2_vec[y * block_dim], &block_head_ptr[y * cam->width[0]], block_dim * sizeof(float));
             }
-            auto max_iter =
-                std::max_element(block_mag2_vec.begin(), block_mag2_vec.end());
+            auto max_iter = std::max_element(block_mag2_vec.begin(), block_mag2_vec.end());
             int distance = std::distance(max_iter, block_mag2_vec.begin());
             if (distance < 0) return 0;
-            candidate(0) =
-                grid_x * grid_dim + block_x * block_dim + distance % block_dim;
-            candidate(1) =
-                grid_y * grid_dim + block_y * block_dim + distance / block_dim;
+            candidate(0) = grid_x * grid_dim + block_x * block_dim + distance % block_dim;
+            candidate(1) = grid_y * grid_dim + block_y * block_dim + distance / block_dim;
             candidate(2) = 1;
 
             return *max_iter;
@@ -287,20 +245,16 @@ float PixelSelector::find_max_mag2(Eigen::Vector3i& candidate, const int grid_x,
             // rational
             int grid_right_bound = (grid_x + 1) * grid_dim;
             int grid_lower_bound = (grid_y + 1) * grid_dim;
-            if (!(grid_right_bound < cam->width[0]) ||
-                !(grid_lower_bound < cam->height[0])) {
+            if (!(grid_right_bound < cam->width[0]) || !(grid_lower_bound < cam->height[0])) {
                 return 0;
             }
 
             float* grid_head_ptr = get_grid_head(grid_x, grid_y);
             // copy to a vector to use max_element
             for (int y = 0; y < grid_dim; ++y) {
-                memcpy(&grid_mag2_vec[y * grid_dim],
-                       &grid_head_ptr[y * cam->width[0]],
-                       grid_dim * sizeof(float));
+                memcpy(&grid_mag2_vec[y * grid_dim], &grid_head_ptr[y * cam->width[0]], grid_dim * sizeof(float));
             }
-            auto max_iter =
-                std::max_element(grid_mag2_vec.begin(), grid_mag2_vec.end());
+            auto max_iter = std::max_element(grid_mag2_vec.begin(), grid_mag2_vec.end());
             int distance = std::distance(max_iter, grid_mag2_vec.begin());
 
             if (distance < 0) return 0;

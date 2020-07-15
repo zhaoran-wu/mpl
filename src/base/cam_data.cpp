@@ -14,8 +14,7 @@ bool CamData::readYamlFile(const std::string& file_path) {
     auto& config = Config::getInstance();
     lvls = config.PYRAMID_LVLS;
 
-    std::vector<float> intrinsic =
-        global_node["intrinsics"].as<std::vector<float>>();
+    std::vector<float> intrinsic = global_node["intrinsics"].as<std::vector<float>>();
     std::vector<int> size = global_node["dimensions"].as<std::vector<int>>();
 
     for (int lvl = 0; lvl < lvls; ++lvl) {

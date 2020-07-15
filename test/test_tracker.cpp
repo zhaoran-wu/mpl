@@ -83,8 +83,7 @@ int main() {
             int u = candidates[i].u / (float)pow(2, lvl);
             int v = candidates[i].v / (float)pow(2, lvl);
 
-            if (u < 0 || u > depth_pyramid[lvl].cols || v < 0 ||
-                v > depth_pyramid[lvl].rows) {
+            if (u < 0 || u > depth_pyramid[lvl].cols || v < 0 || v > depth_pyramid[lvl].rows) {
                 continue;
             }
             ushort depth = depth_pyramid[lvl].at<ushort>(v, u);
@@ -93,12 +92,10 @@ int main() {
             }
 
             if (lvl == 0) {
-                cv::circle(key_frame_vis, cv::Point2f(u, v), 1,
-                           cv::Scalar(0, 255, 0), 2);
+                cv::circle(key_frame_vis, cv::Point2f(u, v), 1, cv::Scalar(0, 255, 0), 2);
             }
             Eigen::Vector2i point(u, v);
-            Eigen::Vector3f p3d =
-                key_frame->unproject(point, depth / 1000.f, lvl);
+            Eigen::Vector3f p3d = key_frame->unproject(point, depth / 1000.f, lvl);
             // todo make it better
             int intensity = key_frame->getImagePyramid()->operator()(lvl, u, v);
             (*pcp)[lvl].push_back(Voxel(p3d, intensity));
@@ -108,8 +105,7 @@ int main() {
     Tracker tracker;
     tracker.set_tracking_ref(key_frame, pcp);
 
-    Sophus::SE3f in_out_T_curr_KF =
-        Sophus::SE3f(Eigen::Quaternionf::Identity(), Eigen::Vector3f(0, 0, 0));
+    Sophus::SE3f in_out_T_curr_KF = Sophus::SE3f(Eigen::Quaternionf::Identity(), Eigen::Vector3f(0, 0, 0));
     AffineLight in_out_aff_light_curr_KF(0, 0);
 
     cv::imshow("KF", key_frame_vis);
@@ -130,19 +126,16 @@ int main() {
             // cv::circle(im_to_vis,
             //           cv::Point2f(hit_pixel_no_op(0), hit_pixel_no_op(1)), 1,
             //           cv::Scalar(0, 0, 255), 2);
-            cv::circle(im_to_vis, cv::Point2f(hit_pixel(0), hit_pixel(1)), 3,
-                       cv::Scalar(0, 255, 0), 3);
+            cv::circle(im_to_vis, cv::Point2f(hit_pixel(0), hit_pixel(1)), 3, cv::Scalar(0, 255, 0), 3);
         }
 
         cm.update_depth_per_frame(curr_frame);
         auto& cans = cm.get_candidate(key_frame);
         for (const auto& can : cans) {
             Eigen::Vector2i pixle(can.u, can.v);
-            Eigen::Vector3f P =
-                key_frame->unproject(pixle, 1.0f / can.d_inv_synetic_im);
+            Eigen::Vector3f P = key_frame->unproject(pixle, 1.0f / can.d_inv_synetic_im);
             Eigen::Vector2f p = curr_frame->project(in_out_T_curr_KF * P);
-            cv::circle(im_to_vis, cv::Point2f(p(0), p(1)), 2,
-                       cv::Scalar(0, 0, 255), 2);
+            cv::circle(im_to_vis, cv::Point2f(p(0), p(1)), 2, cv::Scalar(0, 0, 255), 2);
         }
         cv::imshow("curr_frame", im_to_vis);
         cv::waitKey(0);

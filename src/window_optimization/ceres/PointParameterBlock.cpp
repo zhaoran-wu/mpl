@@ -10,8 +10,7 @@ PointParameterization::PointParameterization() {
 PointParameterization::~PointParameterization() {
 }
 
-bool PointParameterization::Plus(const double* x, const double* delta,
-                                 double* x_plus_delta) const {
+bool PointParameterization::Plus(const double* x, const double* delta, double* x_plus_delta) const {
     const auto& config = Config::getInstance();
 
     // variable scaling
@@ -21,8 +20,7 @@ bool PointParameterization::Plus(const double* x, const double* delta,
     return true;
 }
 
-bool PointParameterization::ComputeJacobian(const double* x,
-                                            double* jacobian) const {
+bool PointParameterization::ComputeJacobian(const double* x, double* jacobian) const {
     jacobian[0] = 1.0;
     return true;
 }
@@ -36,19 +34,16 @@ int PointParameterization::LocalSize() const {
 }
 
 // Parameter Block
-const std::unique_ptr<PointParameterization>
-    PointParameterBlock::pointParameterization =
-        std::make_unique<PointParameterization>();
+const std::unique_ptr<PointParameterization> PointParameterBlock::pointParameterization =
+    std::make_unique<PointParameterization>();
 
 PointParameterBlock::PointParameterBlock() : BAParameterBlock<1>() {
 }
 
-PointParameterBlock::PointParameterBlock(double iDepth)
-    : BAParameterBlock<1>() {
+PointParameterBlock::PointParameterBlock(double iDepth) : BAParameterBlock<1>() {
     this->setIDepth(iDepth);
     this->backup();
-    this->setLocalParameterization(
-        PointParameterBlock::pointParameterization.get());
+    this->setLocalParameterization(PointParameterBlock::pointParameterization.get());
 }
 
 PointParameterBlock::~PointParameterBlock() {
@@ -82,4 +77,5 @@ void PointParameterBlock::scaledStep(double& delta) const {
     // scale
     delta /= config.OPTIMIZATION_IDEPTH_SCALE;
 }
+
 }  // namespace mpl

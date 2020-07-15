@@ -1,13 +1,12 @@
 #ifndef MESH_H
 #define MESH_H
 
-#include <string>
-#include <vector>
 #include "../util/ply.h"
 #include "../util/utility.h"
+#include <string>
+#include <vector>
 namespace mpl {
 class Shader;
-
 
 /**
  * @brief a class to read und upload ply/texture file and upload it to gpu
@@ -15,29 +14,28 @@ class Shader;
  */
 
 class Mesh {
- public:
-  Mesh() = default;
-  PlyFile ply_file;
-  unsigned int texture_id;
-  unsigned int VAO;
+   public:
+    Mesh() = default;
 
-  void read(const std::string project_path);
+    PlyFile ply_file;
+    unsigned int texture_id;
+    unsigned int VAO;
 
-  // render the mesh
-  void draw(Shader shader);
+    void read(const std::string project_path);
 
- private:
-  unsigned int VBO, EBO;
-  //todo launch ply using binary file to speed up
-  void loadPlyData(const std::string ply_file_path);
+    // render the mesh
+    void draw(Shader shader);
 
-  void loadTextureImage(const std::string texture_file_path);
+   private:
+    unsigned int VBO, EBO;
+    // todo launch ply using binary file to speed up
+    void loadPlyData(const std::string ply_file_path);
 
-  void uploadToGpu();
+    void loadTextureImage(const std::string texture_file_path);
 
-  util::SensorData camera_config; 
+    void uploadToGpu();
 
-
+    util::SensorData camera_config;
 };
 #endif
 }  //! namespace mpl

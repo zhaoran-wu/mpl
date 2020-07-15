@@ -3,9 +3,7 @@
 
 namespace mpl {
 
-void Tracker::set_tracking_ref(
-    const Frame::ptr ref_frame,
-    const PointCloudPyramid::ptr point_cloud_pyramid) {
+void Tracker::set_tracking_ref(const Frame::ptr ref_frame, const PointCloudPyramid::ptr point_cloud_pyramid) {
     assert(point_cloud_pyramid != nullptr);
     this->point_cloud_pyramid_ = point_cloud_pyramid;
     curr_ref_frame = ref_frame;
@@ -19,6 +17,7 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
 
     Sophus::SE3f init_pose;
     AffineLight init_aff_light = aff_last_lastKF;
+
     float min_energy = std::numeric_limits<float>::max();
     int idx = 0;
     int lvls = point_cloud_pyramid_->lvls();
@@ -29,13 +28,10 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
     //
     for (int i = 0; i < 22; ++i) {
         init_pose = movement_prediction[i] * T_last_lastKF;
-        optimizer.init(init_pose, init_aff_light, point_cloud_pyramid_,
-                       to_track_frame);
+        optimizer.init(init_pose, init_aff_light, point_cloud_pyramid_, to_track_frame);
         optimizer.set_lvl(lvls - 1);
-        float energy =
-            optimizer.solve(iterations, lamda_init, lamda_min, huber_radius);
-        std::cout << " idx :" << i << "energy per pixel :"
-                  << energy / point_cloud_pyramid_->operator[](lvls - 1).size()
+        float energy = optimizer.solve(iterations, lamda_init, lamda_min, huber_radius);
+        std::cout << " idx :" << i << "energy per pixel :" << energy / point_cloud_pyramid_->operator[](lvls - 1).size()
                   << '\n';
         if (energy < min_energy) {
             idx = i;
@@ -54,8 +50,7 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
     init_pose = movement_prediction[idx] * T_last_lastKF;
     // tracking with best prediction
 
-    optimizer.init(init_pose, init_aff_light, point_cloud_pyramid_,
-                   to_track_frame);
+    optimizer.init(init_pose, init_aff_light, point_cloud_pyramid_, to_track_frame);
 
     tictoc::tic();
     for (int lvl = lvls - 1; lvl >= 0; --lvl) {
@@ -73,13 +68,10 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
             lamda_min = config.lamda_min_eahc_lvl[lvl];
             huber_radius = config.huber_residual_each_lvl[lvl];
         }
-        min_energy =
-            optimizer.solve(iterations, lamda_init, lamda_min, huber_radius);
+        min_energy = optimizer.solve(iterations, lamda_init, lamda_min, huber_radius);
     }
     LOG(INFO) << "tracking use time : " << tictoc::toc() / 1000.f << "ms";
-    std::cout << "final energy per pixel :"
-              << min_energy / point_cloud_pyramid_->operator[](0).size()
-              << '\n';
+    std::cout << "final energy per pixel :" << min_energy / point_cloud_pyramid_->operator[](0).size() << '\n';
     if (min_energy / point_cloud_pyramid_->operator[](0).size() > 500) {
         ++this->failaure_cnt;
         return false;
@@ -110,16 +102,12 @@ void Tracker::generate_movement_predictions() {
         aff_last_overlast = AffineLight(0, 0);
     } else {
         T_last_overlast = get_src_to_dst_transform(over_last_frame, last_frame);
-        aff_last_overlast =
-            get_src_to_dst_aff_light(over_last_frame, last_frame);
+        aff_last_overlast = get_src_to_dst_aff_light(over_last_frame, last_frame);
     }
 
-    std::cout << "last translation :"
-              << T_last_overlast.translation().transpose() << '\n';
-    std::cout << "last rotation X :" << T_last_overlast.angleX()
-              << " last rotation Y :" << T_last_overlast.angleY()
-              << " last roration Z : " << T_last_overlast.angleZ()
-              << "aff a :" << aff_last_overlast.alpha()
+    std::cout << "last translation :" << T_last_overlast.translation().transpose() << '\n';
+    std::cout << "last rotation X :" << T_last_overlast.angleX() << " last rotation Y :" << T_last_overlast.angleY()
+              << " last roration Z : " << T_last_overlast.angleZ() << "aff a :" << aff_last_overlast.alpha()
               << "aff b:  " << aff_last_overlast.beta() << '\n';
 
     // 1x movement // assume T_last_overlast = T_curr_last
@@ -152,23 +140,15 @@ void Tracker::generate_movement_predictions() {
     // forward movement
     //* notice the movement is T_new_ref, so z negative here
     // experiment
-    movement_prediction[13] =
-        Sophus::SE3f::rotY(-0.03f) * Sophus::SE3f::exp(0.5 * se3_priori);
-    movement_prediction[14] =
-        Sophus::SE3f::rotY(0.03f) * Sophus::SE3f::exp(0.5 * se3_priori);
-    movement_prediction[15] =
-        Sophus::SE3f::rotY(-0.01f) * Sophus::SE3f::exp(0.5 * se3_priori);
-    movement_prediction[16] =
-        Sophus::SE3f::rotY(0.01f) * Sophus::SE3f::exp(0.5 * se3_priori);
+    movement_prediction[13] = Sophus::SE3f::rotY(-0.03f) * Sophus::SE3f::exp(0.5 * se3_priori);
+    movement_prediction[14] = Sophus::SE3f::rotY(0.03f) * Sophus::SE3f::exp(0.5 * se3_priori);
+    movement_prediction[15] = Sophus::SE3f::rotY(-0.01f) * Sophus::SE3f::exp(0.5 * se3_priori);
+    movement_prediction[16] = Sophus::SE3f::rotY(0.01f) * Sophus::SE3f::exp(0.5 * se3_priori);
 
-    movement_prediction[17] =
-        Sophus::SE3f::transZ(-0.32) * Sophus::SE3f::rotY(-0.06f);
-    movement_prediction[18] =
-        Sophus::SE3f::transZ(-0.4) * Sophus::SE3f::rotY(-0.08);
-    movement_prediction[19] =
-        Sophus::SE3f::transZ(-0.4) * Sophus::SE3f::rotY(-0.1f);
-    movement_prediction[20] =
-        Sophus::SE3f::transZ(-0.4) * Sophus::SE3f::rotY(-0.12f);
+    movement_prediction[17] = Sophus::SE3f::transZ(-0.32) * Sophus::SE3f::rotY(-0.06f);
+    movement_prediction[18] = Sophus::SE3f::transZ(-0.4) * Sophus::SE3f::rotY(-0.08);
+    movement_prediction[19] = Sophus::SE3f::transZ(-0.4) * Sophus::SE3f::rotY(-0.1f);
+    movement_prediction[20] = Sophus::SE3f::transZ(-0.4) * Sophus::SE3f::rotY(-0.12f);
 }
 
 }  // namespace mpl

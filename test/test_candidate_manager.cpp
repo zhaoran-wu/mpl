@@ -31,8 +31,7 @@ int main() {
     std::vector<cv::Mat> img_draw_vec;
     for (int i = 0; i < 8; ++i) {
         int im_id = 80 + i;
-        string im_name = (im_id < 100) ? "0000" + to_string(im_id) + ".png"
-                                       : "000" + to_string(im_id) + ".png";
+        string im_name = (im_id < 100) ? "0000" + to_string(im_id) + ".png" : "000" + to_string(im_id) + ".png";
         cv::Mat im_tmp = cv::imread(data_path + im_name);
         assert(im_tmp.isContinuous());
 
@@ -165,10 +164,8 @@ int main() {
             // draw with quality
 
             cv::Scalar color = cv::Scalar(255, 0, 255);
-            if (can.status != CandidateStatus::OUTLIER &&
-                can.status != CandidateStatus::BAD) {
-                cv::circle(im_depth_before_after, cv::Point2f(p(0), p(1)), 1,
-                           color, 2);
+            if (can.status != CandidateStatus::OUTLIER && can.status != CandidateStatus::BAD) {
+                cv::circle(im_depth_before_after, cv::Point2f(p(0), p(1)), 1, color, 2);
             }
         }
 
@@ -178,22 +175,16 @@ int main() {
         cv::Mat key_frame_vis = img_draw_vec[0];
         for (auto& pcd : pcp->operator[](0)) {
             Eigen::Vector3f point = T_curr_KF * pcd.position;
-            Eigen::Vector3f point_before_optimization =
-                T_last_KF * pcd.position;
+            Eigen::Vector3f point_before_optimization = T_last_KF * pcd.position;
             Eigen::Vector2f hit_pixel = curr_frame->project(point);
-            Eigen::Vector2f hit_pixel_no_op =
-                curr_frame->project(point_before_optimization);
+            Eigen::Vector2f hit_pixel_no_op = curr_frame->project(point_before_optimization);
 
             Eigen::Vector2f candidate = key_frame->project(pcd.position);
 
-            cv::circle(key_frame_vis, cv::Point2f(candidate(0), candidate(1)),
-                       1, cv::Scalar(0, 0, 255), 2);
+            cv::circle(key_frame_vis, cv::Point2f(candidate(0), candidate(1)), 1, cv::Scalar(0, 0, 255), 2);
 
-            cv::circle(im_to_vis,
-                       cv::Point2f(hit_pixel_no_op(0), hit_pixel_no_op(1)), 1,
-                       cv::Scalar(0, 0, 255), 2);
-            cv::circle(im_to_vis, cv::Point2f(hit_pixel(0), hit_pixel(1)), 1,
-                       cv::Scalar(0, 255, 0), 2);
+            cv::circle(im_to_vis, cv::Point2f(hit_pixel_no_op(0), hit_pixel_no_op(1)), 1, cv::Scalar(0, 0, 255), 2);
+            cv::circle(im_to_vis, cv::Point2f(hit_pixel(0), hit_pixel(1)), 1, cv::Scalar(0, 255, 0), 2);
         }
         cv::imshow("KF", key_frame_vis);
         cv::imshow("curr_frame", im_to_vis);

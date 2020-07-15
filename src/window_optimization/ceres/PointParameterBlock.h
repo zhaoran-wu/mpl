@@ -15,8 +15,7 @@ class PointParameterization : public ceres::LocalParameterization {
     PointParameterization();
     virtual ~PointParameterization();
 
-    virtual bool Plus(const double* x, const double* delta,
-                      double* x_plus_delta) const;
+    virtual bool Plus(const double* x, const double* delta, double* x_plus_delta) const;
 
     virtual bool ComputeJacobian(const double* x, double* jacobian) const;
 

@@ -28,9 +28,7 @@ class DistanceMap {
 
     // compute distance map of active candidate on all other frames project on
     // given frame
-    void compute(
-        std::unordered_map<Frame::ptr, std::vector<Candidate>>& candidate_map,
-        const Frame::ptr frame);
+    void compute(std::unordered_map<Frame::ptr, std::vector<Candidate>>& candidate_map, const Frame::ptr frame);
 
     // adds new pixel to map and updates distance
     void add(const Eigen::Vector2f point_in_newst_KF);

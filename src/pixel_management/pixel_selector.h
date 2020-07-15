@@ -16,6 +16,7 @@ class PixelSelector {
 
    public:
     PixelSelector();
+
     /**
      * @brief interface to select candidate
      *
@@ -25,8 +26,7 @@ class PixelSelector {
      * ,it was selected
      * @return int
      */
-    int select(ImagePyramid::ptr pyramid_ptr,
-               std::vector<Eigen::Vector3i>& candidates_out);
+    int select(ImagePyramid::ptr pyramid_ptr, std::vector<Eigen::Vector3i>& candidates_out);
 
    private:
     // reset when new image to be selected
@@ -44,16 +44,13 @@ class PixelSelector {
     // select in one grid
     void select_in_one_grid(const int grid_x, const int grid_y);
 
-    float find_max_mag2(Eigen::Vector3i& candidate, const int grid_x,
-                        const int grid_y, const int block_x = -1,
-                        const int block_y = -1, const int pot_x = -1,
-                        const int pot_y = -1);
+    float find_max_mag2(Eigen::Vector3i& candidate, const int grid_x, const int grid_y, const int block_x = -1,
+                        const int block_y = -1, const int pot_x = -1, const int pot_y = -1);
 
-    float* get_pot_head(const int grid_x, const int grid_y, const int block_x,
-                        const int block_y, const int pot_x, const int pot_y);
+    float* get_pot_head(const int grid_x, const int grid_y, const int block_x, const int block_y, const int pot_x,
+                        const int pot_y);
 
-    float* get_block_head(const int grid_x, const int grid_y, const int block_x,
-                          const int block_y);
+    float* get_block_head(const int grid_x, const int grid_y, const int block_x, const int block_y);
     float* get_grid_head(const int grid_x, const int grid_y);
 
     void resize_mag2_vec();
@@ -90,8 +87,7 @@ class PixelSelector {
     CamData* cam;
     Config* config;
 
-    ImagePyramid::float_ptr
-        mag2_ptr;  // unlikely with dso, we select only with mag2[0]
+    ImagePyramid::float_ptr mag2_ptr;  // unlikely with dso, we select only with mag2[0]
 
     std::vector<Eigen::Vector3i> candidates;
 
@@ -107,15 +103,12 @@ inline int PixelSelector::thresh_idx(const Eigen::Vector3i& pixel) {
     return idx(thresh_block_num_x, x, y);
 }
 
-inline float* PixelSelector::get_pot_head(const int grid_x, const int grid_y,
-                                          const int block_x, const int block_y,
+inline float* PixelSelector::get_pot_head(const int grid_x, const int grid_y, const int block_x, const int block_y,
                                           const int pot_x, const int pot_y) {
     float* block_head = get_block_head(grid_x, grid_y, block_x, block_y);
     return &block_head[(pot_y * cam->width[0] + pot_x) * pot_dim];
 }
-inline float* PixelSelector::get_block_head(const int grid_x, const int grid_y,
-                                            const int block_x,
-                                            const int block_y) {
+inline float* PixelSelector::get_block_head(const int grid_x, const int grid_y, const int block_x, const int block_y) {
     float* grid_head = get_grid_head(grid_x, grid_y);
     return &grid_head[(block_y * cam->width[0] + block_x) * block_dim];
 }

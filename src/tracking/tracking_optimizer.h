@@ -15,11 +15,9 @@ class TrackingOptimizer {
 
     TrackingOptimizer() = default;
     void init(const Sophus::SE3f init_pose, const AffineLight init_rel_affL,
-              PointCloudPyramid::ptr ref_point_cloud_prymid,
-              Frame::ptr to_track_frame);
+              PointCloudPyramid::ptr ref_point_cloud_prymid, Frame::ptr to_track_frame);
 
-    float solve(const int iterations, const float lamda_init,
-                const float lamda_min, const int l1_turacation);
+    float solve(const int iterations, const float lamda_init, const float lamda_min, const int l1_turacation);
     Sophus::SE3f getT() const;
     AffineLight getAffineLight() const;
     void set_lvl(const int lvl);
@@ -32,22 +30,18 @@ class TrackingOptimizer {
     Mat88 get_damped_hessian();
     void scaling_H_b();
     void scaling_delta_x(Vec8& delta_x);
-    float calc_residual(const float curr_intensity,
-                        const float point_cloud_intensity) const;
+    float calc_residual(const float curr_intensity, const float point_cloud_intensity) const;
     float calc_sum_weighted_squared_residual() const;
 
     float calc_huber_weight(const float residual) const;
-    float calc_huber_weigted_redidual(const float huber_weight,
-                                      const float residual) const;
-    Eigen::Vector3f map(
-        Sophus::SE3d pose,
-        Eigen::Vector3f point) const;  // map point to curr coordinate system
+    float calc_huber_weigted_redidual(const float huber_weight, const float residual) const;
+    Eigen::Vector3f map(Sophus::SE3d pose,
+                        Eigen::Vector3f point) const;  // map point to curr coordinate system
 
     int curr_lvl;
 
-    Sophus::SE3d pose;  // T_curr_ref   pose from reference to curr frame
-    AffineLight
-        affine_light;  // Aff_curr_ref, aff light map ref frame to curr frame
+    Sophus::SE3d pose;         // T_curr_ref   pose from reference to curr frame
+    AffineLight affine_light;  // Aff_curr_ref, aff light map ref frame to curr frame
     PointCloudPyramid::ptr point_cloud_pyramid;
     Frame::ptr to_track_frame;
     ImagePyramid::ptr image_pyramid;

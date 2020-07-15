@@ -28,8 +28,7 @@ void ImagePyramid::build_image(const uchar* parent_image, const int child_lvl) {
     } else {
         for (int u = 0; u < w_child; ++u) {
             for (int v = 0; v < h_child; ++v) {
-                child_ptr[idx(w_child, u, v)] =
-                    halfSampling(u, v, parent_step, parent_image);
+                child_ptr[idx(w_child, u, v)] = halfSampling(u, v, parent_step, parent_image);
             }
         }
     }
@@ -57,8 +56,7 @@ void ImagePyramid::build_derivative(const int lvl) {
             float dx_tmp = 0.5f * (im_lvl[curr_idx + 1] - im_lvl[curr_idx - 1]);
             dx_lvl[curr_idx] = dx_tmp;
 
-            float dy_tmp =
-                0.5f * (im_lvl[curr_idx + w_lvl] - im_lvl[curr_idx - w_lvl]);
+            float dy_tmp = 0.5f * (im_lvl[curr_idx + w_lvl] - im_lvl[curr_idx - w_lvl]);
             dy_lvl[curr_idx] = dy_tmp;
 
             mag2_lvl[curr_idx] = dx_tmp * dx_tmp + dy_tmp * dy_tmp;

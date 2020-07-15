@@ -20,8 +20,7 @@ class FrameParameterization : public ceres::LocalParameterization {
     FrameParameterization();
     virtual ~FrameParameterization();
 
-    virtual bool Plus(const double* x, const double* delta,
-                      double* x_plus_delta) const;
+    virtual bool Plus(const double* x, const double* delta, double* x_plus_delta) const;
 
     virtual bool ComputeJacobian(const double* x, double* jacobian) const;
 
@@ -42,8 +41,7 @@ class FrameParameterBlock : public BAParameterBlock<9> {
     FrameParameterBlock();
 
     // constructor with a pose
-    FrameParameterBlock(const Sophus::SE3d& camToWorld,
-                        const AffineLight& affineLight);
+    FrameParameterBlock(const Sophus::SE3d& camToWorld, const AffineLight& affineLight);
 
     // destructor
     ~FrameParameterBlock();

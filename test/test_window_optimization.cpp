@@ -11,14 +11,10 @@
 using namespace std;
 using namespace mpl;
 
-bool is_newframe_KF(PointCloudPyramid::ptr pcp, const Sophus::SE3f& T_KF_curr,
-                    float energy) {
-    std::cout << "@@@@@@@@ log norm: " << T_KF_curr.log().norm()
-              << "  angle Y : " << abs(T_KF_curr.angleY())
+bool is_newframe_KF(PointCloudPyramid::ptr pcp, const Sophus::SE3f& T_KF_curr, float energy) {
+    std::cout << "@@@@@@@@ log norm: " << T_KF_curr.log().norm() << "  angle Y : " << abs(T_KF_curr.angleY())
               << "   energy :" << energy << '\n';
-    if (abs(T_KF_curr.angleY()) > 0.06 || T_KF_curr.log().norm() > 1.3 ||
-        energy > 350.f)
-        return true;
+    if (abs(T_KF_curr.angleY()) > 0.06 || T_KF_curr.log().norm() > 1.3 || energy > 350.f) return true;
 }
 
 int main() {
@@ -45,8 +41,7 @@ int main() {
     std::vector<cv::Mat> img_draw_vec;
     for (int i = 0; i < 200; ++i) {
         int im_id = 80 + i;
-        string im_name = (im_id < 100) ? "0000" + to_string(im_id) + ".png"
-                                       : "000" + to_string(im_id) + ".png";
+        string im_name = (im_id < 100) ? "0000" + to_string(im_id) + ".png" : "000" + to_string(im_id) + ".png";
         cv::Mat im_tmp = cv::imread(data_path + im_name);
         assert(im_tmp.isContinuous());
 
@@ -65,12 +60,10 @@ int main() {
     // system begin
 
     synetic_image.set_start_pose(pose.atIndex(0));
-    Sophus::SE3f render_pose =
-        Sophus::SE3f(Eigen::Quaternionf::Identity(), Eigen::Vector3f(0, 0, 0));
+    Sophus::SE3f render_pose = Sophus::SE3f(Eigen::Quaternionf::Identity(), Eigen::Vector3f(0, 0, 0));
 
     Frame::ptr key_frame = Frame::create(img_vec[0]);
-    std::vector<cv::Mat> syn_im_vec_curr =
-        synetic_image.renderingAt(render_pose);
+    std::vector<cv::Mat> syn_im_vec_curr = synetic_image.renderingAt(render_pose);
     CandidateManager cm;
     cm.select_candidate(key_frame, syn_im_vec_curr[1]);
     std::vector<Candidate>& candidates = cm.get_candidate(key_frame);
@@ -101,23 +94,19 @@ int main() {
         // draw before after optimization
         cv::Mat im_to_vis = img_draw_vec[i].clone();
         for (auto& pcd : pcp->operator[](0)) {
-            Eigen::Vector3f point_before_optimization =
-                T_last_KF * pcd.position;
+            Eigen::Vector3f point_before_optimization = T_last_KF * pcd.position;
             Eigen::Vector3f point = T_curr_KF * pcd.position;
             Eigen::Vector2f hit_pixel = curr_frame->project(point);
-            Eigen::Vector2f hit_pixel_no_op =
-                curr_frame->project(point_before_optimization);
+            Eigen::Vector2f hit_pixel_no_op = curr_frame->project(point_before_optimization);
 
             Eigen::Vector2f candidate = key_frame->project(pcd.position);
 
-            cv::circle(key_frame_vis, cv::Point2f(candidate(0), candidate(1)),
-                       1, cv::Scalar(0, 0, 255), 2);
+            cv::circle(key_frame_vis, cv::Point2f(candidate(0), candidate(1)), 1, cv::Scalar(0, 0, 255), 2);
 
             /*             cv::circle(im_to_vis,
                                    cv::Point2f(hit_pixel_no_op(0),
                hit_pixel_no_op(1)), 1, cv::Scalar(0, 0, 255), 2); */
-            cv::circle(im_to_vis, cv::Point2f(hit_pixel(0), hit_pixel(1)), 1,
-                       cv::Scalar(0, 255, 0), 2);
+            cv::circle(im_to_vis, cv::Point2f(hit_pixel(0), hit_pixel(1)), 1, cv::Scalar(0, 255, 0), 2);
         }
         cv::imshow("KF", key_frame_vis);
         cv::waitKey(1);
@@ -126,8 +115,7 @@ int main() {
         cv::imshow("kf depth", syn_im_vec_curr[1]);
         cv::waitKey(1);
         // todo : a best way to choose KF
-        bool is_KF =
-            is_newframe_KF(pcp, T_curr_KF, tracker.get_per_pixel_energy());
+        bool is_KF = is_newframe_KF(pcp, T_curr_KF, tracker.get_per_pixel_energy());
         if (is_KF) {
             key_frame_vis = img_draw_vec[i].clone();
 

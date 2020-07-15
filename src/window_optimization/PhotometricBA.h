@@ -35,12 +35,9 @@ class PhotometricBA {
 
     void prepareOptimization(CandidateManager& cm, BundleAdjustment& problem);
 
-    void mergeOptimization(
-        CandidateManager& cm,
-        std::vector<PhotometricResidual*>& obsToRemove) const;
+    void mergeOptimization(CandidateManager& cm, std::vector<PhotometricResidual*>& obsToRemove) const;
 
-    void removeBadObservations(
-        const std::vector<PhotometricResidual*>& obsToRemove) const;
+    void removeBadObservations(const std::vector<PhotometricResidual*>& obsToRemove) const;
 
     void freeFixedKeyframesMemory();
 
@@ -58,6 +55,7 @@ class PhotometricBA {
 
     // actual optimization data
     std::vector<Frame::ptr> activeKeyframes;
+
     std::vector<PhotometricResidual*> activeObservations;
 
     std::unordered_map<Frame::ptr, std::vector<Candidate>>* candidate_map_ptr;

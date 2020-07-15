@@ -34,8 +34,7 @@ class BAParameterBlock {
     }
 
     // parameterization
-    inline void setLocalParameterization(
-        ceres::LocalParameterization* localParameterization) {
+    inline void setLocalParameterization(ceres::LocalParameterization* localParameterization) {
         this->localParameterization_ = localParameterization;
     }
 

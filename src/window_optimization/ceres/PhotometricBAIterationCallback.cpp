@@ -8,16 +8,14 @@
 #include "pattern.h"
 
 namespace mpl {
-PhotometricBAIterationCallback::PhotometricBAIterationCallback(
-    const PhotometricBA& bundleAdjustment)
+PhotometricBAIterationCallback::PhotometricBAIterationCallback(const PhotometricBA& bundleAdjustment)
     : bundle(bundleAdjustment) {
 }
 
 PhotometricBAIterationCallback::~PhotometricBAIterationCallback() {
 }
 
-ceres::CallbackReturnType PhotometricBAIterationCallback::operator()(
-    const ceres::IterationSummary& summary) {
+ceres::CallbackReturnType PhotometricBAIterationCallback::operator()(const ceres::IterationSummary& summary) {
     bool canBreak = false;
 
     // termination criteria
@@ -27,6 +25,7 @@ ceres::CallbackReturnType PhotometricBAIterationCallback::operator()(
 
     if (summary.step_is_successful) {
         // state backup
+
         this->backup();
     }
 
@@ -81,12 +80,10 @@ bool PhotometricBAIterationCallback::checkTerminationCriteria() const {
     deltaRot /= numKeyframes;
     meanIDepth /= numPoints;
 
-    bool converged =
-        sqrt(deltaAlpha) < 0.0006 &&  // affine light a change
-        sqrt(deltaBeta) < 0.00006 &&  // affine light b change
-        sqrt(deltaRot) < 0.00006 &&   // transformation R change
-        sqrt(deltaTrans) * meanIDepth <
-            0.00006;  // transformation T change respet to inverse depths
+    bool converged = sqrt(deltaAlpha) < 0.0006 &&              // affine light a change
+                     sqrt(deltaBeta) < 0.00006 &&              // affine light b change
+                     sqrt(deltaRot) < 0.00006 &&               // transformation R change
+                     sqrt(deltaTrans) * meanIDepth < 0.00006;  // transformation T change respet to inverse depths
 
     return converged;
 }

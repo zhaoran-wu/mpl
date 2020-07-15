@@ -17,8 +17,8 @@ class Tracker {
      *
      * @param point_cloud_pyramid
      */
-    void set_tracking_ref(const Frame::ptr ref_frame,
-                          const PointCloudPyramid::ptr point_cloud_pyramid);
+
+    void set_tracking_ref(const Frame::ptr ref_frame, const PointCloudPyramid::ptr point_cloud_pyramid);
 
     /**
      * @brief tracking new frame relative pose to reference frame
@@ -51,8 +51,7 @@ class Tracker {
     Frame::ptr curr_ref_frame;
 
     // movement pridiction part
-    Sophus::SE3f T_last_lastKF =
-        Sophus::SE3f(Eigen::Quaternionf::Identity(), Eigen::Vector3f(0, 0, 0));
+    Sophus::SE3f T_last_lastKF = Sophus::SE3f(Eigen::Quaternionf::Identity(), Eigen::Vector3f(0, 0, 0));
     AffineLight aff_last_lastKF = AffineLight(0, 0);
 
     Frame::ptr last_frame = nullptr;

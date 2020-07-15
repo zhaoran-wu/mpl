@@ -33,16 +33,12 @@ AffineLight Frame::get_aff_curr_lastKF() {
     return aff_light_curr_lastKF;
 }
 
-Sophus::SE3f get_src_to_dst_transform(const Frame::ptr src,
-                                      const Frame::ptr dst) {
-    return dst->get_pose<Sophus::SE3f>().inverse() *
-           src->get_pose<Sophus::SE3f>();
+Sophus::SE3f get_src_to_dst_transform(const Frame::ptr src, const Frame::ptr dst) {
+    return dst->get_pose<Sophus::SE3f>().inverse() * src->get_pose<Sophus::SE3f>();
 }
 
-AffineLight get_src_to_dst_aff_light(const Frame::ptr src,
-                                     const Frame::ptr dst) {
-    return AffineLight::calc_aff_map_src_to_dst(src->get_aff_light(),
-                                                dst->get_aff_light());
+AffineLight get_src_to_dst_aff_light(const Frame::ptr src, const Frame::ptr dst) {
+    return AffineLight::calc_aff_map_src_to_dst(src->get_aff_light(), dst->get_aff_light());
 }
 
 }  // namespace mpl

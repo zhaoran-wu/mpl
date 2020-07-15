@@ -12,8 +12,7 @@ using namespace Sophus;
 vector<Vector2f> get_rotatet_pattern(const Matrix2f& R) {
     vector<Vector2f> rotatetPattern;
     for (int idx = 0; idx < 8; idx++) {
-        rotatetPattern.push_back(R *
-                                 Vector2f(pattern[idx][0], pattern[idx][1]));
+        rotatetPattern.push_back(R * Vector2f(pattern[idx][0], pattern[idx][1]));
     }
     return rotatetPattern;
 }
@@ -28,8 +27,7 @@ void CandidateManager::update_depth_per_frame(const Frame::ptr new_frame) {
         if (old_frame == new_frame) continue;
 
         SE3f T_new_old = get_src_to_dst_transform(old_frame, new_frame);
-        AffineLight aff_new_old =
-            get_src_to_dst_aff_light(old_frame, new_frame);
+        AffineLight aff_new_old = get_src_to_dst_aff_light(old_frame, new_frame);
 
         for (auto& can : it->second) {
             update_depth_on_old_frame(can, T_new_old, aff_new_old, new_frame);
@@ -37,11 +35,9 @@ void CandidateManager::update_depth_per_frame(const Frame::ptr new_frame) {
     }
 }
 
-void CandidateManager::select_candidate(const Frame::ptr frame,
-                                        const cv::Mat synetic_depth_im) {
+void CandidateManager::select_candidate(const Frame::ptr frame, const cv::Mat synetic_depth_im) {
     // frame is key frame --> set frame block data for optimization
-    frame->get_frame_block()->setPose(
-        frame->get_pose<Sophus::SE3f>().inverse().cast<double>());
+    frame->get_frame_block()->setPose(frame->get_pose<Sophus::SE3f>().inverse().cast<double>());
     frame->get_frame_block()->setAffineLight(frame->get_aff_light());
 
     // remove oldst frame
@@ -65,16 +61,14 @@ void CandidateManager::select_candidate(const Frame::ptr frame,
         T_old_new = get_src_to_dst_transform(frame, newst_KF);
         aff_old_new = get_src_to_dst_aff_light(frame, newst_KF);
 
-        rotated_pattern = get_rotatet_pattern(
-            (cam.K[0] * T_old_new.rotationMatrix() * cam.K_inv[0])
-                .topLeftCorner<2, 2>());
+        rotated_pattern =
+            get_rotatet_pattern((cam.K[0] * T_old_new.rotationMatrix() * cam.K_inv[0]).topLeftCorner<2, 2>());
     }
 
     for (const auto& p : pixle_selected) {
         Candidate can;
         can.host_frame = frame;
-        if (p(2) != 0 ||
-            !is_in_img(CamData::getInstance(), p.head(2).cast<float>()))
+        if (p(2) != 0 || !is_in_img(CamData::getInstance(), p.head(2).cast<float>()))
             continue;  // choose a safe point only
         can.u = p(0);
         can.v = p(1);
@@ -86,8 +80,7 @@ void CandidateManager::select_candidate(const Frame::ptr frame,
         can.d_inv_synetic_im = 1000.f / d;
         calc_structure_mat(frame, can);
 
-        if (!is_synetic_depth_valid(can, frame, newst_KF, T_old_new,
-                                    aff_old_new, rotated_pattern)) {
+        if (!is_synetic_depth_valid(can, frame, newst_KF, T_old_new, aff_old_new, rotated_pattern)) {
             can.d_inv_synetic_im = 0.0f;
             continue;
         }
@@ -99,21 +92,18 @@ void CandidateManager::select_candidate(const Frame::ptr frame,
     candidate_map[frame] = std::move(candidate_vec);
 }
 
-bool CandidateManager::is_synetic_depth_valid(
-    const Candidate& can, const Frame::ptr host_frame,
-    const Frame::ptr target_frame, const SE3f T_old_new,
-    const AffineLight& aff_old_new,
-    const vector<Vector2f> rotated_pattern) const {
+bool CandidateManager::is_synetic_depth_valid(const Candidate& can, const Frame::ptr host_frame,
+                                              const Frame::ptr target_frame, const SE3f T_old_new,
+                                              const AffineLight& aff_old_new,
+                                              const vector<Vector2f> rotated_pattern) const {
     if (!isfinite(can.d_inv_synetic_im)) return false;
 
     if (target_frame == nullptr) return true;
 
-    const Vector2f& point_on_lastKF = target_frame->project(
-        T_old_new * host_frame->unproject(Vector2i(can.u, can.v),
-                                          1.0f / can.d_inv_synetic_im));
+    const Vector2f& point_on_lastKF =
+        target_frame->project(T_old_new * host_frame->unproject(Vector2i(can.u, can.v), 1.0f / can.d_inv_synetic_im));
 
-    if (!target_frame->is_in_image(0, point_on_lastKF(0), point_on_lastKF(1)))
-        return false;
+    if (!target_frame->is_in_image(0, point_on_lastKF(0), point_on_lastKF(1))) return false;
     // valid
 
     float energy = 0;
@@ -121,10 +111,8 @@ bool CandidateManager::is_synetic_depth_valid(
         float u = point_on_lastKF(0) + rotated_pattern[i][0];
         float v = point_on_lastKF(1) + rotated_pattern[i][1];
 
-        energy +=
-            can.weight[i] *
-            abs(target_frame->getImagePyramid()->operator()(0, u, v) -
-                exp(aff_old_new.alpha()) * can.color[i] - aff_old_new.beta());
+        energy += can.weight[i] * abs(target_frame->getImagePyramid()->operator()(0, u, v) -
+                                      exp(aff_old_new.alpha()) * can.color[i] - aff_old_new.beta());
     }
     static int cnt = 0;
 
@@ -135,8 +123,7 @@ bool CandidateManager::is_synetic_depth_valid(
     return (energy < 30.0f);
 }
 
-cv::Mat CandidateManager::generate_depth_safe_mask(
-    const cv::Mat synetic_depth_im) const {
+cv::Mat CandidateManager::generate_depth_safe_mask(const cv::Mat synetic_depth_im) const {
     // calc depth gradient magnitude
     cv::Mat dx, dy;  // 1st derivative in x,y
     cv::Sobel(synetic_depth_im, dx, CV_32F, 1, 0);
@@ -163,17 +150,15 @@ cv::Mat CandidateManager::generate_depth_safe_mask(
         std::nth_element(mag_clone.begin<float>(),
                          mag_clone.begin<float>() + mag.rows * mag.cols * 0.6f,
                          mag_clone.end<float>());*/
-    ushort threshold_value =
-        15000;  //*(mag_clone.begin<float>() + mag.rows * mag.cols * 0.6f);
+    ushort threshold_value = 15000;  //*(mag_clone.begin<float>() + mag.rows * mag.cols * 0.6f);
 
     cv::threshold(mag, mask, threshold_value, 1, cv::THRESH_BINARY);
 
     // dilation
     int dilation_size = 10 - candidate_map.size() / 3.f;  // 10
-    cv::Mat element = cv::getStructuringElement(
-        cv::MORPH_ELLIPSE,
-        cv::Size(2 * dilation_size + 1, 2 * dilation_size + 1),
-        cv::Point(dilation_size, dilation_size));
+    cv::Mat element =
+        cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(2 * dilation_size + 1, 2 * dilation_size + 1),
+                                  cv::Point(dilation_size, dilation_size));
     /// Apply the dilation operation
     cv::dilate(mask, mask_dilated, element);
 
@@ -184,23 +169,17 @@ cv::Mat CandidateManager::generate_depth_safe_mask(
     return mask_dilated;
 }
 
-std::vector<Candidate>& CandidateManager::get_candidate(
-    const Frame::ptr frame) {
+std::vector<Candidate>& CandidateManager::get_candidate(const Frame::ptr frame) {
     return candidate_map[frame];
 }
 
-std::unordered_map<Frame::ptr, std::vector<Candidate>>&
-CandidateManager::get_candidate_map() {
+std::unordered_map<Frame::ptr, std::vector<Candidate>>& CandidateManager::get_candidate_map() {
     return candidate_map;
 }
 
-void CandidateManager::update_depth_on_old_frame(Candidate& can,
-                                                 const Sophus::SE3f& T_new_old,
-                                                 const AffineLight& aff_new_old,
-                                                 Frame::ptr new_frame) {
-    if (can.status == CandidateStatus::OOB ||
-        can.status == CandidateStatus::BAD)
-        return;
+void CandidateManager::update_depth_on_old_frame(Candidate& can, const Sophus::SE3f& T_new_old,
+                                                 const AffineLight& aff_new_old, Frame::ptr new_frame) {
+    if (can.status == CandidateStatus::OOB || can.status == CandidateStatus::BAD) return;
 
     auto& cam = CamData::getInstance();
 
@@ -215,9 +194,7 @@ void CandidateManager::update_depth_on_old_frame(Candidate& can,
     const auto& p_far = p_near_p_far.second;
 
     if (!is_in_img(cam, p_near) && !is_in_img(cam, p_far)) {
-        can.status = (can.status == CandidateStatus::NOT_INITIALIZED)
-                         ? CandidateStatus::BAD
-                         : CandidateStatus::OOB;
+        can.status = (can.status == CandidateStatus::NOT_INITIALIZED) ? CandidateStatus::BAD : CandidateStatus::OOB;
         return;
     }
 
@@ -227,16 +204,13 @@ void CandidateManager::update_depth_on_old_frame(Candidate& can,
 
     // line search
     float u_best, v_best;
-    float energy_best = line_search(u_best, v_best, can, new_frame, p_near,
-                                    p_far, rotatetPattern, aff_new_old);
+    float energy_best = line_search(u_best, v_best, can, new_frame, p_near, p_far, rotatetPattern, aff_new_old);
 
     if (!(energy_best < 50.f)) {
         if (can.status == CandidateStatus::NOT_INITIALIZED) {
             can.status = CandidateStatus::BAD;
         } else {
-            can.status = (can.status == CandidateStatus::OUTLIER)
-                             ? CandidateStatus::OOB
-                             : CandidateStatus::OUTLIER;
+            can.status = (can.status == CandidateStatus::OUTLIER) ? CandidateStatus::OOB : CandidateStatus::OUTLIER;
         }
         return;
     }
@@ -244,8 +218,7 @@ void CandidateManager::update_depth_on_old_frame(Candidate& can,
     // optimization
     Vector2f vec_far_to_near = p_near - p_far;
     Vector2f direction = vec_far_to_near.normalized();
-    float energy_best_optimize = optimize(
-        u_best, v_best, can, direction, new_frame, rotatetPattern, aff_new_old);
+    float energy_best_optimize = optimize(u_best, v_best, can, direction, new_frame, rotatetPattern, aff_new_old);
     /*     std::cout << can.u << "   " << can.v << "    best u : " << u_best
                   << "  v_best : " << v_best << "   energy before :" <<
        energy_best
@@ -256,42 +229,31 @@ void CandidateManager::update_depth_on_old_frame(Candidate& can,
     update(u_best, v_best, can, direction, pR, Kt);
 }
 
-void CandidateManager::update(const float u_best, const float v_best,
-                              Candidate& can, const Eigen::Vector2f& direction,
-                              const Eigen::Vector3f& pR,
-                              const Eigen::Vector3f& Kt) {
+void CandidateManager::update(const float u_best, const float v_best, Candidate& can, const Eigen::Vector2f& direction,
+                              const Eigen::Vector3f& pR, const Eigen::Vector3f& Kt) {
     float dx = direction(0);
     float dy = direction(1);
 
     // assert(abs(dx * dx + dy * dy - 1.f) < 1e-3);
-    float a =
-        (Vector2f(dx, dy).transpose() * can.structure_mat * Vector2f(dx, dy));
-    float b =
-        (Vector2f(dy, -dx).transpose() * can.structure_mat * Vector2f(dy, -dx));
+    float a = (Vector2f(dx, dy).transpose() * can.structure_mat * Vector2f(dx, dy));
+    float b = (Vector2f(dy, -dx).transpose() * can.structure_mat * Vector2f(dy, -dx));
     float errorInPixel = 0.2f + 0.2f * (a + b) / a;
 
     float d_inv_min_obs, d_inv_max_obs;
     if (dx * dx > dy * dy) {
-        d_inv_min_obs = (pR[2] * (u_best - errorInPixel * dx) - pR[0]) /
-                        (Kt[0] - Kt[2] * (u_best - errorInPixel * dx));
-        d_inv_max_obs = (pR[2] * (u_best + errorInPixel * dx) - pR[0]) /
-                        (Kt[0] - Kt[2] * (u_best + errorInPixel * dx));
+        d_inv_min_obs = (pR[2] * (u_best - errorInPixel * dx) - pR[0]) / (Kt[0] - Kt[2] * (u_best - errorInPixel * dx));
+        d_inv_max_obs = (pR[2] * (u_best + errorInPixel * dx) - pR[0]) / (Kt[0] - Kt[2] * (u_best + errorInPixel * dx));
     } else {
-        d_inv_min_obs = (pR[2] * (v_best - errorInPixel * dy) - pR[1]) /
-                        (Kt[1] - Kt[2] * (v_best - errorInPixel * dy));
-        d_inv_max_obs = (pR[2] * (v_best + errorInPixel * dy) - pR[1]) /
-                        (Kt[1] - Kt[2] * (v_best + errorInPixel * dy));
+        d_inv_min_obs = (pR[2] * (v_best - errorInPixel * dy) - pR[1]) / (Kt[1] - Kt[2] * (v_best - errorInPixel * dy));
+        d_inv_max_obs = (pR[2] * (v_best + errorInPixel * dy) - pR[1]) / (Kt[1] - Kt[2] * (v_best + errorInPixel * dy));
     }
-    if (d_inv_min_obs > d_inv_max_obs)
-        std::swap<float>(d_inv_max_obs, d_inv_min_obs);
+    if (d_inv_min_obs > d_inv_max_obs) std::swap<float>(d_inv_max_obs, d_inv_min_obs);
     /*     std::cout << "Error :   " << errorInPixel << "  u:   " << can.u
                   << "    v:   " << can.v << "   min : " << d_inv_min_obs
                   << "   max : " << d_inv_max_obs << '\n'; */
     float d_inv_obs = (d_inv_max_obs + d_inv_min_obs) / 2;
     if ((d_inv_obs < 0)) {
-        can.status = (can.status == CandidateStatus::NOT_INITIALIZED)
-                         ? CandidateStatus::BAD
-                         : CandidateStatus::OUTLIER;
+        can.status = (can.status == CandidateStatus::NOT_INITIALIZED) ? CandidateStatus::BAD : CandidateStatus::OUTLIER;
         return;
     }
     float d_inv_old = can.d_inv;
@@ -317,11 +279,8 @@ void CandidateManager::update(const float u_best, const float v_best,
     return;
 }
 
-float CandidateManager::optimize(float& u_best, float& v_best,
-                                 const Candidate& can,
-                                 const Eigen::Vector2f& direction,
-                                 const Frame::ptr frame,
-                                 const vector<Eigen::Vector2f>& rotatetPattern,
+float CandidateManager::optimize(float& u_best, float& v_best, const Candidate& can, const Eigen::Vector2f& direction,
+                                 const Frame::ptr frame, const vector<Eigen::Vector2f>& rotatetPattern,
                                  const AffineLight& aff) const {
     auto im_pyramid = *(frame->getImagePyramid());
 
@@ -340,10 +299,8 @@ float CandidateManager::optimize(float& u_best, float& v_best,
                 energy += 1e5;
                 continue;
             }
-            float residual = im_pyramid(0, u, v) -
-                             (exp(aff.alpha()) * can.color[idx] + aff.beta());
-            float dResdDist = direction(0) * im_pyramid.dx(0, u, v) +
-                              direction(1) * im_pyramid.dy(0, u, v);
+            float residual = im_pyramid(0, u, v) - (exp(aff.alpha()) * can.color[idx] + aff.beta());
+            float dResdDist = direction(0) * im_pyramid.dx(0, u, v) + direction(1) * im_pyramid.dy(0, u, v);
 
             H += dResdDist * dResdDist;
             b += residual * dResdDist;
@@ -382,9 +339,9 @@ float CandidateManager::optimize(float& u_best, float& v_best,
     return energy_best;
 }
 
-std::pair<Eigen::Vector2f, Eigen::Vector2f> CandidateManager::get_search_range(
-    const Candidate& can, const Eigen::Vector3f& pR,
-    const Eigen::Vector3f& Kt) const {
+std::pair<Eigen::Vector2f, Eigen::Vector2f> CandidateManager::get_search_range(const Candidate& can,
+                                                                               const Eigen::Vector3f& pR,
+                                                                               const Eigen::Vector3f& Kt) const {
     pair<Vector2f, Vector2f> p_near_p_far;
 
     if (can.status == CandidateStatus::NOT_INITIALIZED) {
@@ -392,14 +349,11 @@ std::pair<Eigen::Vector2f, Eigen::Vector2f> CandidateManager::get_search_range(
             p_near_p_far.second = pR.hnormalized();
             // p_near
             Vector3f p_near = pR + Kt * 0.01f;
-            Vector2f direction =
-                (p_near.hnormalized() - p_near_p_far.second).normalized();
+            Vector2f direction = (p_near.hnormalized() - p_near_p_far.second).normalized();
             p_near_p_far.first = p_near_p_far.second + 40 * direction;
         } else {
-            p_near_p_far.second =
-                (pR + Kt * (0.3f * can.d_inv_synetic_im)).hnormalized();
-            p_near_p_far.first =
-                (pR + Kt * (1.7f * can.d_inv_synetic_im)).hnormalized();
+            p_near_p_far.second = (pR + Kt * (0.3f * can.d_inv_synetic_im)).hnormalized();
+            p_near_p_far.first = (pR + Kt * (1.7f * can.d_inv_synetic_im)).hnormalized();
 
             /*             std::cout << " range : "
                                   << (p_near_p_far.first -
@@ -415,17 +369,15 @@ std::pair<Eigen::Vector2f, Eigen::Vector2f> CandidateManager::get_search_range(
     return p_near_p_far;
 }
 
-float CandidateManager::line_search(
-    float& u_best, float& v_best, const Candidate& can, const Frame::ptr frame,
-    const Eigen::Vector2f& p_near, const Eigen::Vector2f& p_far,
-    const vector<Vector2f>& rotatetPattern, const AffineLight& aff) const {
+float CandidateManager::line_search(float& u_best, float& v_best, const Candidate& can, const Frame::ptr frame,
+                                    const Eigen::Vector2f& p_near, const Eigen::Vector2f& p_far,
+                                    const vector<Vector2f>& rotatetPattern, const AffineLight& aff) const {
     Vector2f vec_far_to_near = p_near - p_far;
     Vector2f direction = vec_far_to_near.normalized();
 
     auto image_pyramid = frame->getImagePyramid();
 
-    float max_range_in_pixel =
-        std::max(std::min(vec_far_to_near.norm(), 80.0f), 2.0f);
+    float max_range_in_pixel = std::max(std::min(vec_far_to_near.norm(), 80.0f), 2.0f);
     float ptx = p_far(0), pty = p_far(1);
 
     float best_energy = std::numeric_limits<float>::max();
@@ -434,15 +386,13 @@ float CandidateManager::line_search(
         float energy = 0;
         if (!is_in_img(cam, Eigen::Vector2f(ptx, pty))) continue;
         for (int idx = 0; idx < 8; idx++) {
-            float hitColor = image_pyramid->operator()(
-                0, ptx + rotatetPattern[idx][0], pty + rotatetPattern[idx][1]);
+            float hitColor = image_pyramid->operator()(0, ptx + rotatetPattern[idx][0], pty + rotatetPattern[idx][1]);
 
             if (!std::isfinite(hitColor)) {
                 energy += 1e5;
                 continue;
             }
-            float residual =
-                hitColor - (exp(aff.alpha()) * can.color[idx] + aff.beta());
+            float residual = hitColor - (exp(aff.alpha()) * can.color[idx] + aff.beta());
 
             energy += can.weight[idx] * can.weight[idx] * residual * residual;
         }
@@ -459,8 +409,7 @@ float CandidateManager::line_search(
     return best_energy;
 }
 
-void CandidateManager::calc_structure_mat(Frame::ptr host_frame,
-                                          Candidate& can) {
+void CandidateManager::calc_structure_mat(Frame::ptr host_frame, Candidate& can) {
     auto ip = host_frame->getImagePyramid();
     can.structure_mat.setZero();
     float sum = 0;
@@ -513,15 +462,13 @@ void CandidateManager::activate_candidate() {
     int min_square_dist = pow(min_dist_to_active, 2);
 
     // choose new active points
-    std::cout << " before add ,we have active points : "
-              << dist_map.get_num_obstacles()
+    std::cout << " before add ,we have active points : " << dist_map.get_num_obstacles()
               << " min_dist :" << min_square_dist << '\n';
 
     for (auto it = candidate_map.begin(); it != candidate_map.end(); ++it) {
         if (it->first == newst_KF) continue;
         for (auto& can : it->second) {
-            if (can.is_active == true || can.status == CandidateStatus::BAD)
-                continue;
+            if (can.is_active == true || can.status == CandidateStatus::BAD) continue;
 
             //! decide now only with distmap
             // bool can_be_activated = (can.status != CandidateStatus::BAD &&
@@ -530,18 +477,15 @@ void CandidateManager::activate_candidate() {
             // if (!can_be_activated) continue;
 
             // check dist on dist map
-            float dist = dist_map.dist(can.projection_on_newst_KF(0),
-                                       can.projection_on_newst_KF(1));
+            float dist = dist_map.dist(can.projection_on_newst_KF(0), can.projection_on_newst_KF(1));
 
             if (dist > static_cast<float>(min_square_dist)) {
                 // check and remove outlier
                 // remove outlier
-                float color = newst_KF->getImagePyramid()->operator()(
-                    0, can.projection_on_newst_KF(0),
-                    can.projection_on_newst_KF(1));
+                float color = newst_KF->getImagePyramid()->operator()(0, can.projection_on_newst_KF(0),
+                                                                      can.projection_on_newst_KF(1));
                 auto aff = get_src_to_dst_aff_light(it->first, newst_KF);
-                float color_diff = std::abs(
-                    color - exp(aff.alpha()) * can.color[0] - aff.beta());
+                float color_diff = std::abs(color - exp(aff.alpha()) * can.color[0] - aff.beta());
                 // std::cout << "color diff " << color_diff << '\n';
                 if (color_diff > 70) {
                     continue;
@@ -549,25 +493,19 @@ void CandidateManager::activate_candidate() {
 
                 can.is_active = true;  // activate candidate
                 dist_map.add(can.projection_on_newst_KF);
-                can.point_block->setIDepth(
-                    (double)
-                        can.d_inv_synetic_im);  //! optimize based on map depth
+                can.point_block->setIDepth((double)can.d_inv_synetic_im);  //! optimize based on map depth
 
                 // check and add obsevations
                 std::unique_ptr<PhotometricResidual> obs_newst_KF =
                     std::make_unique<PhotometricResidual>(&can, newst_KF);
                 can.observations[newst_KF] = std::move(obs_newst_KF);
 
-                for (auto it2 = candidate_map.begin();
-                     it2 != candidate_map.end(); ++it2) {
-                    if (it2->first == newst_KF || it2->first == can.host_frame)
-                        continue;
-                    Eigen::Vector2f projection = unproject_trans_project(
-                        can, can.host_frame, it2->first);
+                for (auto it2 = candidate_map.begin(); it2 != candidate_map.end(); ++it2) {
+                    if (it2->first == newst_KF || it2->first == can.host_frame) continue;
+                    Eigen::Vector2f projection = unproject_trans_project(can, can.host_frame, it2->first);
                     if (is_in_img(cam, projection)) {
                         std::unique_ptr<PhotometricResidual> obs =
-                            std::make_unique<PhotometricResidual>(&can,
-                                                                  it2->first);
+                            std::make_unique<PhotometricResidual>(&can, it2->first);
                         can.observations[it2->first] = std::move(obs);
                     }
                 }
@@ -575,8 +513,7 @@ void CandidateManager::activate_candidate() {
         }
     }
 
-    std::cout << "current active points num:   " << dist_map.get_num_obstacles()
-              << '\n';
+    std::cout << "current active points num:   " << dist_map.get_num_obstacles() << '\n';
 
     cv::Mat vis = dist_map.get_distance_map_for_visualization(true);
     /*     cv::imshow("dist_map ", vis);
@@ -584,8 +521,7 @@ void CandidateManager::activate_candidate() {
     ;
 }
 PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
-    PointCloudPyramid::ptr pcp(
-        new PointCloudPyramid);  // todo : avoid allocaction every time
+    PointCloudPyramid::ptr pcp(new PointCloudPyramid);  // todo : avoid allocaction every time
     // before get a new reference point cloud we need to update our active point
     // set
     activate_candidate();
@@ -594,10 +530,9 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
         if (candidate_map.size() < 1e10) {
             int cnt = 0;
             for (auto& can : candidate_map[newst_KF]) {
-                if (!can.is_depth_safe || can.d_inv_synetic_im < 1e-20)
-                    continue;
-                Eigen::Vector3f position = newst_KF->unproject(
-                    Eigen::Vector2i(can.u, can.v), 1.0f / can.d_inv_synetic_im);
+                if (!can.is_depth_safe || can.d_inv_synetic_im < 1e-20) continue;
+                Eigen::Vector3f position =
+                    newst_KF->unproject(Eigen::Vector2i(can.u, can.v), 1.0f / can.d_inv_synetic_im);
 
                 ++cnt;
                 for (int lvl = 0; lvl < lvls; ++lvl) {
@@ -613,28 +548,22 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
         const int lvls = pcp->lvls();
         if (candidate_map.size() < 1e10) {
             int cnt = 0;
-            for (auto it = candidate_map.begin(); it != candidate_map.end();
-                 ++it) {
+            for (auto it = candidate_map.begin(); it != candidate_map.end(); ++it) {
                 if (it->first == newst_KF) continue;
                 for (auto& can : it->second) {
-                    if (can.d_inv_synetic_im < 1e-20 || can.age > 7 ||
-                        !can.is_depth_safe ||
+                    if (can.d_inv_synetic_im < 1e-20 || can.age > 7 || !can.is_depth_safe ||
                         can.status == CandidateStatus::BAD)
                         continue;
                     if (can.is_active) {
                         Eigen::Vector3f position =
-                            (newst_KF->get_pose<Isometry3f>().inverse() *
-                             it->first->get_pose<Isometry3f>()) *
-                            it->first->unproject(Eigen::Vector2i(can.u, can.v),
-                                                 1.0f / can.d_inv_synetic_im);
+                            (newst_KF->get_pose<Isometry3f>().inverse() * it->first->get_pose<Isometry3f>()) *
+                            it->first->unproject(Eigen::Vector2i(can.u, can.v), 1.0f / can.d_inv_synetic_im);
 
                         ++cnt;
                         for (int lvl = 0; lvl < lvls; ++lvl) {
                             if ((lvl != 0 && cnt % lvl == 0) || lvl == 0) {
-                                float color =
-                                    newst_KF->getImagePyramid()->operator()(
-                                        0, can.projection_on_newst_KF(0),
-                                        can.projection_on_newst_KF(1));
+                                float color = newst_KF->getImagePyramid()->operator()(0, can.projection_on_newst_KF(0),
+                                                                                      can.projection_on_newst_KF(1));
                                 //! use color on newst kf to estimate the aff
                                 //! param;
 
@@ -652,8 +581,8 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
                 if (dist_map.dist(can.u, can.v) < 25) continue;
                 dist_map.add(Eigen::Vector2f(can.u, can.v));
 
-                Eigen::Vector3f position = newst_KF->unproject(
-                    Eigen::Vector2i(can.u, can.v), 1.0f / can.d_inv_synetic_im);
+                Eigen::Vector3f position =
+                    newst_KF->unproject(Eigen::Vector2i(can.u, can.v), 1.0f / can.d_inv_synetic_im);
 
                 ++cnt;
                 for (int lvl = 0; lvl < lvls; ++lvl) {

@@ -17,6 +17,7 @@ int main() {
     pose.read(pose_file, trajectory_io::Trajectory::FORMAT_MAT);
     Eigen::Isometry3f first_pose = pose.atIndex(0);
     Eigen::Isometry3f second_pose = pose.atIndex(1);
+
     tictoc::tic();
 
     cv::Mat photo = sm.renderingAt(first_pose, mpl::RenderingMode::PHTOMETRIC);

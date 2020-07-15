@@ -6,12 +6,9 @@ PhotometricBAConfig::PhotometricBAConfig() {
     // problem options
 
     // Do not enable ceres to take ownership of any object
-    this->problemOptions.cost_function_ownership =
-        ceres::Ownership::DO_NOT_TAKE_OWNERSHIP;
-    this->problemOptions.local_parameterization_ownership =
-        ceres::Ownership::DO_NOT_TAKE_OWNERSHIP;
-    this->problemOptions.loss_function_ownership =
-        ceres::Ownership::DO_NOT_TAKE_OWNERSHIP;
+    this->problemOptions.cost_function_ownership = ceres::Ownership::DO_NOT_TAKE_OWNERSHIP;
+    this->problemOptions.local_parameterization_ownership = ceres::Ownership::DO_NOT_TAKE_OWNERSHIP;
+    this->problemOptions.loss_function_ownership = ceres::Ownership::DO_NOT_TAKE_OWNERSHIP;
 
     // If true, trades memory for faster RemoveResidualBlock() and
     // RemoveParameterBlock() operations
@@ -29,8 +26,7 @@ PhotometricBAConfig::PhotometricBAConfig() {
     this->problemOptions.disable_all_safety_checks = true;
 
     // solver options
-    this->solverOptions.logging_type =
-        ceres::SILENT;  // ceres::PER_MINIMIZER_ITERATION;
+    this->solverOptions.logging_type = ceres::SILENT;  // ceres::PER_MINIMIZER_ITERATION;
     this->solverOptions.minimizer_progress_to_stdout = true;
 
     this->solverOptions.linear_solver_type = ceres::DENSE_SCHUR;

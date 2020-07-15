@@ -16,8 +16,7 @@ namespace mpl {
 PhotometricBA::PhotometricBA(const PhotometricBAConfig& config)
     : options(config), numFrames(0), numPoints(0), numResiduals(0) {
     // iteration callback
-    this->iterCallback =
-        std::make_unique<PhotometricBAIterationCallback>(*this);
+    this->iterCallback = std::make_unique<PhotometricBAIterationCallback>(*this);
     this->options.solverOptions.callbacks.push_back(this->iterCallback.get());
 }
 
@@ -60,50 +59,40 @@ void PhotometricBA::solve(CandidateManager& cm) {
     this->removeBadObservations(obsToRemove);
 }
 
-void PhotometricBA::prepareOptimization(CandidateManager& cm,
-                                        BundleAdjustment& problem) {
+void PhotometricBA::prepareOptimization(CandidateManager& cm, BundleAdjustment& problem) {
     const auto& Config = Config::getInstance();
     auto& candidate_map = cm.get_candidate_map();
 
     // ordering
-    ceres::ParameterBlockOrdering* ordering =
-        new ceres::ParameterBlockOrdering();
+    ceres::ParameterBlockOrdering* ordering = new ceres::ParameterBlockOrdering();
 
     // add all cameras, points and observations
     for (auto it = candidate_map.begin(); it != candidate_map.end(); ++it) {
         // add camera
         auto kf = it->first;
         problem.addParameterBlock(kf->get_frame_block().get());
-        ordering->AddElementToGroup(kf->get_frame_block()->getParameters(),
-                                    FrameParameterBlock::Group);
+        ordering->AddElementToGroup(kf->get_frame_block()->getParameters(), FrameParameterBlock::Group);
         this->activeKeyframes.push_back(kf);
 
         // fix first camera, this fixes unobservable gauge freedoms
         if (kf == cm.get_key_frames().front()) {
             problem.setParameterBlockConstant(kf->get_frame_block().get());
         }
-        if (kf == cm.get_key_frames().back())
-            continue;  // no point from newst kf will be observed
+        if (kf == cm.get_key_frames().back()) continue;  // no point from newst kf will be observed
         for (auto& point : candidate_map[kf]) {
             if (!point.is_active) continue;
             // add point
             problem.addParameterBlock(point.get_point_block().get());
             // problem.setParameterBlockConstant(point.get_point_block().get());
-            ordering->AddElementToGroup(
-                point.get_point_block()->getParameters(),
-                PointParameterBlock::Group);
+            ordering->AddElementToGroup(point.get_point_block()->getParameters(), PointParameterBlock::Group);
 
             // add residuals
             for (const auto& obs : point.observations) {
                 problem.addParameterBlock(obs.first->get_frame_block().get());
-                ordering->AddElementToGroup(
-                    obs.first->get_frame_block()->getParameters(),
-                    FrameParameterBlock::Group);
+                ordering->AddElementToGroup(obs.first->get_frame_block()->getParameters(), FrameParameterBlock::Group);
 
-                problem.addResidualBlock(obs.second.get(),
-                                         kf->get_frame_block().get(),
-                                         obs.first->get_frame_block().get(),
-                                         point.get_point_block().get());
+                problem.addResidualBlock(obs.second.get(), kf->get_frame_block().get(),
+                                         obs.first->get_frame_block().get(), point.get_point_block().get());
 
                 this->activeObservations.push_back(obs.second.get());
             }
@@ -113,9 +102,7 @@ void PhotometricBA::prepareOptimization(CandidateManager& cm,
     this->options.solverOptions.linear_solver_ordering.reset(ordering);
 }
 
-void PhotometricBA::mergeOptimization(
-    CandidateManager& cm,
-    std::vector<PhotometricResidual*>& obsToRemove) const {
+void PhotometricBA::mergeOptimization(CandidateManager& cm, std::vector<PhotometricResidual*>& obsToRemove) const {
     // merge all keyframes first
     for (const std::shared_ptr<Frame>& kf : cm.get_key_frames()) {
         // pose and affine light
@@ -128,8 +115,7 @@ void PhotometricBA::mergeOptimization(
     for (const std::shared_ptr<Frame>& kf : cm.get_key_frames()) {
         if (kf == cm.get_key_frames().back()) continue;
         for (auto& point : cm.get_candidate_map()[kf]) {
-            const Sophus::SE3f& refToWorld =
-                point.host_frame->get_pose<Sophus::SE3f>().inverse();
+            const Sophus::SE3f& refToWorld = point.host_frame->get_pose<Sophus::SE3f>().inverse();
 
             if (point.is_active) {
                 point.merge_optimization_result();
@@ -181,8 +167,7 @@ void PhotometricBA::mergeOptimization(
 }
 
 // TODO remove bad point
-void PhotometricBA::removeBadObservations(
-    const std::vector<PhotometricResidual*>& obsToRemove) const {
+void PhotometricBA::removeBadObservations(const std::vector<PhotometricResidual*>& obsToRemove) const {
     for (int i = 0; i < obsToRemove.size(); ++i) {
         Candidate* const point = obsToRemove[i]->point();
         point->observations.erase(obsToRemove[i]->targetFrame());

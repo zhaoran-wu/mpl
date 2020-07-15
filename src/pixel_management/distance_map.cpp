@@ -7,12 +7,9 @@ DistanceMap::DistanceMap() {
     h = cam->height[0];
 
     // init
-    this->require_update = (bool*)Eigen::internal::aligned_malloc(
-        this->w * this->h * sizeof(bool));
-    this->obstacles = (Eigen::Vector2i*)Eigen::internal::aligned_malloc(
-        this->w * this->h * sizeof(Eigen::Vector2i));
-    this->dist_map = (float*)Eigen::internal::aligned_malloc(this->w * this->h *
-                                                             sizeof(float));
+    this->require_update = (bool*)Eigen::internal::aligned_malloc(this->w * this->h * sizeof(bool));
+    this->obstacles = (Eigen::Vector2i*)Eigen::internal::aligned_malloc(this->w * this->h * sizeof(Eigen::Vector2i));
+    this->dist_map = (float*)Eigen::internal::aligned_malloc(this->w * this->h * sizeof(float));
 }
 
 DistanceMap::~DistanceMap() {
@@ -23,12 +20,10 @@ DistanceMap::~DistanceMap() {
 
 cv::Mat DistanceMap::get_distance_map_for_visualization(bool normalize) {
     cv::Mat distTransform(this->h, this->w, CV_32FC1);
-    std::copy(this->dist_map, this->dist_map + this->w * this->h,
-              (float*)distTransform.data);
+    std::copy(this->dist_map, this->dist_map + this->w * this->h, (float*)distTransform.data);
 
     if (normalize) {
-        distTransform = distTransform +
-                        1;  // set range to [1, Inf] to have all positive values
+        distTransform = distTransform + 1;      // set range to [1, Inf] to have all positive values
         cv::log(distTransform, distTransform);  // log scale
         cv::normalize(distTransform, distTransform, 0, 1.0,
                       cv::NORM_MINMAX);  // normalize gray scale
@@ -45,12 +40,10 @@ int DistanceMap::get_num_obstacles() const {
     return this->num_obstacles;
 }
 
-void DistanceMap::compute(
-    std::unordered_map<Frame::ptr, std::vector<Candidate>>& candidate_map,
-    const Frame::ptr frame) {
+void DistanceMap::compute(std::unordered_map<Frame::ptr, std::vector<Candidate>>& candidate_map,
+                          const Frame::ptr frame) {
     // reset distance map
-    std::fill(this->dist_map, this->dist_map + this->w * this->h,
-              std::numeric_limits<float>::max());
+    std::fill(this->dist_map, this->dist_map + this->w * this->h, std::numeric_limits<float>::max());
     this->num_obstacles = 0;
 
     // generate point in newst key frame and put dist = 0 in distance map
@@ -60,13 +53,10 @@ void DistanceMap::compute(
         //! go through all candidate
         auto& can_vec = it.second;
         for (auto& can : can_vec) {
-            const Eigen::Vector2f point_in_frame =
-                unproject_trans_project(can, it.first, frame);
+            const Eigen::Vector2f point_in_frame = unproject_trans_project(can, it.first, frame);
 
             if (!is_in_img(*cam, point_in_frame)) {
-                can.status = (can.status == CandidateStatus::BAD)
-                                 ? CandidateStatus::BAD
-                                 : CandidateStatus::OOB;
+                can.status = (can.status == CandidateStatus::BAD) ? CandidateStatus::BAD : CandidateStatus::OOB;
                 continue;
             }
             can.projection_on_newst_KF = point_in_frame;

@@ -8,12 +8,10 @@ AffineLight::AffineLight() : alpha_(0.f), beta_(0.f) {
 AffineLight::AffineLight(float alpha, float beta) : alpha_(alpha), beta_(beta) {
 }
 
-AffineLight::AffineLight(const Eigen::Vector2f& affLight)
-    : alpha_(affLight[0]), beta_(affLight[1]) {
+AffineLight::AffineLight(const Eigen::Vector2f& affLight) : alpha_(affLight[0]), beta_(affLight[1]) {
 }
 
-AffineLight::AffineLight(const AffineLight& affLight)
-    : alpha_(affLight.alpha_), beta_(affLight.beta_) {
+AffineLight::AffineLight(const AffineLight& affLight) : alpha_(affLight.alpha_), beta_(affLight.beta_) {
 }
 
 float AffineLight::alpha() const {
@@ -42,16 +40,14 @@ AffineLight& AffineLight::operator=(const AffineLight& affLight) {
     return *this;
 }
 
-AffineLight AffineLight::calc_aff_map_src_to_dst(const AffineLight& src,
-                                                 const AffineLight& dst) {
+AffineLight AffineLight::calc_aff_map_src_to_dst(const AffineLight& src, const AffineLight& dst) {
     float dst_src_alpha = dst.alpha() - src.alpha();
     float dst_src_beta = dst.beta() - src.beta() * exp(dst_src_alpha);
 
     return AffineLight(dst_src_alpha, dst_src_beta);
 }
 
-AffineLight AffineLight::calc_dst_global_aff(const AffineLight& src,
-                                             const AffineLight& dst_src) {
+AffineLight AffineLight::calc_dst_global_aff(const AffineLight& src, const AffineLight& dst_src) {
     float dst_alpha = dst_src.alpha() + src.alpha();
     float dst_beta = dst_src.beta() + src.beta() * exp(dst_src.alpha());
 

@@ -2,8 +2,7 @@
 #include "bundle_adjustment.h"
 
 namespace mpl {
-BundleAdjustment::BundleAdjustment(
-    const ceres::Problem::Options& problemOptions) {
+BundleAdjustment::BundleAdjustment(const ceres::Problem::Options& problemOptions) {
     // ceres problem creation
     this->problem_ = std::make_unique<ceres::Problem>(problemOptions);
 }
@@ -19,8 +18,7 @@ const ceres::Solver::Summary& BundleAdjustment::summary() const {
     return this->summary_;
 }
 
-void BundleAdjustment::removeResidualBlock(
-    ceres::ResidualBlockId residualBlockId) {
+void BundleAdjustment::removeResidualBlock(ceres::ResidualBlockId residualBlockId) {
     this->problem_->RemoveResidualBlock(residualBlockId);
 }
 

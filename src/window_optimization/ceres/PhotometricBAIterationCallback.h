@@ -9,11 +9,11 @@ class PhotometricBAIterationCallback : public ceres::IterationCallback {
     PhotometricBAIterationCallback(const PhotometricBA& bundleAdjustment);
     ~PhotometricBAIterationCallback();
 
-    ceres::CallbackReturnType operator()(
-        const ceres::IterationSummary& summary);
+    ceres::CallbackReturnType operator()(const ceres::IterationSummary& summary);
 
    private:
     void backup() const;
+
     bool checkTerminationCriteria() const;
 
    private:

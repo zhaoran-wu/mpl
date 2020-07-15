@@ -31,28 +31,24 @@ int main() {
         std::string im_name = "im_at_lvl" + lvl;
         // color data
         ImagePyramid::uchar_ptr row_color_data = pyramid.data(lvl);
-        cv::imshow(im_name, cv::Mat(im.rows >> lvl, im.cols >> lvl, CV_8U,
-                                    row_color_data.get()));
+        cv::imshow(im_name, cv::Mat(im.rows >> lvl, im.cols >> lvl, CV_8U, row_color_data.get()));
         cv::waitKey(0);
         // access pxiel value at (u,v) on lvl l
 
         //* dx image test
         ImagePyramid::float_ptr dx_ptr = pyramid.dx(lvl);
         std::string dx_name = "dx_at_lvl" + lvl;
-        cv::imshow(dx_name, cv::Mat(im.rows >> lvl, im.cols >> lvl, CV_32F,
-                                    dx_ptr.get()));
+        cv::imshow(dx_name, cv::Mat(im.rows >> lvl, im.cols >> lvl, CV_32F, dx_ptr.get()));
         cv::waitKey(0);
         //* dy image test
         auto dy_ptr = pyramid.dy(lvl);
         std::string dy_name = "dy_at_lvl" + lvl;
-        cv::imshow(dy_name, cv::Mat(im.rows >> lvl, im.cols >> lvl, CV_32F,
-                                    dy_ptr.get()));
+        cv::imshow(dy_name, cv::Mat(im.rows >> lvl, im.cols >> lvl, CV_32F, dy_ptr.get()));
         cv::waitKey(0);
         //*  mag test
         auto mag2_ptr = pyramid.mag2(lvl);
         std::string mag2_name = "mag2_at_lvl" + lvl;
-        cv::imshow(mag2_name, cv::Mat(im.rows >> lvl, im.cols >> lvl, CV_32F,
-                                      mag2_ptr.get()));
+        cv::imshow(mag2_name, cv::Mat(im.rows >> lvl, im.cols >> lvl, CV_32F, mag2_ptr.get()));
         cv::waitKey(0);
     }
 }

@@ -35,13 +35,11 @@ class AffineLight {
     float b() const;
 
     // calc relative affine param,which map I_src to I_dst
-    static AffineLight calc_aff_map_src_to_dst(const AffineLight& src,
-                                               const AffineLight& dst);
+    static AffineLight calc_aff_map_src_to_dst(const AffineLight& src, const AffineLight& dst);
 
     // calc absolute affine param of dst
     // dst_src: Aff param map src to dst
-    static AffineLight calc_dst_global_aff(const AffineLight& src,
-                                           const AffineLight& dst_src);
+    static AffineLight calc_dst_global_aff(const AffineLight& src, const AffineLight& dst_src);
     static const int DoF = 2;
     static const int num_parameters = 2;
 
