@@ -16,6 +16,7 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
 
     to_track_frame->set_ref_frame(curr_ref_frame);
     generate_movement_predictions();
+
     Sophus::SE3f init_pose;
     AffineLight init_aff_light = aff_last_lastKF;
     float min_energy = std::numeric_limits<float>::max();
@@ -40,6 +41,13 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
             idx = i;
             min_energy = energy;
         }
+    }
+    // detect if tracking failed
+    if (min_energy / point_cloud_pyramid_->operator[](lvls - 1).size() > 800) {
+        ++this->failaure_cnt;
+        return false;
+    } else {
+        failaure_cnt = 0;
     }
 
     std::cout << "best movement idx : " << idx << '\n';
@@ -72,7 +80,13 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
     std::cout << "final energy per pixel :"
               << min_energy / point_cloud_pyramid_->operator[](0).size()
               << '\n';
-
+    if (min_energy / point_cloud_pyramid_->operator[](0).size() > 500) {
+        ++this->failaure_cnt;
+        return false;
+    } else {
+        failaure_cnt = 0;
+    }
+    per_pixel_energy = min_energy / point_cloud_pyramid_->operator[](0).size();
     Sophus::SE3f T_curr_lastKF = optimizer.getT();
     AffineLight aff_curr_lastKF = optimizer.getAffineLight();
 
@@ -111,7 +125,7 @@ void Tracker::generate_movement_predictions() {
     // 1x movement // assume T_last_overlast = T_curr_last
     movement_prediction[0] = T_last_overlast;
 
-    auto se3_priori = T_last_overlast.log();
+    auto se3_priori = T_last_overlast.log() * (failaure_cnt + 1);
     // X x movement
     movement_prediction[1] = Sophus::SE3f::exp(0.5 * se3_priori);
     movement_prediction[2] = Sophus::SE3f::exp(0.75 * se3_priori);

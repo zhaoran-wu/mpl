@@ -39,10 +39,16 @@ void CandidateManager::update_depth_per_frame(const Frame::ptr new_frame) {
 
 void CandidateManager::select_candidate(const Frame::ptr frame,
                                         const cv::Mat synetic_depth_im) {
-    // frame is key frame --> set frame block data
+    // frame is key frame --> set frame block data for optimization
     frame->get_frame_block()->setPose(
         frame->get_pose<Sophus::SE3f>().inverse().cast<double>());
     frame->get_frame_block()->setAffineLight(frame->get_aff_light());
+
+    // remove oldst frame
+    if (candidate_map.size() > 7) {
+        candidate_map.erase(key_frames.front());
+        key_frames.erase(key_frames.begin());
+    }
 
     std::vector<Eigen::Vector3i> pixle_selected;
     pixle_selector.select(frame->getImagePyramid(), pixle_selected);
@@ -83,6 +89,7 @@ void CandidateManager::select_candidate(const Frame::ptr frame,
         if (!is_synetic_depth_valid(can, frame, newst_KF, T_old_new,
                                     aff_old_new, rotated_pattern)) {
             can.d_inv_synetic_im = 0.0f;
+            continue;
         }
         candidate_vec.push_back(std::move(can));
     }
@@ -157,12 +164,12 @@ cv::Mat CandidateManager::generate_depth_safe_mask(
                          mag_clone.begin<float>() + mag.rows * mag.cols * 0.6f,
                          mag_clone.end<float>());*/
     ushort threshold_value =
-        9000;  //*(mag_clone.begin<float>() + mag.rows * mag.cols * 0.6f);
+        15000;  //*(mag_clone.begin<float>() + mag.rows * mag.cols * 0.6f);
 
     cv::threshold(mag, mask, threshold_value, 1, cv::THRESH_BINARY);
 
     // dilation
-    int dilation_size = 10;  // 10
+    int dilation_size = 10 - candidate_map.size() / 3.f;  // 10
     cv::Mat element = cv::getStructuringElement(
         cv::MORPH_ELLIPSE,
         cv::Size(2 * dilation_size + 1, 2 * dilation_size + 1),
@@ -501,7 +508,7 @@ void CandidateManager::activate_candidate() {
     else if (ratio < 0.9f)
         min_dist_to_active -= 1;
 
-    min_dist_to_active = std::min(max(5, min_dist_to_active), 10);
+    min_dist_to_active = std::min(max(6, min_dist_to_active), 12);
 
     int min_square_dist = pow(min_dist_to_active, 2);
 
@@ -513,7 +520,7 @@ void CandidateManager::activate_candidate() {
     for (auto it = candidate_map.begin(); it != candidate_map.end(); ++it) {
         if (it->first == newst_KF) continue;
         for (auto& can : it->second) {
-            if (can.is_active == true && can.status != CandidateStatus::BAD)
+            if (can.is_active == true || can.status == CandidateStatus::BAD)
                 continue;
 
             //! decide now only with distmap
@@ -542,12 +549,14 @@ void CandidateManager::activate_candidate() {
 
                 can.is_active = true;  // activate candidate
                 dist_map.add(can.projection_on_newst_KF);
-                can.point_block->setIDepth((double)can.d_inv);
+                can.point_block->setIDepth(
+                    (double)
+                        can.d_inv_synetic_im);  //! optimize based on map depth
 
                 // check and add obsevations
-                std::unique_ptr<PhotometricResidual> obs =
+                std::unique_ptr<PhotometricResidual> obs_newst_KF =
                     std::make_unique<PhotometricResidual>(&can, newst_KF);
-                can.observations[newst_KF] = std::move(obs);
+                can.observations[newst_KF] = std::move(obs_newst_KF);
 
                 for (auto it2 = candidate_map.begin();
                      it2 != candidate_map.end(); ++it2) {
@@ -556,8 +565,9 @@ void CandidateManager::activate_candidate() {
                     Eigen::Vector2f projection = unproject_trans_project(
                         can, can.host_frame, it2->first);
                     if (is_in_img(cam, projection)) {
-                        obs = std::make_unique<PhotometricResidual>(&can,
-                                                                    it2->first);
+                        std::unique_ptr<PhotometricResidual> obs =
+                            std::make_unique<PhotometricResidual>(&can,
+                                                                  it2->first);
                         can.observations[it2->first] = std::move(obs);
                     }
                 }
@@ -584,7 +594,8 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
         if (candidate_map.size() < 1e10) {
             int cnt = 0;
             for (auto& can : candidate_map[newst_KF]) {
-                if (!can.is_depth_safe) continue;
+                if (!can.is_depth_safe || can.d_inv_synetic_im < 1e-20)
+                    continue;
                 Eigen::Vector3f position = newst_KF->unproject(
                     Eigen::Vector2i(can.u, can.v), 1.0f / can.d_inv_synetic_im);
 
@@ -606,7 +617,10 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
                  ++it) {
                 if (it->first == newst_KF) continue;
                 for (auto& can : it->second) {
-                    if (/* !can.is_depth_safe || */ can.age > 5) continue;
+                    if (can.d_inv_synetic_im < 1e-20 || can.age > 7 ||
+                        !can.is_depth_safe ||
+                        can.status == CandidateStatus::BAD)
+                        continue;
                     if (can.is_active) {
                         Eigen::Vector3f position =
                             (newst_KF->get_pose<Isometry3f>().inverse() *
@@ -633,7 +647,7 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
             }
             // for all can in newst KF(not active yet)
             for (auto& can : candidate_map[newst_KF]) {
-                if (can.d_inv_synetic_im == 0) continue;  // not valid
+                if (can.d_inv_synetic_im < 1e-20) continue;  // not valid
 
                 if (dist_map.dist(can.u, can.v) < 25) continue;
                 dist_map.add(Eigen::Vector2f(can.u, can.v));

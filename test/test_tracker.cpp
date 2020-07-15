@@ -119,8 +119,6 @@ int main() {
 
         Sophus::SE3f old_T_curr_KF = last_frame->get_T_curr_lastKF();
 
-        tracker.tracking(curr_frame);
-
         in_out_T_curr_KF = curr_frame->get_T_curr_lastKF();
 
         cv::Mat im_to_vis = img_draw_vec[i];

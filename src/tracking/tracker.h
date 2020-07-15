@@ -30,6 +30,8 @@ class Tracker {
      */
     bool tracking(Frame::ptr to_track_frame);
 
+    float get_per_pixel_energy() const;
+
    private:
     // generate pediction T_curr_last
     void generate_movement_predictions();
@@ -55,5 +57,14 @@ class Tracker {
 
     Frame::ptr last_frame = nullptr;
     Frame::ptr over_last_frame = nullptr;
+
+    float per_pixel_energy;
+
+    int failaure_cnt = 0;
 };
+
+inline float Tracker::get_per_pixel_energy() const {
+    return per_pixel_energy;
+}
+
 }  // namespace mpl

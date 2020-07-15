@@ -149,8 +149,11 @@ inline const std::unique_ptr<FrameParameterBlock>& Frame::get_frame_block()
 }
 
 inline void Frame::merge_optimization_result() {
+    // std::cout << "pose before : " << '\n' << this->pose.matrix() << '\n';
     this->pose = frame_block->getPose().inverse().cast<float>();
     this->affine_light = frame_block->getAffineLight();
+
+    // std::cout << "pose after : " << '\n' << this->pose.matrix() << '\n';
 }
 
 }  // namespace mpl

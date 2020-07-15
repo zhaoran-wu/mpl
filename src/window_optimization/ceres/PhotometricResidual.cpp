@@ -49,8 +49,8 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters,
                                        double* residuals,
                                        double** jacobians) const {
     Candidate* point = this->residual_->point();
-    Frame* ownerFrame = this->residual_->ownerFrame();
-    Frame* targetFrame = this->residual_->targetFrame();
+    Frame::ptr ownerFrame = this->residual_->ownerFrame();
+    Frame::ptr targetFrame = this->residual_->targetFrame();
 
     const auto& config = Config::getInstance();
     const auto& cam = CamData::getInstance();
@@ -60,7 +60,7 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters,
     const int32_t width = cam.width[0];
     const int32_t height = cam.height[0];
 
-    const float energyThreshold = 1000;  // TODO
+    const float energyThreshold = 20;  // TODO
 
     const auto& color = point->color;
     const auto& weight = point->weight;
@@ -208,8 +208,8 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters,
         gradient += distWeight * gradWeight * gradWeight * squaredGrad;
 
         // discard bad pixels
-        if (fabs(resgw) > energyThreshold) {
-            std::cout << "resgw : " << resgw << '\n';
+        if (std::abs(resgw) > energyThreshold) {
+            // std::cout << "resgw : " << resgw << '\n';
             numBad++;
         }
 
@@ -280,9 +280,7 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters,
         this->residual_->state_ = Visibility::OUTLIER;
         // std::cout << "bad ratio:" << (float)numBad / PATTERN_SIZE
         //          << "   gradient: " << gradient << '\n';
-        if (numBad / PATTERN_SIZE > 0.75) {
-            this->discardOutlier(jacobians);
-        }
+        this->discardOutlier(jacobians);
     } else {
         this->residual_->state_ = Visibility::VISIBLE;
     }
@@ -358,9 +356,7 @@ void PhotometricCostFunction::discardOutlier(double** jacobians,
 
 PhotometricResidual::PhotometricResidual(
     Candidate* point, const std::shared_ptr<Frame>& targetFrame)
-    : point_(point),
-      ownerFrame_(point->host_frame.get()),
-      targetFrame_(targetFrame.get()) {
+    : point_(point), ownerFrame_(point->host_frame), targetFrame_(targetFrame) {
     this->state_ = Visibility::VISIBLE;
 
     this->iDepthHessian_ = 0.0;
@@ -392,11 +388,11 @@ Candidate* PhotometricResidual::point() const {
     return this->point_;
 }
 
-Frame* PhotometricResidual::ownerFrame() const {
+Frame::ptr PhotometricResidual::ownerFrame() const {
     return this->ownerFrame_;
 }
 
-Frame* PhotometricResidual::targetFrame() const {
+Frame::ptr PhotometricResidual::targetFrame() const {
     return this->targetFrame_;
 }
 

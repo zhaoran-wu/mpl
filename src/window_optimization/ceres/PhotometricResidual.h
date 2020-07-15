@@ -3,13 +3,13 @@
 #include "ceres/cost_function.h"
 
 #include "bundle_adjustment.h"
+#include "frame.h"
 #include "visibility.h"
 
 namespace mpl {
 class PhotometricBA;
 class PhotometricResidual;
 
-class Frame;
 class Candidate;
 
 // Cost function
@@ -65,8 +65,8 @@ class PhotometricResidual : public BAResidualBlock {
     Candidate* point() const;
 
     // frames
-    Frame* ownerFrame() const;
-    Frame* targetFrame() const;
+    Frame::ptr ownerFrame() const;
+    Frame::ptr targetFrame() const;
 
     // optimization state
     Visibility state() const;
@@ -83,8 +83,8 @@ class PhotometricResidual : public BAResidualBlock {
 
    private:
     // reference to parameters
-    Frame* const ownerFrame_;
-    Frame* const targetFrame_;
+    Frame::ptr ownerFrame_;
+    Frame::ptr targetFrame_;
 
     Candidate* point_;
 

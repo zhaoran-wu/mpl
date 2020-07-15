@@ -32,6 +32,7 @@ void PhotometricBA::reset() {
 void PhotometricBA::solve(CandidateManager& cm) {
     const auto& config = Config::getInstance();
     candidate_map_ptr = &cm.get_candidate_map();
+    if (cm.get_key_frames().size() < 3) return;
 
     // reset internal data
     this->reset();
@@ -49,14 +50,14 @@ void PhotometricBA::solve(CandidateManager& cm) {
     // stats
     const ceres::Solver::Summary& summary = problem.summary();
 
-    std::cout << summary.FullReport() << '\n';
+    // std::cout << summary.FullReport() << '\n';
 
     // merge solution
     std::vector<PhotometricResidual*> obsToRemove;
     this->mergeOptimization(cm, obsToRemove);
 
     // remove bad observations
-    // this->removeBadObservations(obsToRemove);
+    this->removeBadObservations(obsToRemove);
 }
 
 void PhotometricBA::prepareOptimization(CandidateManager& cm,
@@ -81,10 +82,13 @@ void PhotometricBA::prepareOptimization(CandidateManager& cm,
         if (kf == cm.get_key_frames().front()) {
             problem.setParameterBlockConstant(kf->get_frame_block().get());
         }
-
+        if (kf == cm.get_key_frames().back())
+            continue;  // no point from newst kf will be observed
         for (auto& point : candidate_map[kf]) {
+            if (!point.is_active) continue;
             // add point
             problem.addParameterBlock(point.get_point_block().get());
+            // problem.setParameterBlockConstant(point.get_point_block().get());
             ordering->AddElementToGroup(
                 point.get_point_block()->getParameters(),
                 PointParameterBlock::Group);
@@ -121,19 +125,15 @@ void PhotometricBA::mergeOptimization(
     const std::shared_ptr<Frame>& lastKeyfame = cm.get_key_frames().back();
     const int lastIdx = lastKeyfame->get_id();
 
-    // merge all points - THIS CAN BE PARALLELIZED - TODO
     for (const std::shared_ptr<Frame>& kf : cm.get_key_frames()) {
+        if (kf == cm.get_key_frames().back()) continue;
         for (auto& point : cm.get_candidate_map()[kf]) {
             const Sophus::SE3f& refToWorld =
                 point.host_frame->get_pose<Sophus::SE3f>().inverse();
 
-            // inverse depth
-            point.merge_optimization_result();
-
-            // obtain the optimizatio hessian and
-            // maximum parallax between observations
-            float iDepthHessian = 0.01f;
-            float maxParallax = 1.f;
+            if (point.is_active) {
+                point.merge_optimization_result();
+            }
 
             // const Eigen::Vector3f pt3d =
             // point.host_frame->unproject(point);//point->pt3d();
@@ -178,14 +178,18 @@ void PhotometricBA::mergeOptimization(
             }
         }
     }
+}
 
-    // TODO remove bad point
-/*     void PhotometricBA::removeBadObservations(
-        const std::vector<PhotometricResidual*>& obsToRemove) const {
-        for (int i = 0; i < obsToRemove.size(); ++i) {
-            Candidate* const point = obsToRemove[i]->point();
-            point->eraseObservation(obsToRemove[i]->targetFrame());
+// TODO remove bad point
+void PhotometricBA::removeBadObservations(
+    const std::vector<PhotometricResidual*>& obsToRemove) const {
+    for (int i = 0; i < obsToRemove.size(); ++i) {
+        Candidate* const point = obsToRemove[i]->point();
+        point->observations.erase(obsToRemove[i]->targetFrame());
+        if (point->observations.size() < 1) {
+            point->status = CandidateStatus::BAD;
         }
-     */}
+    }
+}
 
 }  // namespace mpl

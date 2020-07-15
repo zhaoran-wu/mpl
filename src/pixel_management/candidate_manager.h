@@ -182,6 +182,10 @@ inline Eigen::Vector2f unproject_trans_project(const Candidate& can,
 }
 
 inline void Candidate::merge_optimization_result() {
-    this->d_inv = point_block->getIDepth();
+    // std::cout << "old_depth :" << this->d_inv_synetic_im;
+
+    this->d_inv_synetic_im = (float)this->point_block->getIDepth();
+
+    // std::cout << "  new_depth :" << this->d_inv_synetic_im << '\n';
 }
 }  // namespace mpl

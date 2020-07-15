@@ -10,6 +10,17 @@
 
 using namespace std;
 using namespace mpl;
+
+bool is_newframe_KF(PointCloudPyramid::ptr pcp, const Sophus::SE3f& T_KF_curr,
+                    float energy) {
+    std::cout << "@@@@@@@@ log norm: " << T_KF_curr.log().norm()
+              << "  angle Y : " << abs(T_KF_curr.angleY())
+              << "   energy :" << energy << '\n';
+    if (abs(T_KF_curr.angleY()) > 0.04 || T_KF_curr.log().norm() > 1.2 ||
+        energy > 350.f)
+        return true;
+}
+
 int main() {
     std::string project_path = "/home/zhaoran/thesis_ws/mpl/project/";
     // read yaml
@@ -79,7 +90,9 @@ int main() {
         Frame::ptr curr_frame = Frame::create(img_vec[i]);
 
         Sophus::SE3f T_last_KF = last_frame->get_T_curr_lastKF();
-        tracker.tracking(curr_frame);
+
+        if (!tracker.tracking(curr_frame)) continue;
+
         Sophus::SE3f T_curr_KF = curr_frame->get_T_curr_lastKF();
 
         // !cm.update_depth_per_frame(curr_frame); we use now only valid depth,
@@ -107,13 +120,14 @@ int main() {
                        cv::Scalar(0, 255, 0), 2);
         }
         cv::imshow("KF", key_frame_vis);
-        cv::waitKey(0);
+        cv::waitKey(1);
         cv::imshow("curr_frame", im_to_vis);
-        cv::waitKey(0);
+        cv::waitKey(1);
         cv::imshow("kf depth", syn_im_vec_curr[1]);
-        cv::waitKey(0);
+        cv::waitKey(1);
         // todo : a best way to choose KF
-        bool is_KF = (i % 2 == 0);
+        bool is_KF =
+            is_newframe_KF(pcp, T_curr_KF, tracker.get_per_pixel_energy());
         if (is_KF) {
             key_frame_vis = img_draw_vec[i].clone();
 
@@ -121,11 +135,11 @@ int main() {
 
             // optimization before rendering
             pba.solve(cm);
+            pcp = cm.get_point_cloud_pyramid();
 
             render_pose = curr_frame->get_pose<Sophus::SE3f>();
             syn_im_vec_curr = synetic_image.renderingAt(render_pose);
             //! test best way to generate a depth map
-            pcp = cm.get_point_cloud_pyramid();
 
             tracker.set_tracking_ref(curr_frame, pcp);
         }
