@@ -237,7 +237,7 @@ float TrackingOptimizer::calc_sum_weighted_squared_residual() const {
 }
 
 inline float TrackingOptimizer::calc_residual(const float curr_intensity, const float point_cloud_intensity) const {
-    return curr_intensity - exp(affine_light.alpha()) * point_cloud_intensity - affine_light.beta();
+    return calc_light_diff(point_cloud_intensity, curr_intensity, affine_light);
 }
 
 }  // namespace mpl

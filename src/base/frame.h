@@ -123,10 +123,6 @@ inline Eigen::Vector2f unproject_trans_project(const float d_inv, const Eigen::V
     return target_frame->project(T_target_src * src_point, lvl);
 }
 
-Sophus::SE3f get_src_to_dst_transform(const Frame::ptr src, const Frame::ptr dst);
-
-AffineLight get_src_to_dst_aff_light(const Frame::ptr src, const Frame::ptr dst);
-
 inline const std::unique_ptr<FrameParameterBlock>& Frame::get_frame_block() const {
     return frame_block;
 }
@@ -137,6 +133,33 @@ inline void Frame::merge_optimization_result() {
     this->affine_light = frame_block->getAffineLight();
 
     // std::cout << "pose after : " << '\n' << this->pose.matrix() << '\n';
+}
+
+inline ImagePyramid::ptr Frame::getImagePyramid() {
+    return this->pyramid;
+}
+
+inline Frame::ptr Frame::create(cv::Mat image) {
+    return std::make_shared<Frame>(image.data);
+}
+
+inline Frame::ptr Frame::get_ref_frame() {
+    return last_KF_ref;
+}
+
+inline Sophus::SE3f Frame::get_T_curr_lastKF() {
+    return T_curr_lastKF;
+}
+inline AffineLight Frame::get_aff_curr_lastKF() {
+    return aff_light_curr_lastKF;
+}
+
+inline Sophus::SE3f get_src_to_dst_transform(const Frame::ptr src, const Frame::ptr dst) {
+    return dst->get_pose<Sophus::SE3f>().inverse() * src->get_pose<Sophus::SE3f>();
+}
+
+inline AffineLight get_src_to_dst_aff_light(const Frame::ptr src, const Frame::ptr dst) {
+    return AffineLight::calc_aff_map_src_to_dst(src->get_aff_light(), dst->get_aff_light());
 }
 
 }  // namespace mpl

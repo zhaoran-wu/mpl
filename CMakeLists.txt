@@ -26,6 +26,7 @@ set(Sophus_DIR /usr/local/include/sophus)
 
 find_package(Eigen3 REQUIRED)
 find_package(glfw3 REQUIRED)
+find_package(Pangolin 0.4 REQUIRED)
 find_package(OpenCV 3.2 REQUIRED)
 find_package(Boost COMPONENTS system filesystem program_options)
 find_package(Ceres REQUIRED)
@@ -33,12 +34,14 @@ find_package(Sophus REQUIRED)
 
 include_directories(/usr/include/eigen3)
 include_directories(${OpenCV_INCLUDE_DIR})
+include_directories(${Pangolin_INCLUDE_DIRS})
 include_directories(${CMAKE_SOURCE_DIR}/third)
 include_directories(${CMAKE_SOURCE_DIR}/src/rendering)
 include_directories(${CMAKE_SOURCE_DIR}/src/base)
 include_directories(${CMAKE_SOURCE_DIR}/src/pixel_management)
 include_directories(${CMAKE_SOURCE_DIR}/src/window_optimization)
 include_directories(${CMAKE_SOURCE_DIR}/src/tracking)
+include_directories(${CMAKE_SOURCR_DIR}/src/visualization)
 
 
 

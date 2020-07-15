@@ -111,8 +111,8 @@ bool CandidateManager::is_synetic_depth_valid(const Candidate& can, const Frame:
         float u = point_on_lastKF(0) + rotated_pattern[i][0];
         float v = point_on_lastKF(1) + rotated_pattern[i][1];
 
-        energy += can.weight[i] * abs(target_frame->getImagePyramid()->operator()(0, u, v) -
-                                      exp(aff_old_new.alpha()) * can.color[i] - aff_old_new.beta());
+        energy += can.weight[i] *
+                  abs(calc_light_diff(can.color[i], target_frame->getImagePyramid()->operator()(0, u, v), aff_old_new));
     }
     static int cnt = 0;
 
@@ -299,7 +299,7 @@ float CandidateManager::optimize(float& u_best, float& v_best, const Candidate& 
                 energy += 1e5;
                 continue;
             }
-            float residual = im_pyramid(0, u, v) - (exp(aff.alpha()) * can.color[idx] + aff.beta());
+            float residual = calc_light_diff(can.color[idx], im_pyramid(0, u, v), aff);
             float dResdDist = direction(0) * im_pyramid.dx(0, u, v) + direction(1) * im_pyramid.dy(0, u, v);
 
             H += dResdDist * dResdDist;
@@ -392,7 +392,7 @@ float CandidateManager::line_search(float& u_best, float& v_best, const Candidat
                 energy += 1e5;
                 continue;
             }
-            float residual = hitColor - (exp(aff.alpha()) * can.color[idx] + aff.beta());
+            float residual = calc_light_diff(can.color[idx], hitColor, aff);
 
             energy += can.weight[idx] * can.weight[idx] * residual * residual;
         }
@@ -485,7 +485,7 @@ void CandidateManager::activate_candidate() {
                 float color = newst_KF->getImagePyramid()->operator()(0, can.projection_on_newst_KF(0),
                                                                       can.projection_on_newst_KF(1));
                 auto aff = get_src_to_dst_aff_light(it->first, newst_KF);
-                float color_diff = std::abs(color - exp(aff.alpha()) * can.color[0] - aff.beta());
+                float color_diff = std::abs(calc_light_diff(can.color[0], color, aff));
                 // std::cout << "color diff " << color_diff << '\n';
                 if (color_diff > 70) {
                     continue;
