@@ -16,7 +16,7 @@ bool is_newframe_KF(PointCloudPyramid::ptr pcp, const Sophus::SE3f& T_KF_curr,
     std::cout << "@@@@@@@@ log norm: " << T_KF_curr.log().norm()
               << "  angle Y : " << abs(T_KF_curr.angleY())
               << "   energy :" << energy << '\n';
-    if (abs(T_KF_curr.angleY()) > 0.04 || T_KF_curr.log().norm() > 1.2 ||
+    if (abs(T_KF_curr.angleY()) > 0.06 || T_KF_curr.log().norm() > 1.3 ||
         energy > 350.f)
         return true;
 }
