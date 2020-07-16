@@ -158,9 +158,8 @@ inline bool is_in_img(CamData& cam, const T& p) {
 
 inline Eigen::Vector2f unproject_trans_project(const Candidate& can, const Frame::ptr host_frame,
                                                const Frame::ptr target_frame) {
-    Eigen::Vector3f P_host = host_frame->unproject(Eigen::Vector2i(can.u, can.v), 1.f / can.d_inv_synetic_im);
-    Eigen::Isometry3f T_target_host =
-        target_frame->get_pose<Eigen::Isometry3f>().inverse() * host_frame->get_pose<Eigen::Isometry3f>();
+    Eigen::Vector3f P_host = host_frame->unproject(Eigen::Vector2i(can.u, can.v), can.d_inv_synetic_im);
+    Sophus::SE3f T_target_host = get_src_to_dst_transform(host_frame, target_frame);
     return target_frame->project(T_target_host * P_host);
 }
 

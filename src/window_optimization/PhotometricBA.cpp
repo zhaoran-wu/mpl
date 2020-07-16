@@ -115,7 +115,7 @@ void PhotometricBA::mergeOptimization(CandidateManager& cm, std::vector<Photomet
     for (const std::shared_ptr<Frame>& kf : cm.get_key_frames()) {
         if (kf == cm.get_key_frames().back()) continue;
         for (auto& point : cm.get_candidate_map()[kf]) {
-            const Sophus::SE3f& refToWorld = point.host_frame->get_pose<Sophus::SE3f>().inverse();
+            const Sophus::SE3f& refToWorld = point.host_frame->get_pose();
 
             if (point.is_active) {
                 point.merge_optimization_result();

@@ -13,7 +13,7 @@ void TrackingOptimizer::init(const Sophus::SE3f init_pose, const AffineLight ini
 
     this->to_track_frame = to_track_frame;
     this->point_cloud_pyramid = ref_point_cloud_prymid;
-    image_pyramid = to_track_frame->getImagePyramid();
+    image_pyramid = to_track_frame->get_image_pyramid();
 
     cam = &CamData::getInstance();
     config = &Config::getInstance();

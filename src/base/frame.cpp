@@ -6,7 +6,7 @@ int Frame::id_cnt = 0;
 
 Frame::Frame(const uchar* const row_image_data)
     : pyramid(new ImagePyramid(row_image_data)),
-      pose(Eigen::Quaternionf::Identity(), Eigen::Vector3f::Zero()),
+      T_w_c(Eigen::Quaternionf::Identity(), Eigen::Vector3f::Zero()),
       affine_light(0, 0),
       id(++id_cnt) {
     cam = &CamData::getInstance();

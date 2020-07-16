@@ -38,7 +38,7 @@ class ImagePyramid {
     float dx(const int lvl, const int u, const int v) const;
     float mag2(const int lvl, const int u, const int v) const;
 
-    // sub-pixel overloading
+    // sub-pixel overloading, u,v is in (continously) pixel coordiante system
     float operator()(const int lvl, const float u, const float v) const;
     float dx(const int lvl, const float u, const float v) const;
     float dy(const int lvl, const float u, const float v) const;
@@ -94,26 +94,26 @@ inline float ImagePyramid::dx(const int lvl, const int u, const int v) const {
 
 // u,v here is hit pixel position
 inline float ImagePyramid::operator()(const int lvl, const float u, const float v) const {
-    int u_max = ceil(u - 0.5f);
-    int v_max = ceil(v - 0.5f);
+    int u_max = std::ceil(u);
+    int v_max = std::ceil(v);
     int u_min = u_max - 1;
     int v_min = v_max - 1;
 
-    float x = std::abs(u - 0.5f - u_min);
-    float y = std::abs(v - 0.5f - v_min);
+    float x = u - u_min;
+    float y = v - v_min;
 
     return this->operator()(lvl, u_max, v_max) * x * y + this->operator()(lvl, u_min, v_max) * (1 - x) * y +
            this->operator()(lvl, u_max, v_min) * x * (1 - y) + this->operator()(lvl, u_min, v_min) * (1 - x) * (1 - y);
 }
 
 inline float ImagePyramid::dy(const int lvl, const float u, const float v) const {
-    int u_max = ceil(u - 0.5f);
-    int v_max = ceil(v - 0.5f);
+    int u_max = std::ceil(u);
+    int v_max = std::ceil(v);
     int u_min = u_max - 1;
     int v_min = v_max - 1;
 
-    float x = std::abs(u - 0.5f - u_min);
-    float y = std::abs(v - 0.5f - v_min);
+    float x = u - u_min;
+    float y = v - v_min;
 
     float value = this->dy(lvl, u_max, v_max) * x * y + this->dy(lvl, u_min, v_max) * (1 - x) * y +
                   this->dy(lvl, u_max, v_min) * x * (1 - y) + this->dy(lvl, u_min, v_min) * (1 - x) * (1 - y);
@@ -129,13 +129,13 @@ inline float ImagePyramid::dy(const int lvl, const float u, const float v) const
  * @return float
  */
 inline float ImagePyramid::dx(const int lvl, const float u, const float v) const {
-    int u_max = std::ceil(u - 0.5f);
-    int v_max = std::ceil(v - 0.5f);
+    int u_max = std::ceil(u);
+    int v_max = std::ceil(v);
     int u_min = u_max - 1;
     int v_min = v_max - 1;
 
-    float x = u - 0.5f - u_min;
-    float y = v - 0.5f - v_min;
+    float x = u - u_min;
+    float y = v - v_min;
 
     float value = this->dx(lvl, u_max, v_max) * x * y + this->dx(lvl, u_min, v_max) * (1 - x) * y +
                   this->dx(lvl, u_max, v_min) * x * (1 - y) + this->dx(lvl, u_min, v_min) * (1 - x) * (1 - y);
@@ -151,13 +151,10 @@ inline int ImagePyramid::lvls() const {
 
 template <typename T>
 inline T halfSampling(const int child_u, const int child_v, const int parent_step, const T* parent_image) {
-    float parent_x = (child_u + 0.5f) * 2;  // x,y is in continue space
-    float parent_y = (child_v + 0.5f) * 2;
-
-    int parent_u_lo = parent_x - 0.5f;
-    int parent_u_hi = parent_x + 0.5f;
-    int parent_v_lo = parent_y - 0.5f;
-    int parent_v_hi = parent_y + 0.5f;
+    int parent_u_lo = 2 * child_u;
+    int parent_u_hi = parent_u_lo + 1;
+    int parent_v_lo = 2 * child_v;
+    int parent_v_hi = parent_v_lo + 1;
     return 0.25f * (parent_image[idx(parent_step, parent_u_lo, parent_v_lo)] +
                     parent_image[idx(parent_step, parent_u_lo, parent_v_hi)] +
                     parent_image[idx(parent_step, parent_u_hi, parent_v_lo)] +

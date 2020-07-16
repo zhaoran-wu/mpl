@@ -24,7 +24,7 @@ void ImagePyramid::build_image(const uchar* parent_image, const int child_lvl) {
     uchar_ptr child_ptr(new u_char[w_child * h_child]);
     int parent_step = cam_data->width[child_lvl - 1];
     if (child_lvl == 0) {
-        memmove(child_ptr.get(), parent_image, w_child * h_child);
+        std::memcpy(child_ptr.get(), parent_image, w_child * h_child);
     } else {
         for (int u = 0; u < w_child; ++u) {
             for (int v = 0; v < h_child; ++v) {

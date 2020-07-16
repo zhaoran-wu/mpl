@@ -47,7 +47,7 @@ int main() {
     Frame::ptr key_frame = Frame::create(img_vec[0]);
     /*     PixelSelector selector;
         std::vector<Eigen::Vector3i> candidates;
-        selector.select(key_frame->getImagePyramid(), candidates) */
+        selector.select(key_frame->get_image_pyramid(), candidates) */
     ;
 
     CandidateManager cm;
@@ -95,9 +95,9 @@ int main() {
                 cv::circle(key_frame_vis, cv::Point2f(u, v), 1, cv::Scalar(0, 255, 0), 2);
             }
             Eigen::Vector2i point(u, v);
-            Eigen::Vector3f p3d = key_frame->unproject(point, depth / 1000.f, lvl);
+            Eigen::Vector3f p3d = key_frame->unproject(point, 1000.f / depth, lvl);
             // todo make it better
-            int intensity = key_frame->getImagePyramid()->operator()(lvl, u, v);
+            int intensity = key_frame->get_image_pyramid()->operator()(lvl, u, v);
             (*pcp)[lvl].push_back(Voxel(p3d, intensity));
         }
     }
@@ -113,9 +113,10 @@ int main() {
     for (int i = 1; i < 16; ++i) {
         Frame::ptr curr_frame = Frame::create(img_vec[i]);
 
-        Sophus::SE3f old_T_curr_KF = last_frame->get_T_curr_lastKF();
+        Sophus::SE3f old_T_curr_KF = last_frame->get_T_curr_refKF();
+        tracker.tracking(curr_frame);
 
-        in_out_T_curr_KF = curr_frame->get_T_curr_lastKF();
+        in_out_T_curr_KF = curr_frame->get_T_curr_refKF();
 
         cv::Mat im_to_vis = img_draw_vec[i];
         for (auto& pcd : pcp->operator[](0)) {
@@ -133,7 +134,7 @@ int main() {
         auto& cans = cm.get_candidate(key_frame);
         for (const auto& can : cans) {
             Eigen::Vector2i pixle(can.u, can.v);
-            Eigen::Vector3f P = key_frame->unproject(pixle, 1.0f / can.d_inv_synetic_im);
+            Eigen::Vector3f P = key_frame->unproject(pixle, can.d_inv_synetic_im);
             Eigen::Vector2f p = curr_frame->project(in_out_T_curr_KF * P);
             cv::circle(im_to_vis, cv::Point2f(p(0), p(1)), 2, cv::Scalar(0, 0, 255), 2);
         }

@@ -53,7 +53,7 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters, double* 
     const auto& color = point->color;
     const auto& weight = point->weight;
 
-    const auto target_im_pyramid = targetFrame->getImagePyramid();
+    const auto target_im_pyramid = targetFrame->get_image_pyramid();
 
     // residual computation
 

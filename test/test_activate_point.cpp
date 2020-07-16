@@ -72,9 +72,9 @@ int main() {
     for (size_t i = 1; i < img_vec.size(); ++i) {
         Frame::ptr curr_frame = Frame::create(img_vec[i]);
 
-        Sophus::SE3f T_last_KF = last_frame->get_T_curr_lastKF();
+        Sophus::SE3f T_last_KF = last_frame->get_T_curr_refKF();
         tracker.tracking(curr_frame);
-        Sophus::SE3f T_curr_KF = curr_frame->get_T_curr_lastKF();
+        Sophus::SE3f T_curr_KF = curr_frame->get_T_curr_refKF();
 
         // !cm.update_depth_per_frame(curr_frame); we use now only valid depth,
         // !do not update depth, which is not valid in the map
@@ -105,7 +105,7 @@ int main() {
         // todo : a best way to choose KF
         bool is_KF = (i % 2 == 0);
         if (is_KF) {
-            render_pose = curr_frame->get_pose<Sophus::SE3f>();
+            render_pose = curr_frame->get_pose();
             syn_im_vec_curr = synetic_image.renderingAt(render_pose);
             key_frame_vis = img_draw_vec[i].clone();
 

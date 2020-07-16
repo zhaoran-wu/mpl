@@ -105,7 +105,7 @@ int main() {
                                      lvl);
             std::cerr << " depth " << p3d(2) << '\n';
             // todo make it better
-            int intensity = key_frame->getImagePyramid()->operator()(
+            int intensity = key_frame->get_image_pyramid()->operator()(
                 lvl, candidates[i].u >> (lvl), candidates[i].v >> (lvl));
             (*pcp)[lvl].push_back(Voxel(p3d, intensity));
         }
@@ -121,9 +121,9 @@ int main() {
     for (int i = 1; i < 8; ++i) {
         Frame::ptr curr_frame = Frame::create(img_vec[i]);
 
-        Sophus::SE3f T_last_KF = last_frame->get_T_curr_lastKF();
+        Sophus::SE3f T_last_KF = last_frame->get_T_curr_refKF();
         tracker.tracking(curr_frame);
-        Sophus::SE3f T_curr_KF = curr_frame->get_T_curr_lastKF();
+        Sophus::SE3f T_curr_KF = curr_frame->get_T_curr_refKF();
 
         cv::Mat im_depth_before_after = img_draw_vec[i].clone();
 
@@ -142,7 +142,7 @@ int main() {
         for (const auto& can : candidates_updated) {
             Eigen::Vector2i pixle(can.u, can.v);
 
-            Eigen::Vector3f P = key_frame->unproject(pixle, 1.0f / can.d_inv);
+            Eigen::Vector3f P = key_frame->unproject(pixle, can.d_inv);
             // std::cout << "can.inv " << can.d_inv << '\n';
             Eigen::Vector2f p = curr_frame->project(T_curr_KF * P);
             // draw with status
