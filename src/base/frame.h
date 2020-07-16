@@ -6,7 +6,10 @@
 #include <opencv2/core.hpp>
 #include <sophus/se3.hpp>
 namespace mpl {
-
+/**
+ * @brief frame hold it's pose, affine param, image pyramid
+ *
+ */
 class Frame {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
    public:
@@ -18,7 +21,7 @@ class Frame {
     // get/set member variable
     void set_pose(const Sophus::SE3f& T_w_c);             // global T_w_c
     void set_aff_light(const int alpha, const int beta);  // global aff_w_c
-    void set_state(const Sophus::SE3f& T_curr_refKF, const AffineLight& aff_light_curr_refKF);
+    void set_tracking_result(const Sophus::SE3f& T_curr_refKF, const AffineLight& aff_light_curr_refKF);
     void set_ref_frame(const Frame::ptr& frame);
 
     ImagePyramid::ptr get_image_pyramid() const;
@@ -77,7 +80,7 @@ inline void Frame::set_aff_light(const int alpha, const int beta) {
     this->affine_light = AffineLight(alpha, beta);
 }
 
-inline void Frame::set_state(
+inline void Frame::set_tracking_result(
     // relative info
     const Sophus::SE3f& T_curr_refKF, const AffineLight& aff_light_curr_refKF) {
     this->T_curr_refKF = T_curr_refKF;

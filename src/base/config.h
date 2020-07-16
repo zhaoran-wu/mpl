@@ -46,7 +46,7 @@ class Config {
     const int max_iteration_each_lvl[5] = {50, 30, 25, 20, 10};
     const float lamda_init_each_lvl[5] = {1e-8, 1e-5, 1e-1, 1, 1};  // very sensitive : e.g motion blur
     const float lamda_min_eahc_lvl[5] = {1e-14, 1e-10, 1e-9, 1e-7, 1e-7};
-    const int huber_residual_each_lvl[5] = {45, 55, 75, 120, 120};
+    const int huber_residual_each_lvl[5] = {40, 55, 75, 100, 120};
 
     static const int WINDOW_SIZE = 7;
 };

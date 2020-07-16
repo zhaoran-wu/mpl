@@ -134,15 +134,21 @@ cv::Mat CandidateManager::generate_depth_safe_mask(const cv::Mat synetic_depth_i
     cv::Mat angle(dx.size(), dx.type());
     cv::cartToPolar(dx, dy, mag, angle);
 
-    /*     for (int r = 0; r < mag.rows; ++r) {
+    for (int r = 0; r < mag.rows; ++r) {
+        for (int c = 0; c < mag.cols; ++c) {
+            mag.at<float>(r, c) /= synetic_depth_im.at<ushort>(r, c);
+        }
+    }
+    /*
+        for (int r = 0; r < mag.rows; ++r) {
             for (int c = 0; c < mag.cols; ++c) {
-                std::cout << " r :" << r << ",  c :" << c << "--->   "
-                          << mag.at<float>(r, c) << '\n';
+                std::cout << " r :" << r << ",  c :" << c << "--->   " << mag.at<float>(r, c) << '\n';
             }
         }
 
-    cv::imshow("mag", mag);
-    cv::waitKey(0); */
+        cv::imshow("mag", mag);
+        cv::waitKey(0) */
+    ;
 
     cv::Mat mask, mask_dilated;
 
@@ -151,21 +157,22 @@ cv::Mat CandidateManager::generate_depth_safe_mask(const cv::Mat synetic_depth_i
         std::nth_element(mag_clone.begin<float>(),
                          mag_clone.begin<float>() + mag.rows * mag.cols * 0.6f,
                          mag_clone.end<float>());*/
-    ushort threshold_value = 15000;  //*(mag_clone.begin<float>() + mag.rows * mag.cols * 0.6f);
+    ushort threshold_value = 1;  //*(mag_clone.begin<float>() + mag.rows * mag.cols * 0.6f);
 
     cv::threshold(mag, mask, threshold_value, 1, cv::THRESH_BINARY);
 
     // dilation
-    int dilation_size = 10 - candidate_map.size() / 3.f;  // 10
+    int dilation_size = 7 - candidate_map.size() / 5.f;  // 10
     cv::Mat element =
         cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(2 * dilation_size + 1, 2 * dilation_size + 1),
                                   cv::Point(dilation_size, dilation_size));
     /// Apply the dilation operation
     cv::dilate(mask, mask_dilated, element);
-
-    /*     cv::imshow("mask not delated", mask);
+    /*
+        cv::imshow("mask not delated", mask);
         cv::imshow("final mask", mask_dilated);
-        cv::waitKey(0); */
+        cv::waitKey(0) */
+    ;
 
     return mask_dilated;
 }

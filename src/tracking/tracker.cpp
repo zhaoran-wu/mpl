@@ -23,7 +23,7 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
     int lvls = point_cloud_pyramid_->lvls();
     int iterations = 20;
     float lamda_init = 1;
-    int huber_radius = 120;
+    int huber_radius = 100;
     float lamda_min = 1e-7;
     //
     for (int i = 0; i < 22; ++i) {
@@ -39,7 +39,7 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
         }
     }
     // detect if tracking failed
-    if (min_energy / point_cloud_pyramid_->operator[](lvls - 1).size() > 800) {
+    if (min_energy / point_cloud_pyramid_->operator[](lvls - 1).size() > 680) {
         ++this->failaure_cnt;
         return false;
     } else {
@@ -72,7 +72,7 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
     }
     LOG(INFO) << "tracking use time : " << tictoc::toc() / 1000.f << "ms";
     std::cout << "final energy per pixel :" << min_energy / point_cloud_pyramid_->operator[](0).size() << '\n';
-    if (min_energy / point_cloud_pyramid_->operator[](0).size() > 500) {
+    if (min_energy / point_cloud_pyramid_->operator[](0).size() > 450) {
         ++this->failaure_cnt;
         return false;
     } else {
@@ -82,7 +82,7 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
     Sophus::SE3f T_curr_lastKF = optimizer.getT();
     AffineLight aff_curr_lastKF = optimizer.getAffineLight();
 
-    to_track_frame->set_state(T_curr_lastKF, aff_curr_lastKF);
+    to_track_frame->set_tracking_result(T_curr_lastKF, aff_curr_lastKF);
 
     T_last_lastKF = T_curr_lastKF;
     aff_last_lastKF = aff_curr_lastKF;
@@ -98,7 +98,8 @@ void Tracker::generate_movement_predictions() {
     AffineLight aff_last_overlast;
 
     if (last_frame == nullptr || over_last_frame == nullptr) {
-        T_last_overlast = Sophus::SE3f::transZ(-0.6);
+        T_last_overlast = Sophus::SE3f::transZ(-0.7f);
+
         aff_last_overlast = AffineLight(0, 0);
     } else {
         T_last_overlast = get_src_to_dst_transform(over_last_frame, last_frame);
@@ -113,7 +114,7 @@ void Tracker::generate_movement_predictions() {
     // 1x movement // assume T_last_overlast = T_curr_last
     movement_prediction[0] = T_last_overlast;
 
-    auto se3_priori = T_last_overlast.log() * (failaure_cnt + 1);
+    const Sophus::Vector6f se3_priori = T_last_overlast.log() * (failaure_cnt + 1);
     // X x movement
     movement_prediction[1] = Sophus::SE3f::exp(0.5 * se3_priori);
     movement_prediction[2] = Sophus::SE3f::exp(0.75 * se3_priori);
