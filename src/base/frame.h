@@ -14,19 +14,19 @@ class Frame {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
    public:
     typedef std::shared_ptr<Frame> ptr;
+
     // construct with image data
     Frame(const uchar* const row_image_data);
     static Frame::ptr create(cv::Mat image);
 
-    // get/set member variable
+    // set member variable
     void set_pose(const Sophus::SE3f& T_w_c);             // global T_w_c
     void set_aff_light(const int alpha, const int beta);  // global aff_w_c
     void set_tracking_result(const Sophus::SE3f& T_curr_refKF, const AffineLight& aff_light_curr_refKF);
     void set_ref_frame(const Frame::ptr& frame);
 
+    // get member variable
     ImagePyramid::ptr get_image_pyramid() const;
-    Sophus::SE3f get_T_curr_refKF() const;  // refKF : the frame that used as reference frame to track curr frame
-    AffineLight get_aff_curr_refKF() const;
     Sophus::SE3f get_pose() const;      // return T_w_c
     AffineLight get_aff_light() const;  // return global aff light
     Frame::ptr get_ref_frame();         // get the frame, which used to tracking curr frame;
@@ -38,15 +38,15 @@ class Frame {
     // poject a p3d in current frame coordinate system to pixel coordinate systems
     Eigen::Vector2f project(const Eigen::Vector3f& point, const int lvl = 0) const;
 
+    // interface to access image pyramid value
+
+    // interface for ceres callback
     void merge_optimization_result();
 
    private:
-    ImagePyramid::ptr pyramid;
+    ImagePyramid::ptr pyramid = nullptr;
+    Frame::ptr refKF = nullptr;
 
-    // relative info
-    Frame::ptr refKF;
-    Sophus::SE3f T_curr_refKF = Sophus::SE3f(Eigen::Quaternionf::Identity(), Eigen::Vector3f(0, 0, 0));
-    AffineLight aff_light_curr_refKF = AffineLight(0, 0);
     // global info
     Sophus::SE3f T_w_c = Sophus::SE3f::transZ(0.0f);  // T_w_c;
     AffineLight affine_light = AffineLight(0, 0);     // aff_w_c
@@ -62,6 +62,7 @@ class Frame {
 inline int Frame::get_id() const {
     return id;
 }
+
 inline Eigen::Vector3f Frame::unproject(const Eigen::Vector2i& pixel, const float inv_d, const int lvl) const {
     float z = 1 / inv_d;
     return Eigen::Vector3f((pixel(0) - cam->cx[lvl]) * z / cam->fx[lvl], (pixel(1) - cam->cy[lvl]) * z / cam->fy[lvl],
@@ -80,12 +81,7 @@ inline void Frame::set_aff_light(const int alpha, const int beta) {
     this->affine_light = AffineLight(alpha, beta);
 }
 
-inline void Frame::set_tracking_result(
-    // relative info
-    const Sophus::SE3f& T_curr_refKF, const AffineLight& aff_light_curr_refKF) {
-    this->T_curr_refKF = T_curr_refKF;
-    this->aff_light_curr_refKF = aff_light_curr_refKF;
-
+inline void Frame::set_tracking_result(const Sophus::SE3f& T_curr_refKF, const AffineLight& aff_light_curr_refKF) {
     // inital global info
     this->T_w_c = this->refKF->T_w_c * T_curr_refKF.inverse();
     this->affine_light = AffineLight::calc_dst_global_aff(this->refKF->affine_light, aff_light_curr_refKF);
@@ -108,11 +104,8 @@ inline const std::unique_ptr<FrameParameterBlock>& Frame::get_frame_block() cons
 }
 
 inline void Frame::merge_optimization_result() {
-    // std::cout << "T_w_c before : " << '\n' << this->T_w_c.matrix() << '\n';
     this->T_w_c = frame_block->getPose().cast<float>();
     this->affine_light = frame_block->getAffineLight();
-
-    // std::cout << "T_w_c after : " << '\n' << this->T_w_c.matrix() << '\n';
 }
 
 inline ImagePyramid::ptr Frame::get_image_pyramid() const {
@@ -127,13 +120,7 @@ inline Frame::ptr Frame::get_ref_frame() {
     return refKF;
 }
 
-inline Sophus::SE3f Frame::get_T_curr_refKF() const {
-    return T_curr_refKF;
-}
-inline AffineLight Frame::get_aff_curr_refKF() const {
-    return aff_light_curr_refKF;
-}
-
+// help function
 inline Sophus::SE3f get_src_to_dst_transform(const Frame::ptr src, const Frame::ptr dst) {
     return dst->get_pose().inverse() * src->get_pose();
 }

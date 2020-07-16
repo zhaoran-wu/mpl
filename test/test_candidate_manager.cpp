@@ -121,9 +121,11 @@ int main() {
     for (int i = 1; i < 8; ++i) {
         Frame::ptr curr_frame = Frame::create(img_vec[i]);
 
-        Sophus::SE3f T_last_KF = last_frame->get_T_curr_refKF();
+        Sophus::SE3f T_last_KF = (last_frame->get_ref_frame() == nullptr)
+                                     ? Sophus::SE3f::transZ(0)
+                                     : get_src_to_dst_transform(last_frame->get_ref_frame(), last_frame);
         tracker.tracking(curr_frame);
-        Sophus::SE3f T_curr_KF = curr_frame->get_T_curr_refKF();
+        Sophus::SE3f T_curr_KF = get_src_to_dst_transform(curr_frame->get_ref_frame(), curr_frame);
 
         cv::Mat im_depth_before_after = img_draw_vec[i].clone();
 

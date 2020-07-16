@@ -82,11 +82,15 @@ int main() {
     for (size_t i = 1; i < img_vec.size(); ++i) {
         Frame::ptr curr_frame = Frame::create(img_vec[i]);
 
-        Sophus::SE3f T_last_KF = last_frame->get_T_curr_refKF();
+        Sophus::SE3f T_last_KF = (last_frame->get_ref_frame() == nullptr)
+                                     ? Sophus::SE3f::transZ(0.0f)
+                                     : get_src_to_dst_transform(last_frame->get_ref_frame(), last_frame);
+
+        tracker.tracking(curr_frame);
 
         if (!tracker.tracking(curr_frame)) continue;
 
-        Sophus::SE3f T_curr_KF = curr_frame->get_T_curr_refKF();
+        Sophus::SE3f T_curr_KF = get_src_to_dst_transform(curr_frame->get_ref_frame(), curr_frame);
 
         // !cm.update_depth_per_frame(curr_frame); we use now only valid depth,
         // !do not update depth, which is not valid in the map

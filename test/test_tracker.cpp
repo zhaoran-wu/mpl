@@ -113,10 +113,12 @@ int main() {
     for (int i = 1; i < 16; ++i) {
         Frame::ptr curr_frame = Frame::create(img_vec[i]);
 
-        Sophus::SE3f old_T_curr_KF = last_frame->get_T_curr_refKF();
+        Sophus::SE3f old_T_curr_KF = (last_frame->get_ref_frame() == nullptr)
+                                         ? Sophus::SE3f::transZ(0.0f)
+                                         : get_src_to_dst_transform(last_frame->get_ref_frame(), last_frame);
         tracker.tracking(curr_frame);
 
-        in_out_T_curr_KF = curr_frame->get_T_curr_refKF();
+        in_out_T_curr_KF = get_src_to_dst_transform(curr_frame->get_ref_frame(), curr_frame);
 
         cv::Mat im_to_vis = img_draw_vec[i];
         for (auto& pcd : pcp->operator[](0)) {
