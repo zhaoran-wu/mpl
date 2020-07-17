@@ -43,6 +43,14 @@ class Frame {
     float dx(const T u, const T v, const int lvl = 0) const;
     template <typename T>
     float mag_squared(const T u, const T v, const int lvl = 0) const;
+    template <typename T>
+    float at(const Eigen::Matrix<T, 2, 1>& pixel, const int lvl = 0) const;
+    template <typename T>
+    float dy(const Eigen::Matrix<T, 2, 1>& pixel, const int lvl = 0) const;
+    template <typename T>
+    float dx(const Eigen::Matrix<T, 2, 1>& pixel, const int lvl = 0) const;
+    template <typename T>
+    float mag_squared(const Eigen::Matrix<T, 2, 1>& pixel, const int lvl = 0) const;
 
     // unproject a pixel(in pixel coordinate system) in to p3d in current frame coordinate system
     Eigen::Vector3f unproject(const Eigen::Vector2i& pixel, const float inv_d, const int lvl = 0) const;
@@ -50,6 +58,8 @@ class Frame {
     Eigen::Vector2f project(const Eigen::Vector3f& point, const int lvl = 0) const;
     // check if a projection is in the image at lvl
     bool is_in_image(const float u, const float v, const int lvl = 0) const;
+    template <typename T>
+    bool is_in_image(const Eigen::Matrix<T, 2, 1>& pixel, const int lvl = 0) const;
 
     // interface to access image pyramid value
 
@@ -154,6 +164,27 @@ inline bool Frame::is_in_image(const float u, const float v, const int lvl) cons
     return this->pyramid->is_in_image(u, v, lvl);
 }
 
+template <typename T>
+inline float Frame::at(const Eigen::Matrix<T, 2, 1>& pixel, const int lvl) const {
+    return this->pyramid->at(pixel(0), pixel(1), lvl);
+}
+template <typename T>
+inline float Frame::dy(const Eigen::Matrix<T, 2, 1>& pixel, const int lvl) const {
+    return this->pyramid->dy(pixel(0), pixel(1), lvl);
+}
+template <typename T>
+inline float Frame::dx(const Eigen::Matrix<T, 2, 1>& pixel, const int lvl) const {
+    return this->pyramid->dx(pixel(0), pixel(1), lvl);
+}
+template <typename T>
+inline float Frame::mag_squared(const Eigen::Matrix<T, 2, 1>& pixel, const int lvl) const {
+    return this->pyramid->mag_squared(pixel(0), pixel(1), lvl);
+}
+
+template <typename T>
+inline bool Frame::is_in_image(const Eigen::Matrix<T, 2, 1>& pixel, const int lvl) const {
+    return this->pyramid->is_in_image((float)pixel(0), (float)pixel(1), lvl);
+}
 // help function
 inline Sophus::SE3f get_src_to_dst_transform(const Frame::ptr src, const Frame::ptr dst) {
     return dst->get_pose().inverse() * src->get_pose();

@@ -483,7 +483,7 @@ void CandidateManager::activate_candidate() {
             if (dist > static_cast<float>(min_square_dist)) {
                 // check and remove outlier
                 // remove outlier
-                float color = newst_KF->at(can.projection_on_newst_KF(0), can.projection_on_newst_KF(1));
+                float color = newst_KF->at(can.projection_on_newst_KF);
                 auto aff = get_src_to_dst_aff_light(it->first, newst_KF);
                 float color_diff = std::abs(calc_light_diff(can.color[0], color, aff));
                 // std::cout << "color diff " << color_diff << '\n';
@@ -560,8 +560,7 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
                         ++cnt;
                         for (int lvl = 0; lvl < lvls; ++lvl) {
                             if ((lvl != 0 && cnt % lvl == 0) || lvl == 0) {
-                                float color = newst_KF->get_image_pyramid()->at(can.projection_on_newst_KF(0),
-                                                                                can.projection_on_newst_KF(1));
+                                float color = newst_KF->at(can.projection_on_newst_KF);
                                 //! use color on newst kf to estimate the aff
                                 //! param;
 

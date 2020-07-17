@@ -115,7 +115,7 @@ void TrackingOptimizer::build_problem() {
             continue;
         }
 
-        const float intensity_on_image = to_track_frame->at(hit_pixel(0), hit_pixel(1), curr_lvl);
+        const float intensity_on_image = to_track_frame->at(hit_pixel, curr_lvl);
 
         // compute residual
         r_tmp = calc_residual(intensity_on_image, voxel.intensity);
@@ -133,8 +133,8 @@ void TrackingOptimizer::build_problem() {
         // compute jacobian
         const float inv_z = (1.0f / P(2));
         const float inv_zz = inv_z * inv_z;
-        const float dx = to_track_frame->dx(hit_pixel(0), hit_pixel(1), curr_lvl);
-        const float dy = to_track_frame->dy(hit_pixel(0), hit_pixel(1), curr_lvl);
+        const float dx = to_track_frame->dx(hit_pixel, curr_lvl);
+        const float dy = to_track_frame->dy(hit_pixel, curr_lvl);
 
         const float fx_dx = cam->fx[curr_lvl] * dx;
         const float fy_dy = cam->fy[curr_lvl] * dy;
@@ -225,10 +225,10 @@ float TrackingOptimizer::calc_sum_weighted_squared_residual() const {
     for (auto& voxel : (*point_cloud_pyramid)[curr_lvl]) {
         Eigen::Vector3f P = map(pose, voxel.position);  // point in curr frame
         Eigen::Vector2f hit_pixel = to_track_frame->project(P, curr_lvl);
-        if (!to_track_frame->is_in_image(hit_pixel(0), hit_pixel(1), curr_lvl)) {
+        if (!to_track_frame->is_in_image(hit_pixel, curr_lvl)) {
             continue;
         }
-        float intensity_on_image = to_track_frame->at(hit_pixel(0), hit_pixel(1), curr_lvl);
+        float intensity_on_image = to_track_frame->at(hit_pixel, curr_lvl);
         float r = calc_residual(intensity_on_image, voxel.intensity);
         sum += calc_huber_weigted_redidual(calc_huber_weight(r), r);
     }

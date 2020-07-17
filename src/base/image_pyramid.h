@@ -26,13 +26,16 @@ class ImagePyramid {
 
     ImagePyramid(const uchar* const row_data);
 
-    // data :row intensity , dx,dy: derivative in x and y direction
-    // get image at lvl
+    // data :row image
+    // dx,dy: derivative in x and y direction
+    // mag_squared: squared magitude image
+    // lvl: 0 is the biggst image lvl
     uchar_ptr data(const int lvl);
     float_ptr dx(const int lvl);
     float_ptr dy(const int lvl);
     float_ptr mag_squared(const int lvl);
-    // get pixel value at lvl
+
+    // get value per pixel at lvl
     uchar at(const int u, const int v, const int lvl = 0) const;
     float dy(const int u, const int v, const int lvl = 0) const;
     float dx(const int u, const int v, const int lvl = 0) const;

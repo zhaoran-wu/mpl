@@ -147,15 +147,15 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters, double* 
         }
 
         // obtain bilinear interpolated intensity values
-        double hit_color = targetFrame->at((float)hit_pixel[0], (float)hit_pixel[1]);
+        double hit_color = targetFrame->at((float)hit_pixel(0), (float)hit_pixel(1));
 
         // residual with light compensation and weight
         double res = (double)color[idx] - light_a * hit_color - light_b;
 
         // image jacobian: dIj/du'
         Eigen::Matrix<double, 1, 2> JIJup;
-        JIJup(0, 0) = targetFrame->dx((float)hit_pixel[0], (float)hit_pixel[1]);
-        JIJup(0, 1) = targetFrame->dy((float)hit_pixel[0], (float)hit_pixel[1]);
+        JIJup(0, 0) = targetFrame->dx((float)hit_pixel(0), (float)hit_pixel(1));
+        JIJup(0, 1) = targetFrame->dy((float)hit_pixel(0), (float)hit_pixel(1));
 
         double squaredGrad = JIJup.squaredNorm();
 
