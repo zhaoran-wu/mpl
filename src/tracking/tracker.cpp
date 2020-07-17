@@ -39,7 +39,7 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
         }
     }
     // detect if tracking failed
-    if (min_energy / point_cloud_pyramid_->operator[](lvls - 1).size() > 680) {
+    if (min_energy / point_cloud_pyramid_->operator[](lvls - 1).size() > 800) {
         ++this->failaure_cnt;
         return false;
     } else {

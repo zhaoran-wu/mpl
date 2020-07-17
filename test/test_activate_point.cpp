@@ -93,9 +93,7 @@ int main() {
 
             cv::circle(key_frame_vis, cv::Point2f(candidate(0), candidate(1)), 1, cv::Scalar(0, 0, 255), 2);
 
-            /*             cv::circle(im_to_vis,
-                                   cv::Point2f(hit_pixel_no_op(0),
-               hit_pixel_no_op(1)), 1, cv::Scalar(0, 0, 255), 2); */
+            cv::circle(im_to_vis, cv::Point2f(hit_pixel_no_op(0), hit_pixel_no_op(1)), 1, cv::Scalar(0, 0, 255), 2);
             cv::circle(im_to_vis, cv::Point2f(hit_pixel(0), hit_pixel(1)), 1, cv::Scalar(0, 255, 0), 2);
         }
         cv::imshow("KF", key_frame_vis);

@@ -53,10 +53,12 @@ class ImagePyramid {
    private:
     void build_image(const uchar* parent_image, const int lvl);
     void build_derivative(const int lvl);
+
     std::vector<uchar_ptr> image_pyramid;
     std::vector<float_ptr> dx_pyramid;
     std::vector<float_ptr> dy_pyramid;
     std::vector<float_ptr> mag2_pyramid;  // dx^2 + dy^2
+
     CamData* cam_data;
 };
 

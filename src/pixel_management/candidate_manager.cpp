@@ -68,8 +68,7 @@ void CandidateManager::select_candidate(const Frame::ptr frame, const cv::Mat sy
     for (const auto& p : pixle_selected) {
         Candidate can;
         can.host_frame = frame;
-        if (p(2) != 0 || !is_in_img(CamData::getInstance(), p.head(2).cast<float>()))
-            continue;  // choose a safe point only
+        if (!is_in_img(CamData::getInstance(), p.head(2).cast<float>())) continue;  // choose a safe point only
         can.u = p(0);
         can.v = p(1);
 

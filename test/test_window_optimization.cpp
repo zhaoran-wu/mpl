@@ -82,11 +82,10 @@ int main() {
     for (size_t i = 1; i < img_vec.size(); ++i) {
         Frame::ptr curr_frame = Frame::create(img_vec[i]);
 
+        tracker.tracking(curr_frame);
         Sophus::SE3f T_last_KF = (last_frame->get_ref_frame() == nullptr)
                                      ? Sophus::SE3f::transZ(0.0f)
-                                     : get_src_to_dst_transform(last_frame->get_ref_frame(), last_frame);
-
-        tracker.tracking(curr_frame);
+                                     : get_src_to_dst_transform(curr_frame->get_ref_frame(), last_frame);
 
         if (!tracker.tracking(curr_frame)) continue;
 
@@ -107,17 +106,15 @@ int main() {
 
             cv::circle(key_frame_vis, cv::Point2f(candidate(0), candidate(1)), 1, cv::Scalar(0, 0, 255), 2);
 
-            /*             cv::circle(im_to_vis,
-                                   cv::Point2f(hit_pixel_no_op(0),
-               hit_pixel_no_op(1)), 1, cv::Scalar(0, 0, 255), 2); */
+            // cv::circle(im_to_vis, cv::Point2f(hit_pixel_no_op(0), hit_pixel_no_op(1)), 1, cv::Scalar(0, 0, 255), 2);
             cv::circle(im_to_vis, cv::Point2f(hit_pixel(0), hit_pixel(1)), 1, cv::Scalar(0, 255, 0), 2);
         }
         cv::imshow("KF", key_frame_vis);
-        cv::waitKey(0);
+        cv::waitKey(1);
         cv::imshow("curr_frame", im_to_vis);
-        cv::waitKey(0);
+        cv::waitKey(1);
         cv::imshow("kf depth", syn_im_vec_curr[1]);
-        cv::waitKey(0);
+        cv::waitKey(1);
         // todo : a best way to choose KF
         bool is_KF = is_newframe_KF(pcp, T_curr_KF, tracker.get_per_pixel_energy());
         if (is_KF) {
