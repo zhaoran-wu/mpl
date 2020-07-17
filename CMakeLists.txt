@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
 
 if(NOT CMAKE_BUILD_TYPE)
-	set(CMAKE_BUILD_TYPE RELEASE)
+	set(CMAKE_BUILD_TYPE DEBUG)
 endif()
 
 # gprof
@@ -41,7 +41,7 @@ include_directories(${CMAKE_SOURCE_DIR}/src/base)
 include_directories(${CMAKE_SOURCE_DIR}/src/pixel_management)
 include_directories(${CMAKE_SOURCE_DIR}/src/window_optimization)
 include_directories(${CMAKE_SOURCE_DIR}/src/tracking)
-include_directories(${CMAKE_SOURCR_DIR}/src/visualization)
+include_directories(${CMAKE_SOURCR_DIR}/src/visualizer)
 
 
 
@@ -60,4 +60,5 @@ add_subdirectory(src/base)
 add_subdirectory(src/tracking)
 add_subdirectory(src/window_optimization)
 add_subdirectory(src/pixel_management)
+add_subdirectory(src/visualizer)
 add_subdirectory(test)

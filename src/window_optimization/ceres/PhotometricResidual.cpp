@@ -48,7 +48,7 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters, double* 
     const int32_t width = cam.width[0];
     const int32_t height = cam.height[0];
 
-    const float energyThreshold = 20;  // TODO
+    const float energyThreshold = 100;  // TODO
 
     const auto& color = point->color;
     const auto& weight = point->weight;
@@ -68,10 +68,8 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters, double* 
     const AffineLight ownerLight((float)parameters[0][7], (float)parameters[0][8]);
     const AffineLight targetLight((float)parameters[1][7], (float)parameters[1][8]);
 
-    const AffineLight relLight = AffineLight::calc_aff_map_src_to_dst(ownerLight, targetLight);
+    const AffineLight relLight = calc_aff_map_src_to_dst(ownerLight, targetLight);
 
-    const double light_a = relLight.a();
-    const double light_b = relLight.b();
     const double targetLight_beta = (double)targetLight.beta();
 
     // inverse depth
@@ -86,7 +84,8 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters, double* 
 
         // project using central pixel
         if (!project_to_target_frame((double)point->u, (double)point->v, iDepth, K, width, height, R, t, Xpn, hit_pixel,
-                                     newIDepth, ratio_inv_d)) {
+                                     newIDepth, ratio_inv_d) ||
+            !point->is_depth_safe) {
             // discard this residual
             this->residual_->state_ = Visibility::OOB;
             this->discardOOB(residuals, jacobians);
@@ -150,7 +149,7 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters, double* 
         double hit_color = targetFrame->at((float)hit_pixel(0), (float)hit_pixel(1));
 
         // residual with light compensation and weight
-        double res = (double)color[idx] - light_a * hit_color - light_b;
+        double res = calc_light_diff((double)color[idx], hit_color, relLight);
 
         // image jacobian: dIj/du'
         Eigen::Matrix<double, 1, 2> JIJup;
@@ -201,7 +200,7 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters, double* 
             // c: parameter from block
 
             const Eigen::Matrix<double, 1, 6> JIJT = totalWeight * JIJup * JupJT;
-            const double JIJalpha = totalWeight * light_a * (hit_color - targetLight_beta);
+            const double JIJalpha = -totalWeight * exp(relLight.alpha()) * color[idx];
 
             // owner frame: J1x9
             if (jacobians[0] != NULL) {
@@ -217,6 +216,8 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters, double* 
                 Jowner.segment<3>(3) *= config.OPTIMIZATION_ROTATION_SCALE;
                 Jowner[6] *= config.OPTIMIZATION_ALPHA_SCALE;
                 Jowner[7] *= config.OPTIMIZATION_BETA_SCALE;
+
+                LOG(INFO) << "Jowner" << '\n' << Jowner << '\n';
             }
 
             // target frame: J1x9
@@ -224,7 +225,7 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters, double* 
                 Eigen::Map<Eigen::Matrix<double, 1, 9>> Jtarget(jacobians[1] + (idx * 9));
                 Jtarget.segment<6>(0) = JIJT;        // target pose
                 Jtarget[6] = JIJalpha;               // target alpha
-                Jtarget[7] = totalWeight * light_a;  // target beta
+                Jtarget[7] = exp(relLight.alpha());  // target beta
                 Jtarget[8] = 0.0;
 
                 // variable scaling
@@ -233,6 +234,7 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters, double* 
                 Jtarget.segment<3>(3) *= config.OPTIMIZATION_ROTATION_SCALE;
                 Jtarget[6] *= config.OPTIMIZATION_ALPHA_SCALE;
                 Jtarget[7] *= config.OPTIMIZATION_BETA_SCALE;
+                LOG(INFO) << "Jtarget" << '\n' << Jtarget << '\n' << '\n';
             }
 
             // point inverse depth: J1x1

@@ -49,7 +49,7 @@ void PhotometricBA::solve(CandidateManager& cm) {
     // stats
     const ceres::Solver::Summary& summary = problem.summary();
 
-    // std::cout << summary.FullReport() << '\n';
+    std::cout << summary.FullReport() << '\n';
 
     // merge solution
     std::vector<PhotometricResidual*> obsToRemove;
@@ -108,9 +108,6 @@ void PhotometricBA::mergeOptimization(CandidateManager& cm, std::vector<Photomet
         // pose and affine light
         kf->merge_optimization_result();
     }
-
-    const std::shared_ptr<Frame>& lastKeyfame = cm.get_key_frames().back();
-    const int lastIdx = lastKeyfame->get_id();
 
     for (const std::shared_ptr<Frame>& kf : cm.get_key_frames()) {
         if (kf == cm.get_key_frames().back()) continue;

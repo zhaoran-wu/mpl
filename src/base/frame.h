@@ -107,7 +107,7 @@ inline void Frame::set_aff_light(const int alpha, const int beta) {
 inline void Frame::set_tracking_result(const Sophus::SE3f& T_curr_refKF, const AffineLight& aff_light_curr_refKF) {
     // inital global info
     this->T_w_c = this->refKF->T_w_c * T_curr_refKF.inverse();
-    this->affine_light = AffineLight::calc_dst_global_aff(this->refKF->affine_light, aff_light_curr_refKF);
+    this->affine_light = calc_dst_global_aff(this->refKF->affine_light, aff_light_curr_refKF);
 }
 
 inline Sophus::SE3f Frame::get_pose() const {
@@ -191,7 +191,7 @@ inline Sophus::SE3f get_src_to_dst_transform(const Frame::ptr src, const Frame::
 }
 
 inline AffineLight get_src_to_dst_aff_light(const Frame::ptr src, const Frame::ptr dst) {
-    return AffineLight::calc_aff_map_src_to_dst(src->get_aff_light(), dst->get_aff_light());
+    return calc_aff_map_src_to_dst(src->get_aff_light(), dst->get_aff_light());
 }
 
 }  // namespace mpl

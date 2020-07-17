@@ -36,13 +36,6 @@ class AffineLight {
     float a() const;
     float b() const;
 
-    // calc relative affine param,which map I_src to I_dst
-    static AffineLight calc_aff_map_src_to_dst(const AffineLight& src, const AffineLight& dst);
-
-    // calc absolute affine param of dst
-    // dst_src: Aff param map src to dst
-    static AffineLight calc_dst_global_aff(const AffineLight& src, const AffineLight& dst_src);
-
     static const int DoF = 2;
     static const int num_parameters = 2;
 
@@ -54,16 +47,6 @@ class AffineLight {
 inline void AffineLight::update(float delta_alpha, float delta_beta) {
     alpha_ += delta_alpha;
     beta_ += delta_beta;
-}
-
-template <typename T>
-inline T map_src_to_dst(const AffineLight& dst_src, const T src_light) {
-    return exp(dst_src.alpha()) * src_light + dst_src.beta();
-}
-
-template <typename T>
-inline T calc_light_diff(const T src_light, const T dst_light, const AffineLight& dst_src) {
-    return dst_light - map_src_to_dst(dst_src, src_light);
 }
 
 inline AffineLight::AffineLight() : alpha_(0.f), beta_(0.f) {
@@ -100,17 +83,29 @@ inline AffineLight& AffineLight::operator=(const AffineLight& affLight) {
     return *this;
 }
 
-inline AffineLight AffineLight::calc_aff_map_src_to_dst(const AffineLight& src, const AffineLight& dst) {
+// calc relative affine param,which map I_src to I_dst
+inline AffineLight calc_aff_map_src_to_dst(const AffineLight& src, const AffineLight& dst) {
     float dst_src_alpha = dst.alpha() - src.alpha();
     float dst_src_beta = dst.beta() - src.beta() * exp(dst_src_alpha);
 
     return AffineLight(dst_src_alpha, dst_src_beta);
 }
 
-inline AffineLight AffineLight::calc_dst_global_aff(const AffineLight& src, const AffineLight& dst_src) {
+// calc absolute affine param of dst
+// dst_src: Aff param map src to dst
+inline AffineLight calc_dst_global_aff(const AffineLight& src, const AffineLight& dst_src) {
     float dst_alpha = dst_src.alpha() + src.alpha();
     float dst_beta = dst_src.beta() + src.beta() * exp(dst_src.alpha());
 
     return AffineLight(dst_alpha, dst_beta);
+}
+template <typename T>
+inline T map_src_to_dst(const AffineLight& dst_src, const T src_light) {
+    return exp(dst_src.alpha()) * src_light + dst_src.beta();
+}
+
+template <typename T>
+inline T calc_light_diff(const T src_light, const T dst_light, const AffineLight& dst_src) {
+    return dst_light - map_src_to_dst(dst_src, src_light);
 }
 }  // namespace mpl
