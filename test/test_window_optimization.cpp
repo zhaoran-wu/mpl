@@ -113,11 +113,11 @@ int main() {
             cv::circle(im_to_vis, cv::Point2f(hit_pixel(0), hit_pixel(1)), 1, cv::Scalar(0, 255, 0), 2);
         }
         cv::imshow("KF", key_frame_vis);
-        cv::waitKey(1);
+        cv::waitKey(0);
         cv::imshow("curr_frame", im_to_vis);
-        cv::waitKey(1);
+        cv::waitKey(0);
         cv::imshow("kf depth", syn_im_vec_curr[1]);
-        cv::waitKey(1);
+        cv::waitKey(0);
         // todo : a best way to choose KF
         bool is_KF = is_newframe_KF(pcp, T_curr_KF, tracker.get_per_pixel_energy());
         if (is_KF) {

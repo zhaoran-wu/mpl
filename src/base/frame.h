@@ -33,10 +33,23 @@ class Frame {
     int get_id() const;
     const std::unique_ptr<FrameParameterBlock>& get_frame_block() const;  // get ceres param block
 
+    // access image pyramid data
+    // get pixel value at lvl
+    template <typename T>
+    float at(const T u, const T v, const int lvl = 0) const;
+    template <typename T>
+    float dy(const T u, const T v, const int lvl = 0) const;
+    template <typename T>
+    float dx(const T u, const T v, const int lvl = 0) const;
+    template <typename T>
+    float mag_squared(const T u, const T v, const int lvl = 0) const;
+
     // unproject a pixel(in pixel coordinate system) in to p3d in current frame coordinate system
     Eigen::Vector3f unproject(const Eigen::Vector2i& pixel, const float inv_d, const int lvl = 0) const;
     // poject a p3d in current frame coordinate system to pixel coordinate systems
     Eigen::Vector2f project(const Eigen::Vector3f& point, const int lvl = 0) const;
+    // check if a projection is in the image at lvl
+    bool is_in_image(const float u, const float v, const int lvl = 0) const;
 
     // interface to access image pyramid value
 
@@ -64,7 +77,7 @@ inline int Frame::get_id() const {
 }
 
 inline Eigen::Vector3f Frame::unproject(const Eigen::Vector2i& pixel, const float inv_d, const int lvl) const {
-    float z = 1 / inv_d;
+    float z = 1.0f / inv_d;
     return Eigen::Vector3f((pixel(0) - cam->cx[lvl]) * z / cam->fx[lvl], (pixel(1) - cam->cy[lvl]) * z / cam->fy[lvl],
                            z);
 }
@@ -95,6 +108,10 @@ inline AffineLight Frame::get_aff_light() const {
     return affine_light;
 }
 
+inline ImagePyramid::ptr Frame::get_image_pyramid() const {
+    return this->pyramid;
+}
+
 inline void Frame::set_ref_frame(const Frame::ptr& frame) {
     this->refKF = frame;
 }
@@ -108,16 +125,33 @@ inline void Frame::merge_optimization_result() {
     this->affine_light = frame_block->getAffineLight();
 }
 
-inline ImagePyramid::ptr Frame::get_image_pyramid() const {
-    return this->pyramid;
-}
-
 inline Frame::ptr Frame::create(cv::Mat image) {
     return std::make_shared<Frame>(image.data);
 }
 
 inline Frame::ptr Frame::get_ref_frame() {
     return refKF;
+}
+
+template <typename T>
+inline float Frame::at(const T u, const T v, const int lvl) const {
+    return (float)this->pyramid->at(u, v, lvl);
+}
+template <typename T>
+inline float Frame::dy(const T u, const T v, const int lvl) const {
+    return this->pyramid->dy(u, v, lvl);
+}
+template <typename T>
+inline float Frame::dx(const T u, const T v, const int lvl) const {
+    return this->pyramid->dx(u, v, lvl);
+}
+template <typename T>
+inline float Frame::mag_squared(const T u, const T v, const int lvl) const {
+    return this->pyramid->mag_squared(u, v, lvl);
+}
+
+inline bool Frame::is_in_image(const float u, const float v, const int lvl) const {
+    return this->pyramid->is_in_image(u, v, lvl);
 }
 
 // help function

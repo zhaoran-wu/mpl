@@ -35,7 +35,7 @@ void ImagePyramid::build_image(const uchar* parent_image, const int child_lvl) {
     image_pyramid.push_back(child_ptr);
 }
 
-// generate dx,dy, mag2 pyramid: direct compute with image in same lvl
+// generate dx,dy, mag_squared pyramid: direct compute with image in same lvl
 void ImagePyramid::build_derivative(const int lvl) {
     int w_lvl = cam_data->width[lvl];
     int h_lvl = cam_data->height[lvl];

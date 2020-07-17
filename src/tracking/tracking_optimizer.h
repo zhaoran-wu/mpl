@@ -44,7 +44,6 @@ class TrackingOptimizer {
     AffineLight affine_light;  // Aff_curr_ref, aff light map ref frame to curr frame
     PointCloudPyramid::ptr point_cloud_pyramid;
     Frame::ptr to_track_frame;
-    ImagePyramid::ptr image_pyramid;
 
     CamData* cam;
     Config* config;

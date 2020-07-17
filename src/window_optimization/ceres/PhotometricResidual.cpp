@@ -53,8 +53,6 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters, double* 
     const auto& color = point->color;
     const auto& weight = point->weight;
 
-    const auto target_im_pyramid = targetFrame->get_image_pyramid();
-
     // residual computation
 
     // map pointer for efficiency. this avoids copying data
@@ -149,15 +147,15 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters, double* 
         }
 
         // obtain bilinear interpolated intensity values
-        double hit_color = (*target_im_pyramid)(0, (float)hit_pixel[0], (float)hit_pixel[1]);
+        double hit_color = targetFrame->at((float)hit_pixel[0], (float)hit_pixel[1]);
 
         // residual with light compensation and weight
         double res = (double)color[idx] - light_a * hit_color - light_b;
 
         // image jacobian: dIj/du'
         Eigen::Matrix<double, 1, 2> JIJup;
-        JIJup(0, 0) = target_im_pyramid->dx(0, (float)hit_pixel[0], (float)hit_pixel[1]);
-        JIJup(0, 1) = target_im_pyramid->dy(0, (float)hit_pixel[0], (float)hit_pixel[1]);
+        JIJup(0, 0) = targetFrame->dx((float)hit_pixel[0], (float)hit_pixel[1]);
+        JIJup(0, 1) = targetFrame->dy((float)hit_pixel[0], (float)hit_pixel[1]);
 
         double squaredGrad = JIJup.squaredNorm();
 

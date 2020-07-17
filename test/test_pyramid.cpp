@@ -46,7 +46,7 @@ int main() {
         cv::imshow(dy_name, cv::Mat(im.rows >> lvl, im.cols >> lvl, CV_32F, dy_ptr.get()));
         cv::waitKey(0);
         //*  mag test
-        auto mag2_ptr = pyramid.mag2(lvl);
+        auto mag2_ptr = pyramid.mag_squared(lvl);
         std::string mag2_name = "mag2_at_lvl" + lvl;
         cv::imshow(mag2_name, cv::Mat(im.rows >> lvl, im.cols >> lvl, CV_32F, mag2_ptr.get()));
         cv::waitKey(0);

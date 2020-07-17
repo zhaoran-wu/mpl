@@ -97,7 +97,7 @@ int main() {
             Eigen::Vector2i point(u, v);
             Eigen::Vector3f p3d = key_frame->unproject(point, 1000.f / depth, lvl);
             // todo make it better
-            int intensity = key_frame->get_image_pyramid()->operator()(lvl, u, v);
+            int intensity = key_frame->at(u, v, lvl);
             (*pcp)[lvl].push_back(Voxel(p3d, intensity));
         }
     }

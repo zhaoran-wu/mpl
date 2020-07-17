@@ -31,19 +31,19 @@ class ImagePyramid {
     uchar_ptr data(const int lvl);
     float_ptr dx(const int lvl);
     float_ptr dy(const int lvl);
-    float_ptr mag2(const int lvl);
+    float_ptr mag_squared(const int lvl);
     // get pixel value at lvl
-    uchar operator()(const int lvl, const int u, const int v) const;
-    float dy(const int lvl, const int u, const int v) const;
-    float dx(const int lvl, const int u, const int v) const;
-    float mag2(const int lvl, const int u, const int v) const;
+    uchar at(const int u, const int v, const int lvl = 0) const;
+    float dy(const int u, const int v, const int lvl = 0) const;
+    float dx(const int u, const int v, const int lvl = 0) const;
+    float mag_squared(const int u, const int v, const int lvl = 0) const;
 
     // sub-pixel overloading, u,v is in (continously) pixel coordiante system
-    float operator()(const int lvl, const float u, const float v) const;
-    float dx(const int lvl, const float u, const float v) const;
-    float dy(const int lvl, const float u, const float v) const;
+    float at(const float u, const float v, const int lvl = 0) const;
+    float dx(const float u, const float v, const int lvl = 0) const;
+    float dy(const float u, const float v, const int lvl = 0) const;
     // todo overload for eigen vec
-    bool is_in_image(const int lvl, const float u, const float v) const;
+    bool is_in_image(const float u, const float v, const int lvl = 0) const;
 
     int lvls() const;
 
@@ -72,28 +72,28 @@ inline ImagePyramid::float_ptr ImagePyramid::dy(const int lvl) {
     return this->dy_pyramid[lvl];
 }
 
-inline ImagePyramid::float_ptr ImagePyramid::mag2(const int lvl) {
+inline ImagePyramid::float_ptr ImagePyramid::mag_squared(const int lvl) {
     return this->mag2_pyramid[lvl];
 }
 
-inline bool ImagePyramid::is_in_image(const int lvl, const float u, const float v) const {
+inline bool ImagePyramid::is_in_image(const float u, const float v, const int lvl) const {
     return (u > 2.f && u < cam_data->width[lvl] - 2.f && v > 2.f && v < cam_data->height[lvl] - 2.f);
 }
 
-inline uchar ImagePyramid::operator()(const int lvl, const int u, const int v) const {
+inline uchar ImagePyramid::at(const int u, const int v, const int lvl) const {
     return this->image_pyramid[lvl][idx(cam_data->width[lvl], u, v)];
 }
 
-inline float ImagePyramid::dy(const int lvl, const int u, const int v) const {
+inline float ImagePyramid::dy(const int u, const int v, const int lvl) const {
     return this->dy_pyramid[lvl][idx(cam_data->width[lvl], u, v)];
 }
 
-inline float ImagePyramid::dx(const int lvl, const int u, const int v) const {
+inline float ImagePyramid::dx(const int u, const int v, const int lvl) const {
     return this->dx_pyramid[lvl][idx(cam_data->width[lvl], u, v)];
 }
 
 // u,v here is hit pixel position
-inline float ImagePyramid::operator()(const int lvl, const float u, const float v) const {
+inline float ImagePyramid::at(const float u, const float v, const int lvl) const {
     int u_max = std::ceil(u);
     int v_max = std::ceil(v);
     int u_min = u_max - 1;
@@ -102,11 +102,11 @@ inline float ImagePyramid::operator()(const int lvl, const float u, const float 
     float x = u - u_min;
     float y = v - v_min;
 
-    return this->operator()(lvl, u_max, v_max) * x * y + this->operator()(lvl, u_min, v_max) * (1 - x) * y +
-           this->operator()(lvl, u_max, v_min) * x * (1 - y) + this->operator()(lvl, u_min, v_min) * (1 - x) * (1 - y);
+    return this->at(u_max, v_max, lvl) * x * y + this->at(u_min, v_max, lvl) * (1 - x) * y +
+           this->at(u_max, v_min, lvl) * x * (1 - y) + this->at(u_min, v_min, lvl) * (1 - x) * (1 - y);
 }
 
-inline float ImagePyramid::dy(const int lvl, const float u, const float v) const {
+inline float ImagePyramid::dy(const float u, const float v, const int lvl) const {
     int u_max = std::ceil(u);
     int v_max = std::ceil(v);
     int u_min = u_max - 1;
@@ -115,8 +115,8 @@ inline float ImagePyramid::dy(const int lvl, const float u, const float v) const
     float x = u - u_min;
     float y = v - v_min;
 
-    float value = this->dy(lvl, u_max, v_max) * x * y + this->dy(lvl, u_min, v_max) * (1 - x) * y +
-                  this->dy(lvl, u_max, v_min) * x * (1 - y) + this->dy(lvl, u_min, v_min) * (1 - x) * (1 - y);
+    float value = this->dy(u_max, v_max, lvl) * x * y + this->dy(u_min, v_max, lvl) * (1 - x) * y +
+                  this->dy(u_max, v_min, lvl) * x * (1 - y) + this->dy(u_min, v_min, lvl) * (1 - x) * (1 - y);
     return value;
 }
 /**
@@ -128,7 +128,7 @@ inline float ImagePyramid::dy(const int lvl, const float u, const float v) const
  * @param v  : continous image y coordinate
  * @return float
  */
-inline float ImagePyramid::dx(const int lvl, const float u, const float v) const {
+inline float ImagePyramid::dx(const float u, const float v, const int lvl) const {
     int u_max = std::ceil(u);
     int v_max = std::ceil(v);
     int u_min = u_max - 1;
@@ -137,12 +137,12 @@ inline float ImagePyramid::dx(const int lvl, const float u, const float v) const
     float x = u - u_min;
     float y = v - v_min;
 
-    float value = this->dx(lvl, u_max, v_max) * x * y + this->dx(lvl, u_min, v_max) * (1 - x) * y +
-                  this->dx(lvl, u_max, v_min) * x * (1 - y) + this->dx(lvl, u_min, v_min) * (1 - x) * (1 - y);
+    float value = this->dx(u_max, v_max, lvl) * x * y + this->dx(u_min, v_max, lvl) * (1 - x) * y +
+                  this->dx(u_max, v_min, lvl) * x * (1 - y) + this->dx(u_min, v_min, lvl) * (1 - x) * (1 - y);
     return value;
 }
 
-inline float ImagePyramid::mag2(const int lvl, const int u, const int v) const {
+inline float ImagePyramid::mag_squared(const int u, const int v, const int lvl) const {
     return this->mag2_pyramid[lvl][idx(cam_data->width[lvl], u, v)];
 }
 inline int ImagePyramid::lvls() const {

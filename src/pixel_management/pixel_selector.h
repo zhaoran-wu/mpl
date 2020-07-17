@@ -87,7 +87,7 @@ class PixelSelector {
     CamData* cam;
     Config* config;
 
-    ImagePyramid::float_ptr mag2_ptr;  // unlikely with dso, we select only with mag2[0]
+    ImagePyramid::float_ptr mag2_ptr;  // unlikely with dso, we select only with mag_squared[0]
 
     std::vector<Eigen::Vector3i> candidates;
 

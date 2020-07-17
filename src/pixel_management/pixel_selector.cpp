@@ -28,7 +28,7 @@ int PixelSelector::select(ImagePyramid::ptr pyramid_ptr, std::vector<Eigen::Vect
         reset();
     }
     tictoc::tic();
-    this->mag2_ptr = pyramid_ptr->mag2(0);
+    this->mag2_ptr = pyramid_ptr->mag_squared(0);
 
     fill_thresh_map();
     filtering_thresh_map();
