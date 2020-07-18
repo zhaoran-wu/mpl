@@ -1,5 +1,9 @@
 #include "synetic_image.h"
 #include <algorithm>
+#include <glad/glad.h>
+// clang format off
+#include <GLFW/glfw3.h>
+// clang format on
 #include <iostream>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
@@ -163,14 +167,14 @@ cv::Mat SyneticImage::renderingAt(const Eigen::Isometry3f& pose, const Rendering
 inline void SyneticImage::rendering_photometric_image() {
     photometric_shader.active();
     photometric_shader.set_uniform_mat4("projection", projection);
-    photometric_shader.set_uniform_mat4("view", view);
+    photometric_shader.set_uniform_mat_isometry("view", view);
     mesh.draw(photometric_shader);
 }
 
 inline void SyneticImage::rendering_depth_image() {
     depth_shader.active();
     depth_shader.set_uniform_mat4("projection", projection);
-    depth_shader.set_uniform_mat4("view", view);
+    depth_shader.set_uniform_mat_isometry("view", view);
     depth_shader.set_uniform_vec2("zn_zf", zn_zf);
     mesh.draw(depth_shader);
 }
@@ -178,8 +182,8 @@ inline void SyneticImage::rendering_depth_image() {
 inline void SyneticImage::rendering_normal_image(const Eigen::Isometry3f& pose) {
     normal_shader.active();
     normal_shader.set_uniform_mat4("projection", projection);
-    normal_shader.set_uniform_mat4("view", view);
-    normal_shader.set_uniform_mat3("normal_R", pose.inverse().rotation());
+    normal_shader.set_uniform_mat_isometry("view", view);
+    normal_shader.set_uniform_mat3("normal_R", pose.inverse().rotation().matrix());
     mesh.draw(normal_shader);
 }
 

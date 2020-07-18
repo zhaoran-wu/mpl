@@ -3,15 +3,15 @@
 #include "../util/utility.h"
 #include "mesh.h"
 #include "shader.h"
-#include <GLFW/glfw3.h>
-#include <glad/glad.h>
 #include <sophus/se3.hpp>
 
 #include <opencv2/core.hpp>
 #include <string>
+class GLFWwindow;
 namespace mpl {
 
 enum RenderingMode { PHTOMETRIC, DEPTH, NORMAL };
+
 class SyneticImage {
    public:
     SyneticImage(const std::string project_path);
@@ -76,8 +76,8 @@ class SyneticImage {
     unsigned int rbo_color;
     unsigned int rbo_depth_stencil;
 
-    GLuint pbo;
-    GLuint pbo_arr[3];
+    uint pbo;
+    uint pbo_arr[3];
 
     // uniform parameters for opengl
     Eigen::Matrix4f projection;           //! projection matrix of opengl

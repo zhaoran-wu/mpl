@@ -1,8 +1,7 @@
-add_library(${PROJECT_NAME}_visualization
-HelloPangolin.cpp
+add_library(${PROJECT_NAME}_visualizer
 visualizer.cpp
 )
 
-target_link_libraries(${PROJECT_NAME}_visualization
+target_link_libraries(${PROJECT_NAME}_visualizer
 ${Pangolin_LIBRARIES}
 )

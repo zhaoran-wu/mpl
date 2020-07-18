@@ -55,10 +55,10 @@ target_link_libraries(GLAD PUBLIC ${CMAKE_DL_LIBS})
 #
 #
 add_subdirectory(util)
+add_subdirectory(src/visualizer)
 add_subdirectory(src/rendering)
 add_subdirectory(src/base)
 add_subdirectory(src/tracking)
 add_subdirectory(src/window_optimization)
 add_subdirectory(src/pixel_management)
-add_subdirectory(src/visualizer)
 add_subdirectory(test)

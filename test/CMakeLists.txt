@@ -111,6 +111,7 @@ ${OpenCV_LIBRARIES}
 ${Eigen_LIBRARIES}
 ${Boost_LIBRARIES}
 util
+${PROJECT_NAME}_visualizer
 ${PROJECT_NAME}_base
 ${PROJECT_NAME}_tracking
 ${PROJECT_NAME}_pixel_management

@@ -1,10 +1,12 @@
 
-
 #include "PhotometricBA.h"
 #include "cam_data.h"
 #include "candidate_manager.h"
 #include "config.h"
 #include "synetic_image.h"
+// clang-format off
+#include "../visualizer/visualizer.h"
+// clang-format on 
 #include "tracker.h"
 #include <opencv2/opencv.hpp>
 
@@ -18,6 +20,7 @@ bool is_newframe_KF(PointCloudPyramid::ptr pcp, const Sophus::SE3f& T_KF_curr, f
 }
 
 int main() {
+    Visualizer vis;
     std::string project_path = "/home/zhaoran/thesis_ws/mpl/project/";
     // read yaml
     Config& config = Config::getInstance();
@@ -79,7 +82,10 @@ int main() {
     Frame::ptr last_frame = key_frame;
     PhotometricBA pba;
 
+    vis.run();
     for (size_t i = 1; i < img_vec.size(); ++i) {
+        vis.publish_curr_frame_img(img_vec[i]);
+
         Frame::ptr curr_frame = Frame::create(img_vec[i]);
 
         tracker.tracking(curr_frame);
@@ -118,9 +124,11 @@ int main() {
         // todo : a best way to choose KF
         bool is_KF = is_newframe_KF(pcp, T_curr_KF, tracker.get_per_pixel_energy());
         if (is_KF) {
+            vis.publish_key_frame_img(img_draw_vec[i]);
             key_frame_vis = img_draw_vec[i].clone();
 
             cm.select_candidate(curr_frame, syn_im_vec_curr[1]);
+            vis.publish_key_frame_depth(syn_im_vec_curr[1]);
 
             // optimization before rendering
             pba.solve(cm);

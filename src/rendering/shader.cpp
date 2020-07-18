@@ -1,5 +1,6 @@
 #include "shader.h"
 #include <fstream>
+#include <glad/glad.h>
 #include <iostream>
 #include <sstream>
 namespace mpl {
@@ -56,7 +57,7 @@ void Shader::read(const std::string vertexPath, const std::string fragmentPath) 
     glDeleteShader(vertex);
     glDeleteShader(fragment);
 }
-void Shader::checkCompileErrors(GLuint shader, std::string type) {
+void Shader::checkCompileErrors(uint shader, std::string type) {
     GLint success;
     GLchar infoLog[1024];
     if (type != "PROGRAM") {
@@ -75,4 +76,25 @@ void Shader::checkCompileErrors(GLuint shader, std::string type) {
         }
     }
 }
+
+void Shader::active() const {
+    glUseProgram(ID);
+}
+
+void Shader::set_uniform_mat_isometry(const std::string& name, const Eigen::Isometry3f& mat) const {
+    glUniformMatrix4fv(glGetUniformLocation(ID, name.c_str()), 1, GL_FALSE, mat.data());
+}
+
+void Shader::set_uniform_vec2(const std::string& name, const Eigen::Vector2f& vec) const {
+    glUniform2fv(glGetUniformLocation(ID, name.c_str()), 1, vec.data());
+}
+
+void Shader::set_uniform_mat4(const std::string& name, const Eigen::Matrix4f& mat) const {
+    glUniformMatrix4fv(glGetUniformLocation(ID, name.c_str()), 1, GL_FALSE, mat.data());
+}
+
+void Shader::set_uniform_mat3(const std::string& name, const Eigen::Matrix3f& mat) const {
+    glUniformMatrix3fv(glGetUniformLocation(ID, name.c_str()), 1, GL_FALSE, mat.data());
+}
+
 }  // namespace mpl
