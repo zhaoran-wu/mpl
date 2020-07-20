@@ -11,6 +11,7 @@
  */
 namespace mpl {
 
+class PointCloudPyramid;
 class Visualizer {
    public:
     Visualizer() = default;
@@ -21,7 +22,7 @@ class Visualizer {
     void publish_key_frame_img(cv::Mat img);
     void publish_key_frame_depth(cv::Mat img);
 
-    void add_image_to_show(const std::string name, cv::Mat image);
+    void draw_and_publish_curr_frame();
 
    private:
     void init();
@@ -42,8 +43,8 @@ class Visualizer {
     pangolin::OpenGlRenderState cam_3d;
 
     // general settings of window
-    const float W = 1480.0f;
-    const float H = 960.0f;
+    float W = 640.0f;
+    float H = 480.0f;
     const float UI_W = 175.0f;
 
     float img_cols;

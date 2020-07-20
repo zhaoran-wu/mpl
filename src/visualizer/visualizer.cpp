@@ -10,6 +10,9 @@ void Visualizer::init() {
     img_cols = cam_data.width[0];
     img_rows = cam_data.height[0];
 
+    W = img_cols + UI_W;
+    H = img_rows * 2;
+
     pangolin::CreateWindowAndBind("MPL: Visualizer", W, H);
 
     glEnable(GL_DEPTH_TEST);
@@ -37,25 +40,25 @@ void Visualizer::run() {
     // add img view and set texture
     pangolin::View& view_curr_frame = pangolin::Display("curr frame")
                                           .SetAspect(img_cols / img_rows)
-                                          .SetLock(pangolin::LockBottom, pangolin::LockLeft);
+                                          .SetLock(pangolin::LockLeft, pangolin::LockBottom);
 
     pangolin::View& view_key_frame_depth = pangolin::Display("key frame depth")
                                                .SetAspect(img_cols / img_rows)
-                                               .SetLock(pangolin::LockBottom, pangolin::LockRight);
+                                               .SetLock(pangolin::LockRight, pangolin::LockBottom);
 
     pangolin::GlTexture tex_view_curr_frame(img_cols, img_rows, GL_RGBA8, false, 0, GL_RGBA, GL_UNSIGNED_BYTE);
     pangolin::GlTexture tex_view_key_frame_depth(img_cols, img_rows, GL_RGBA, false, 0, GL_RGBA, GL_UNSIGNED_SHORT);
 
     pangolin::CreateDisplay()
         .SetBounds(0.0, 0.3, pangolin::Attach::Pix(UI_W), 1.0)
-        .SetLayout(pangolin::LayoutEqual)
         .AddDisplay(view_curr_frame)
-        .AddDisplay(view_key_frame_depth);
+        .AddDisplay(view_key_frame_depth)
+        .SetLayout(pangolin::LayoutEqual);
 
     pangolin::OpenGlMatrix Twc;
     Twc.SetIdentity();
 
-    while (!pangolin::ShouldQuit()) {
+    while (true) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // display 3d
