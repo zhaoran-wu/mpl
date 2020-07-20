@@ -1,6 +1,7 @@
 #pragma once
 #include <opencv2/highgui.hpp>
 #include <pangolin/pangolin.h>
+#include <sophus/se3.hpp>
 #include <string>
 
 /**
@@ -12,19 +13,21 @@
 namespace mpl {
 
 class PointCloudPyramid;
+class CamData;
 class Visualizer {
    public:
     Visualizer() = default;
     void run();
     void close();
 
-    void publish_curr_frame_img(cv::Mat img);
-    void publish_key_frame_img(cv::Mat img);
     void publish_key_frame_depth(cv::Mat img);
 
-    void draw_and_publish_curr_frame();
+    void draw_and_publish_curr_frame(std::shared_ptr<PointCloudPyramid> pcp, cv::Mat img,
+                                     const Sophus::SE3f& T_curr_KF);
 
    private:
+    cv::Mat resize(cv::Mat im) const;
+    void publish_curr_frame_img(cv::Mat img);
     void init();
     bool should_stop = false;
 
@@ -47,8 +50,13 @@ class Visualizer {
     float H = 480.0f;
     const float UI_W = 175.0f;
 
+    // salce : scale the upload image to reduce data size
+    const int scale_factor = 1;
+
     float img_cols;
     float img_rows;
+
+    CamData* cam_data;
 };
 
 }  // namespace mpl

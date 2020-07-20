@@ -21,7 +21,6 @@ bool is_newframe_KF(PointCloudPyramid::ptr pcp, const Sophus::SE3f& T_KF_curr, f
 }
 
 int main() {
-    Visualizer vis;
     std::string project_path = "/home/zhaoran/thesis_ws/mpl/project/";
     // read yaml
     Config& config = Config::getInstance();
@@ -83,11 +82,11 @@ int main() {
 
     Frame::ptr last_frame = key_frame;
     PhotometricBA pba;
-    vis.publish_curr_frame_img(key_frame_vis);
+
+    Visualizer vis;
     std::thread th(&Visualizer::run,std::ref(vis));
     
     for (size_t i = 1; i < img_vec.size(); ++i) {
-       vis.publish_curr_frame_img(img_draw_vec[i]);
 
         Frame::ptr curr_frame = Frame::create(img_vec[i]);
 
@@ -104,26 +103,11 @@ int main() {
         // !do not update depth, which is not valid in the map
 
         // draw before after optimization
-        cv::Mat im_to_vis = img_draw_vec[i].clone();
-        for (auto& pcd : pcp->operator[](0)) {
-            Eigen::Vector3f point_before_optimization = T_last_KF * pcd.position;
-            Eigen::Vector3f point = T_curr_KF * pcd.position;
-            Eigen::Vector2f hit_pixel = curr_frame->project(point);
-            Eigen::Vector2f hit_pixel_no_op = curr_frame->project(point_before_optimization);
+        std::thread th_draw(&Visualizer::draw_and_publish_curr_frame,std::ref(vis),pcp,img_draw_vec[i],T_curr_KF);
+        th_draw.detach();
 
-            Eigen::Vector2f candidate = key_frame->project(pcd.position);
 
-            cv::circle(key_frame_vis, cv::Point2f(candidate(0), candidate(1)), 1, cv::Scalar(0, 0, 255), 2);
 
-            // cv::circle(im_to_vis, cv::Point2f(hit_pixel_no_op(0), hit_pixel_no_op(1)), 1, cv::Scalar(0, 0, 255), 2);
-            cv::circle(im_to_vis, cv::Point2f(hit_pixel(0), hit_pixel(1)), 1, cv::Scalar(0, 255, 0), 2);
-        }
-        //cv::imshow("KF", key_frame_vis);
-        //cv::waitKey(1);
-        //cv::imshow("curr_frame", im_to_vis);
-        //cv::waitKey(1);
-        //cv::imshow("kf depth", syn_im_vec_curr[1]);
-        //cv::waitKey(1);
         // todo : a best way to choose KF
         bool is_KF = is_newframe_KF(pcp, T_curr_KF, tracker.get_per_pixel_energy());
         if (is_KF) {

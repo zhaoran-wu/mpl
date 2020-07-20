@@ -1,5 +1,6 @@
 #pragma once
 #include "affine_light.h"
+#include "cam_data.h"
 #include "ceres/FrameParameterBlock.h"
 #include "image_pyramid.h"
 #include <Eigen/Geometry>
@@ -93,6 +94,18 @@ inline Eigen::Vector3f Frame::unproject(const Eigen::Vector2i& pixel, const floa
 }
 
 inline Eigen::Vector2f Frame::project(const Eigen::Vector3f& point, const int lvl) const {
+    return Eigen::Vector2f(cam->fx[lvl] * (point(0) / point(2)) + cam->cx[lvl],
+                           cam->fy[lvl] * (point(1) / point(2)) + cam->cy[lvl]);
+}
+
+inline Eigen::Vector3f unproject(const CamData* cam, const Eigen::Vector2i& pixel, const float inv_d,
+                                 const int lvl = 0) {
+    float z = 1.0f / inv_d;
+    return Eigen::Vector3f((pixel(0) - cam->cx[lvl]) * z / cam->fx[lvl], (pixel(1) - cam->cy[lvl]) * z / cam->fy[lvl],
+                           z);
+}
+
+inline Eigen::Vector2f project(const CamData* cam, const Eigen::Vector3f& point, const int lvl = 0) {
     return Eigen::Vector2f(cam->fx[lvl] * (point(0) / point(2)) + cam->cx[lvl],
                            cam->fy[lvl] * (point(1) / point(2)) + cam->cy[lvl]);
 }
