@@ -217,7 +217,7 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters, double* 
                 Jowner[6] *= config.OPTIMIZATION_ALPHA_SCALE;
                 Jowner[7] *= config.OPTIMIZATION_BETA_SCALE;
 
-                LOG(INFO) << "Jowner" << '\n' << Jowner << '\n';
+                // LOG(INFO) << "Jowner" << '\n' << Jowner << '\n';
             }
 
             // target frame: J1x9
@@ -234,7 +234,7 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters, double* 
                 Jtarget.segment<3>(3) *= config.OPTIMIZATION_ROTATION_SCALE;
                 Jtarget[6] *= config.OPTIMIZATION_ALPHA_SCALE;
                 Jtarget[7] *= config.OPTIMIZATION_BETA_SCALE;
-                LOG(INFO) << "Jtarget" << '\n' << Jtarget << '\n' << '\n';
+                // LOG(INFO) << "Jtarget" << '\n' << Jtarget << '\n' << '\n';
             }
 
             // point inverse depth: J1x1

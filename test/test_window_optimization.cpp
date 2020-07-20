@@ -4,6 +4,7 @@
 #include "candidate_manager.h"
 #include "config.h"
 #include "synetic_image.h"
+#include <thread>
 // clang-format off
 #include "../visualizer/visualizer.h"
 // clang-format on 
@@ -49,6 +50,7 @@ int main() {
         assert(im_tmp.isContinuous());
 
         img_draw_vec.push_back(im_tmp.clone());
+
         cv::cvtColor(im_tmp, im_tmp, CV_BGR2GRAY);
         assert(im_tmp.channels() == 1);
         img_vec.push_back(im_tmp);
@@ -81,10 +83,11 @@ int main() {
 
     Frame::ptr last_frame = key_frame;
     PhotometricBA pba;
-
-    vis.run();
+    vis.publish_curr_frame_img(key_frame_vis);
+    std::thread th(&Visualizer::run,std::ref(vis));
+    
     for (size_t i = 1; i < img_vec.size(); ++i) {
-        vis.publish_curr_frame_img(img_vec[i]);
+       vis.publish_curr_frame_img(img_draw_vec[i]);
 
         Frame::ptr curr_frame = Frame::create(img_vec[i]);
 
@@ -115,16 +118,16 @@ int main() {
             // cv::circle(im_to_vis, cv::Point2f(hit_pixel_no_op(0), hit_pixel_no_op(1)), 1, cv::Scalar(0, 0, 255), 2);
             cv::circle(im_to_vis, cv::Point2f(hit_pixel(0), hit_pixel(1)), 1, cv::Scalar(0, 255, 0), 2);
         }
-        cv::imshow("KF", key_frame_vis);
-        cv::waitKey(1);
-        cv::imshow("curr_frame", im_to_vis);
-        cv::waitKey(1);
-        cv::imshow("kf depth", syn_im_vec_curr[1]);
-        cv::waitKey(1);
+        //cv::imshow("KF", key_frame_vis);
+        //cv::waitKey(1);
+        //cv::imshow("curr_frame", im_to_vis);
+        //cv::waitKey(1);
+        //cv::imshow("kf depth", syn_im_vec_curr[1]);
+        //cv::waitKey(1);
         // todo : a best way to choose KF
         bool is_KF = is_newframe_KF(pcp, T_curr_KF, tracker.get_per_pixel_energy());
         if (is_KF) {
-            vis.publish_key_frame_img(img_draw_vec[i]);
+            //vis.publish_key_frame_img(img_draw_vec[i]);
             key_frame_vis = img_draw_vec[i].clone();
 
             cm.select_candidate(curr_frame, syn_im_vec_curr[1]);
@@ -143,4 +146,5 @@ int main() {
 
         last_frame = curr_frame;
     }
+   th.join();
 }

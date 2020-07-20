@@ -14,7 +14,6 @@ namespace mpl {
 class Visualizer {
    public:
     Visualizer() = default;
-
     void run();
     void close();
 
@@ -25,19 +24,30 @@ class Visualizer {
     void add_image_to_show(const std::string name, cv::Mat image);
 
    private:
+    void init();
     bool should_stop = false;
 
+    // curr frame
+    std::mutex curr_frame_mutex;
     cv::Mat curr_frame_img;
-    cv::Mat key_frame_img;
-    cv::Mat key_frame_depth;
-
     bool curr_frame_changed = false;
-    bool key_frame_changed = false;
+
+    // key frame depth
+    std::mutex key_frame_depth_mutex;
+    cv::Mat key_frame_depth;
     bool key_frame_depth_changed = false;
 
-    float W = 1024;
-    float H = 768;
-    float UI_W = 175;
+    // opengl object
+    pangolin::View view_3d;
+    pangolin::OpenGlRenderState cam_3d;
+
+    // general settings of window
+    const float W = 1480.0f;
+    const float H = 960.0f;
+    const float UI_W = 175.0f;
+
+    float img_cols;
+    float img_rows;
 };
 
 }  // namespace mpl
