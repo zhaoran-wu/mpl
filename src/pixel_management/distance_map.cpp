@@ -1,5 +1,6 @@
 #include "distance_map.h"
 #include "candidate_manager.h"
+#include <opencv2/imgproc.hpp>
 namespace mpl {
 DistanceMap::DistanceMap() {
     cam = &CamData::getInstance();
@@ -18,18 +19,22 @@ DistanceMap::~DistanceMap() {
     Eigen::internal::aligned_free(this->dist_map);
 }
 
-cv::Mat DistanceMap::get_distance_map_for_visualization(bool normalize) {
+void DistanceMap::show_distance_map_for_visualization(bool normalize) {
     cv::Mat distTransform(this->h, this->w, CV_32FC1);
     std::copy(this->dist_map, this->dist_map + this->w * this->h, (float*)distTransform.data);
 
     if (normalize) {
-        distTransform = distTransform + 1;      // set range to [1, Inf] to have all positive values
-        cv::log(distTransform, distTransform);  // log scale
-        cv::normalize(distTransform, distTransform, 0, 1.0,
-                      cv::NORM_MINMAX);  // normalize gray scale
-    }
+        cv::normalize(distTransform, distTransform, 0, 1,
+                      cv::NORM_MINMAX);               // normalize gray scale
+        cv::pow(distTransform, 0.22, distTransform);  // pow scale
+        cv::normalize(distTransform, distTransform, 0, 255, cv::NORM_MINMAX);
 
-    return distTransform;
+        distTransform.convertTo(distTransform, CV_8UC1);
+        cv::applyColorMap(distTransform, distTransform, cv::COLORMAP_JET);
+    }
+    cv::namedWindow("dist_map", cv::WINDOW_AUTOSIZE);
+    cv::imshow("dist_map", distTransform);
+    cv::waitKey(1);
 }
 
 float DistanceMap::dist(int x, int y) const {

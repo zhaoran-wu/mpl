@@ -6,6 +6,8 @@
 #include <opencv2/imgproc.hpp>
 
 namespace mpl {
+inline void check_and_change_config_according_to_menu(const pangolin::Var<bool>& menu_config, bool& project_config,
+                                                      std::mutex& project_config_mutex);
 
 void Visualizer::init() {
     // img data
@@ -94,18 +96,24 @@ void Visualizer::run() {
         pangolin::FinishFrame();
 
         // other images showed by opencv
-        if (menuDebugDistanceMap && !config->DEBUG_DISTANCE_MAP) {
-            config->debug_distance_map_mutex.lock();
-            if (menuDebugDistanceMap) {
-                config->DEBUG_DISTANCE_MAP = true;
-                config->debug_distance_map_mutex.unlock();
-            }
-        } else if (!menuDebugDistanceMap && config->DEBUG_DISTANCE_MAP) {
-            config->debug_distance_map_mutex.lock();
-            if (menuDebugDistanceMap) {
-                config->DEBUG_DISTANCE_MAP = false;
-                config->debug_distance_map_mutex.unlock();
-            }
+        check_and_change_config_according_to_menu(menuDebugDistanceMap, config->DEBUG_DISTANCE_MAP,
+                                                  config->debug_distance_map_mutex);
+    }
+}
+
+inline void check_and_change_config_according_to_menu(const pangolin::Var<bool>& menu_config, bool& project_config,
+                                                      std::mutex& project_config_mutex) {
+    if (menu_config && !project_config) {
+        project_config_mutex.lock();
+        if (menu_config) {
+            project_config = true;
+            project_config_mutex.unlock();
+        }
+    } else if (!menu_config && project_config) {
+        project_config_mutex.lock();
+        if (!menu_config) {
+            project_config = false;
+            project_config_mutex.unlock();
         }
     }
 }

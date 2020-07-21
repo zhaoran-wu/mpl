@@ -34,7 +34,7 @@ class DistanceMap {
     void add(const Eigen::Vector2f point_in_newst_KF);
 
     // draws the map
-    cv::Mat get_distance_map_for_visualization(bool normalize);
+    void show_distance_map_for_visualization(bool normalize);
 
    private:
     // calculate distance for all pixel on a square edge with radius

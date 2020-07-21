@@ -521,9 +521,7 @@ void CandidateManager::activate_candidate() {
         if (config.DEBUG_DISTANCE_MAP) {
             config.debug_distance_map_mutex.unlock();
             std::cout << "current active points num:   " << dist_map.get_num_obstacles() << '\n';
-            cv::Mat vis = dist_map.get_distance_map_for_visualization(true);
-            cv::imshow("dist_map ", vis);
-            cv::waitKey(1);
+            dist_map.show_distance_map_for_visualization(true);
         }
     }
 }
