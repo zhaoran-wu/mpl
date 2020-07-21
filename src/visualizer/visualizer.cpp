@@ -10,6 +10,7 @@ namespace mpl {
 void Visualizer::init() {
     // img data
     cam_data = &CamData::getInstance();
+    config = &Config::getInstance();
     img_cols = cam_data->width[scale_factor];
     img_rows = cam_data->height[scale_factor];
 
@@ -39,6 +40,7 @@ void Visualizer::run() {
 
     // menu
     pangolin::Var<bool> menuShowCurrentFrame("menu.Show Current Frame", true, true);
+    pangolin::Var<bool> menuDebugDistanceMap("menu.Show Distance Map", false, true);
 
     // add img view and set texture
     pangolin::View& view_curr_frame = pangolin::Display("curr frame").SetAspect(img_cols / img_rows);
@@ -90,6 +92,21 @@ void Visualizer::run() {
         tex_view_key_frame_depth.RenderToViewportFlipY();
 
         pangolin::FinishFrame();
+
+        // other images showed by opencv
+        if (menuDebugDistanceMap && !config->DEBUG_DISTANCE_MAP) {
+            config->debug_distance_map_mutex.lock();
+            if (menuDebugDistanceMap) {
+                config->DEBUG_DISTANCE_MAP = true;
+                config->debug_distance_map_mutex.unlock();
+            }
+        } else if (!menuDebugDistanceMap && config->DEBUG_DISTANCE_MAP) {
+            config->debug_distance_map_mutex.lock();
+            if (menuDebugDistanceMap) {
+                config->DEBUG_DISTANCE_MAP = false;
+                config->debug_distance_map_mutex.unlock();
+            }
+        }
     }
 }
 

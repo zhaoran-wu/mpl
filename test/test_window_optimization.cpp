@@ -68,7 +68,8 @@ int main() {
 
     Frame::ptr key_frame = Frame::create(img_vec[0]);
     std::vector<cv::Mat> syn_im_vec_curr = synetic_image.renderingAt(render_pose);
-    CandidateManager cm;
+    std::shared_ptr<Visualizer> vis(new Visualizer);
+    CandidateManager cm(vis);
     cm.select_candidate(key_frame, syn_im_vec_curr[1]);
     std::vector<Candidate>& candidates = cm.get_candidate(key_frame);
 
@@ -82,8 +83,7 @@ int main() {
 
     PhotometricBA pba;
 
-    Visualizer vis;
-    std::future<void>f1 =  std::async(std::launch::async,&Visualizer::run,std::ref(vis));
+    std::future<void>f1 =  std::async(std::launch::async,&Visualizer::run,std::ref(*vis));
     
     for (size_t i = 1; i < img_vec.size(); ++i) {
 
@@ -94,7 +94,7 @@ int main() {
 
         // visualize tracking result
         Sophus::SE3f T_curr_KF = get_src_to_dst_transform(curr_frame->get_ref_frame(), curr_frame);
-        std::thread th_draw(&Visualizer::draw_and_publish_curr_frame,std::ref(vis),pcp,img_draw_vec[i],T_curr_KF);
+        std::thread th_draw(&Visualizer::draw_and_publish_curr_frame,std::ref(*vis),pcp,img_draw_vec[i],T_curr_KF);
         th_draw.detach();
 
 
@@ -118,7 +118,7 @@ int main() {
             tracker.set_tracking_ref(curr_frame, pcp);
 
             //visualize: depth map
-            std::thread th_draw_depth(&Visualizer::draw_and_publish_key_frame_depth,std::ref(vis),syn_im_vec_curr[1]);
+            std::thread th_draw_depth(&Visualizer::draw_and_publish_key_frame_depth,std::ref(*vis),syn_im_vec_curr[1]);
             th_draw_depth.detach();
 
         }

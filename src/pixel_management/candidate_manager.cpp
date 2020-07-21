@@ -21,6 +21,9 @@ std::vector<Frame::ptr>& CandidateManager::get_key_frames() {
     return key_frames;
 }
 
+CandidateManager::CandidateManager(std::shared_ptr<Visualizer> vis_ptr_) : vis_ptr(vis_ptr_) {
+}
+
 void CandidateManager::update_depth_per_frame(const Frame::ptr new_frame) {
     for (auto it = candidate_map.begin(); it != candidate_map.end(); ++it) {
         Frame::ptr old_frame = it->first;
@@ -512,12 +515,17 @@ void CandidateManager::activate_candidate() {
         }
     }
 
-    std::cout << "current active points num:   " << dist_map.get_num_obstacles() << '\n';
-
-    cv::Mat vis = dist_map.get_distance_map_for_visualization(true);
-    /*     cv::imshow("dist_map ", vis);
-        cv::waitKey(0) */
-    ;
+    // visualization
+    if (config.DEBUG_DISTANCE_MAP) {
+        config.debug_distance_map_mutex.lock();
+        if (config.DEBUG_DISTANCE_MAP) {
+            config.debug_distance_map_mutex.unlock();
+            std::cout << "current active points num:   " << dist_map.get_num_obstacles() << '\n';
+            cv::Mat vis = dist_map.get_distance_map_for_visualization(true);
+            cv::imshow("dist_map ", vis);
+            cv::waitKey(1);
+        }
+    }
 }
 PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
     PointCloudPyramid::ptr pcp(new PointCloudPyramid);  // todo : avoid allocaction every time

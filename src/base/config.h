@@ -1,4 +1,5 @@
 #pragma once
+#include <mutex>
 #include <string>
 
 namespace mpl {
@@ -42,6 +43,10 @@ class Config {
     float OPTIMIZATION_LAMDA_MIN;
     float OPTIMIZATION_LAMDA_FAILED_PENALIZE;
     float OPTIMIZATION_LAMDA_SUCCESS_PENALIZE;
+
+    // debug
+    std::mutex debug_distance_map_mutex;
+    bool DEBUG_DISTANCE_MAP = false;
 
     const int max_iteration_each_lvl[5] = {50, 30, 25, 20, 10};
     const float lamda_init_each_lvl[5] = {1e-8, 1e-5, 1e-1, 1, 1};  // very sensitive : e.g motion blur

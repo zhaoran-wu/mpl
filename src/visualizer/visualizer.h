@@ -14,6 +14,7 @@ namespace mpl {
 
 class PointCloudPyramid;
 class CamData;
+class Config;
 class Visualizer {
    public:
     Visualizer() = default;
@@ -58,6 +59,7 @@ class Visualizer {
     float img_rows;
 
     CamData* cam_data;
+    Config* config;
 };
 
 }  // namespace mpl

@@ -1,4 +1,5 @@
 #pragma once
+#include "../visualizer/visualizer.h"
 #include "ceres/PhotometricResidual.h"
 #include "ceres/PointParameterBlock.h"
 #include "distance_map.h"
@@ -67,7 +68,7 @@ struct Candidate {
 
 class CandidateManager {
    public:
-    CandidateManager() = default;
+    CandidateManager(std::shared_ptr<Visualizer> vis_ptr);
     void update_depth_per_frame(const Frame::ptr frame);
 
     /**
@@ -126,6 +127,7 @@ class CandidateManager {
     int min_dist_to_active = 5;
 
     bool is_initialized = false;
+    std::shared_ptr<Visualizer> vis_ptr;
 };
 
 inline void Candidate::update(float d_inv_obs, float var_obs) {
