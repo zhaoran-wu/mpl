@@ -31,7 +31,7 @@ void Visualizer::init() {
 
     // add 3D view(main)
     view_3d = pangolin::CreateDisplay()
-                  .SetBounds(0.0, 1.0, pangolin::Attach::Pix(UI_W), 1.0, -W / H)
+                  .SetBounds(0.25, 1.0, pangolin::Attach::Pix(UI_W), 1.0, -W / H)
                   .SetHandler(new pangolin::Handler3D(cam_3d));
 }
 void Visualizer::run() {
@@ -48,7 +48,7 @@ void Visualizer::run() {
     pangolin::GlTexture tex_view_key_frame_depth(img_cols, img_rows, GL_RGBA, false, 0, GL_RGBA, GL_UNSIGNED_BYTE);
 
     pangolin::CreateDisplay()
-        .SetBounds(0.0, 0.3, pangolin::Attach::Pix(UI_W), 1.0)
+        .SetBounds(0.0, 0.25, pangolin::Attach::Pix(UI_W), 1.0)
         .SetLayout(pangolin::LayoutEqual)
         .AddDisplay(view_curr_frame)
         .AddDisplay(view_key_frame_depth);
