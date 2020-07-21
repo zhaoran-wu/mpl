@@ -20,13 +20,14 @@ class Visualizer {
     void run();
     void close();
 
-    void publish_key_frame_depth(cv::Mat img);
-
     void draw_and_publish_curr_frame(std::shared_ptr<PointCloudPyramid> pcp, cv::Mat img,
                                      const Sophus::SE3f& T_curr_KF);
 
+    void draw_and_publish_key_frame_depth(cv::Mat depth_im);
+
    private:
     cv::Mat resize(cv::Mat im) const;
+    void publish_key_frame_depth(cv::Mat img);
     void publish_curr_frame_img(cv::Mat img);
     void init();
     bool should_stop = false;
@@ -51,7 +52,7 @@ class Visualizer {
     const float UI_W = 175.0f;
 
     // salce : scale the upload image to reduce data size
-    const int scale_factor = 1;
+    const int scale_factor = 0;
 
     float img_cols;
     float img_rows;

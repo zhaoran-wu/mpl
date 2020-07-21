@@ -4,7 +4,7 @@
 #include "candidate_manager.h"
 #include "config.h"
 #include "synetic_image.h"
-#include <thread>
+#include <future>
 // clang-format off
 #include "../visualizer/visualizer.h"
 // clang-format on 
@@ -80,29 +80,20 @@ int main() {
     // draw candidates before and after tracking
     cv::Mat key_frame_vis = img_draw_vec[0];
 
-    Frame::ptr last_frame = key_frame;
     PhotometricBA pba;
 
     Visualizer vis;
-    std::thread th(&Visualizer::run,std::ref(vis));
+    std::future<void>f1 =  std::async(std::launch::async,&Visualizer::run,std::ref(vis));
     
     for (size_t i = 1; i < img_vec.size(); ++i) {
 
         Frame::ptr curr_frame = Frame::create(img_vec[i]);
 
-        tracker.tracking(curr_frame);
-        Sophus::SE3f T_last_KF = (last_frame->get_ref_frame() == nullptr)
-                                     ? Sophus::SE3f::transZ(0.0f)
-                                     : get_src_to_dst_transform(curr_frame->get_ref_frame(), last_frame);
-
+        // if tracking failed(due to e.g over exposure), throw this frame just away
         if (!tracker.tracking(curr_frame)) continue;
 
+        // visualize tracking result
         Sophus::SE3f T_curr_KF = get_src_to_dst_transform(curr_frame->get_ref_frame(), curr_frame);
-
-        // !cm.update_depth_per_frame(curr_frame); we use now only valid depth,
-        // !do not update depth, which is not valid in the map
-
-        // draw before after optimization
         std::thread th_draw(&Visualizer::draw_and_publish_curr_frame,std::ref(vis),pcp,img_draw_vec[i],T_curr_KF);
         th_draw.detach();
 
@@ -111,24 +102,26 @@ int main() {
         // todo : a best way to choose KF
         bool is_KF = is_newframe_KF(pcp, T_curr_KF, tracker.get_per_pixel_energy());
         if (is_KF) {
-            //vis.publish_key_frame_img(img_draw_vec[i]);
-            key_frame_vis = img_draw_vec[i].clone();
 
-            cm.select_candidate(curr_frame, syn_im_vec_curr[1]);
-            vis.publish_key_frame_depth(syn_im_vec_curr[1]);
-
-            // optimization before rendering
-            pba.solve(cm);
-            pcp = cm.get_point_cloud_pyramid();
-
+            //rendering at new key frame's pose
             render_pose = curr_frame->get_pose();
             syn_im_vec_curr = synetic_image.renderingAt(render_pose);
-            //! test best way to generate a depth map
+            
+            //add new frame to the window, and select candidate on it 
+            cm.select_candidate(curr_frame, syn_im_vec_curr[1]);
 
+            // optimize key frame window
+            pba.solve(cm);
+
+            // get and set new tracking reference point cloud after optimization
+            pcp = cm.get_point_cloud_pyramid();
             tracker.set_tracking_ref(curr_frame, pcp);
-        }
 
-        last_frame = curr_frame;
+            //visualize: depth map
+            std::thread th_draw_depth(&Visualizer::draw_and_publish_key_frame_depth,std::ref(vis),syn_im_vec_curr[1]);
+            th_draw_depth.detach();
+
+        }
     }
-   th.join();
+    f1.get();
 }
