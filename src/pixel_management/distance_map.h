@@ -11,7 +11,7 @@
 
 namespace mpl {
 /**
- * @brief  distance map of candidate pixle on image using square distance
+ * @brief  distance map of candidate pixel on image using square distance
  */
 class Candidate;
 class DistanceMap {

@@ -18,7 +18,7 @@ bool project_to_target_frame(T uj, T vj, T iDepth, const Eigen::Matrix<T, 3, 3>&
 
 template <typename T>
 bool project_to_target_frame(T uj, T vj, T iDepth, int width, int height, const Eigen::Matrix<T, 3, 3>& KRKinv,
-                             const Eigen::Matrix<T, 3, 1>& Kt, Eigen::Matrix<T, 2, 1>& hit_pixle);
+                             const Eigen::Matrix<T, 3, 1>& Kt, Eigen::Matrix<T, 2, 1>& hit_pixel);
 
 // Cost Function
 
@@ -548,11 +548,11 @@ inline bool project_to_target_frame(T uj, T vj, T iDepth, const Eigen::Matrix<T,
 // in - width, height: image dimensions
 // in - KRKinv: K*rotation*inv(K) from reference to new image
 // in - Kt: K*translation from reference to new image
-// out - hit_pixle: projected point in new image
+// out - hit_pixel: projected point in new image
 // return: if successfully projected or not due to OOB
 template <typename T>
 inline bool project_to_target_frame(T uj, T vj, T iDepth, int width, int height, const Eigen::Matrix<T, 3, 3>& KRKinv,
-                                    const Eigen::Matrix<T, 3, 1>& Kt, Eigen::Matrix<T, 2, 1>& hit_pixle) {
+                                    const Eigen::Matrix<T, 3, 1>& Kt, Eigen::Matrix<T, 2, 1>& hit_pixel) {
     auto& cam = CamData::getInstance();
     // transform and project
     const Eigen::Matrix<T, 3, 1> pt = KRKinv * Eigen::Matrix<T, 3, 1>(uj, vj, 1) + Kt * iDepth;
@@ -567,11 +567,11 @@ inline bool project_to_target_frame(T uj, T vj, T iDepth, int width, int height,
     if (!(ratio_d_inv > 0)) return false;
 
     // normalize
-    hit_pixle[0] = pt[0] * ratio_d_inv;
-    hit_pixle[1] = pt[1] * ratio_d_inv;
+    hit_pixel[0] = pt[0] * ratio_d_inv;
+    hit_pixel[1] = pt[1] * ratio_d_inv;
 
     // check image boundaries
-    return is_in_img(cam, hit_pixle);
+    return is_in_img(cam, hit_pixel);
 }
 
 }  // namespace mpl

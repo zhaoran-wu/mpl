@@ -46,8 +46,8 @@ void CandidateManager::select_candidate(const Frame::ptr frame, const cv::Mat sy
         key_frames.erase(key_frames.begin());
     }
 
-    std::vector<Eigen::Vector3i> pixle_selected;
-    pixle_selector.select(frame->get_image_pyramid(), pixle_selected);
+    std::vector<Eigen::Vector3i> pixel_selected;
+    pixel_selector.select(frame->get_image_pyramid(), pixel_selected);
 
     cv::Mat mask = generate_depth_safe_mask(synetic_depth_im);
     std::vector<Candidate> candidate_vec;
@@ -65,7 +65,7 @@ void CandidateManager::select_candidate(const Frame::ptr frame, const cv::Mat sy
             get_rotatet_pattern((cam.K[0] * T_old_new.rotationMatrix() * cam.K_inv[0]).topLeftCorner<2, 2>());
     }
 
-    for (const auto& p : pixle_selected) {
+    for (const auto& p : pixel_selected) {
         Candidate can;
         can.host_frame = frame;
         if (!is_in_img(CamData::getInstance(), p.head(2).cast<float>())) continue;  // choose a safe point only

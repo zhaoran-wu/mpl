@@ -131,8 +131,8 @@ int main() {
 
         // draw before depth update
         /*         for (const auto& can : candidates) {
-                    Eigen::Vector2i pixle(can.u, can.v);
-                    Eigen::Vector3f P = key_frame->unproject(pixle, 1.0f /
+                    Eigen::Vector2i pixel(can.u, can.v);
+                    Eigen::Vector3f P = key_frame->unproject(pixel, 1.0f /
            can.d_inv); Eigen::Vector2f p = curr_frame->project(in_out_T_curr_KF
            * P); cv::circle(im_depth_before_after, cv::Point2f(p(0), p(1)), 3,
                                cv::Scalar(255, 255, 255), 2);
@@ -142,9 +142,9 @@ int main() {
         auto& candidates_updated = cm.get_candidate(key_frame);
         // draw after depth update
         for (const auto& can : candidates_updated) {
-            Eigen::Vector2i pixle(can.u, can.v);
+            Eigen::Vector2i pixel(can.u, can.v);
 
-            Eigen::Vector3f P = key_frame->unproject(pixle, can.d_inv);
+            Eigen::Vector3f P = key_frame->unproject(pixel, can.d_inv);
             // std::cout << "can.inv " << can.d_inv << '\n';
             Eigen::Vector2f p = curr_frame->project(T_curr_KF * P);
             // draw with status

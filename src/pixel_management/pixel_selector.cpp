@@ -38,7 +38,7 @@ int PixelSelector::select(ImagePyramid::ptr pyramid_ptr, std::vector<Eigen::Vect
     if (is_finish) {
         std::move(candidates.begin(), candidates.end(), std::back_inserter(candidates_out));
 
-        LOG(INFO) << "PIXLE SELECTION :" << this->candidates.size() << " is selected" << '\n'
+        LOG(INFO) << "PIXEL SELECTION :" << this->candidates.size() << " is selected" << '\n'
                   << "time cost : " << time_cost / 1000.0f << " ms";
         return this->candidates.size();
     }

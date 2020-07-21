@@ -106,38 +106,98 @@ void Visualizer::publish_key_frame_depth(cv::Mat img) {
 }
 void Visualizer::draw_and_publish_curr_frame(std::shared_ptr<PointCloudPyramid> pcp, cv::Mat img,
                                              const Sophus::SE3f& T_curr_KF) {
-    cv::Mat to_draw = img.clone();
+    // compute statistic
+    int point_size = pcp->operator[](0).size();
+    std::vector<float> valid_depth_vec;
+    valid_depth_vec.reserve(point_size);
 
-    for (auto& pcd : pcp->operator[](0)) {
-        Eigen::Vector3f point = T_curr_KF * pcd.position;
-        Eigen::Vector2f hit_pixel = project(cam_data, point);
-        cv::circle(to_draw, cv::Point2f(hit_pixel(0), hit_pixel(1)), 1, cv::Scalar(0, 255, 0), 2);
+    for (const auto& point : pcp->operator[](0)) {
+        if (!point.visible_for_newst_frame) continue;
+        if (isfinite(point.depth_in_newst_frame) && point.depth_in_newst_frame > 1e-10) {
+            valid_depth_vec.push_back(point.depth_in_newst_frame);
+        }
     }
 
-    cv::cvtColor(to_draw, to_draw, cv::COLOR_BGR2BGRA);
-    publish_curr_frame_img(resize(to_draw));
+    const float lo_percent = 0.01f;
+    const float hi_percent = 0.99f;
+
+    float lo, hi;
+    std::sort(valid_depth_vec.begin(), valid_depth_vec.end());
+    lo = valid_depth_vec[lo_percent * valid_depth_vec.size()];
+    hi = valid_depth_vec[hi_percent * valid_depth_vec.size()];
+
+    cv::Mat result = img.clone();
+    cv::Mat depth_map = cv::Mat(result.size(), CV_8UC1, cv::Scalar(0));
+
+    for (auto& point : pcp->operator[](0)) {
+        if (!point.visible_for_newst_frame) continue;
+        Eigen::Vector2f hit_pixel = point.hit_pixel_in_newst_frame;
+
+        float depth = point.depth_in_newst_frame;
+        if (!isfinite(depth) || depth < 1e-10) {
+            continue;
+        } else if (depth < lo) {
+            depth = lo;
+        } else if (depth > hi) {
+            depth = hi;
+        }
+
+        uchar wrapped_depth = 255 * std::pow((depth - lo) / (hi - lo), 0.9f);
+
+        cv::circle(depth_map, cv::Point2f(hit_pixel(0), hit_pixel(1)), 1, cv::Scalar(wrapped_depth), 2);
+    }
+    cv::Mat mask = depth_map.clone();
+    cv::applyColorMap(depth_map, depth_map, cv::COLORMAP_JET);
+    depth_map.copyTo(result, mask);
+
+    cv::cvtColor(result, result, cv::COLOR_BGR2RGBA);
+    publish_curr_frame_img(resize(result));
 }
 
 void Visualizer::draw_and_publish_key_frame_depth(cv::Mat depth_im) {
-    cv::Mat tmp_depth = cv::Mat::zeros(depth_im.size(), CV_8UC1);
-    cv::Mat mask = tmp_depth.clone();
-
-    for (int r = 0; r < depth_im.rows; ++r) {
-        for (int c = 0; c < depth_im.cols; ++c) {
-            ushort depth = depth_im.at<ushort>(r, c);
-            if (depth != 0) {
-                tmp_depth.at<uchar>(r, c) = 255 * std::pow((float)depth / std::numeric_limits<ushort>::max(), 0.7f);
-                mask.at<uchar>(r, c) = 255;
+    // compute statistic
+    std::vector<ushort> valid_depth_vec(depth_im.rows * depth_im.cols);
+    for (int r = 0; r < depth_im.rows; r++) {
+        for (int c = 0; c < depth_im.cols; c++) {
+            const ushort depth = depth_im.at<ushort>(r, c);
+            if (isfinite(depth) && depth > 1e-10) {
+                valid_depth_vec.push_back(depth);
             }
         }
     }
 
-    cv::applyColorMap(tmp_depth, tmp_depth, cv::COLORMAP_JET);
+    const float lo_percent = 0.01f;
+    const float hi_percent = 0.99f;
+
+    float lo, hi;
+    std::sort(valid_depth_vec.begin(), valid_depth_vec.end());
+    lo = valid_depth_vec[lo_percent * valid_depth_vec.size()];
+    hi = valid_depth_vec[hi_percent * valid_depth_vec.size()];
+
+    cv::Mat wrapped_depth_im = cv::Mat::zeros(depth_im.size(), CV_8UC1);
+    // set wrapped depth value
+    for (int r = 0; r < depth_im.rows; ++r) {
+        for (int c = 0; c < depth_im.cols; ++c) {
+            ushort depth = depth_im.at<ushort>(r, c);
+            if (!isfinite(depth) || depth < 1e-10) {
+                continue;
+            } else if (depth < lo) {
+                depth = lo;
+            } else if (depth > hi) {
+                depth = hi;
+            }
+            wrapped_depth_im.at<uchar>(r, c) = 255 * std::pow((depth - lo) / (hi - lo), 0.9f);
+        }
+    }
+
+    // jet map
+    cv::Mat mask = wrapped_depth_im.clone();
+    cv::applyColorMap(wrapped_depth_im, wrapped_depth_im, cv::COLORMAP_JET);
 
     cv::Mat result = cv::Mat::zeros(depth_im.size(), CV_8UC3);
-    tmp_depth.copyTo(result, mask);
+    wrapped_depth_im.copyTo(result, mask);
 
-    cv::cvtColor(result, result, cv::COLOR_BGR2BGRA);
+    cv::cvtColor(result, result, cv::COLOR_BGR2RGBA);
 
     publish_key_frame_depth(resize(result));
 }

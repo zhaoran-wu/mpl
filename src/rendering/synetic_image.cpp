@@ -204,7 +204,7 @@ std::vector<cv::Mat> SyneticImage::renderingAt(const Eigen::Isometry3f& pose) {
     glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo_arr[0]);
     glBufferData(GL_PIXEL_PACK_BUFFER, camera.cols * camera.rows * 4 * sizeof(uchar), 0, GL_STREAM_READ);
     glReadBuffer(GL_BACK);
-    // use pbo, glReadPixles will return immedeatly, which allow
+    // use pbo, glReadPixels will return immedeatly, which allow
     // asynchronization
     glReadPixels(0, 0, camera.cols, camera.rows, GL_BGRA, GL_UNSIGNED_BYTE, 0);
 

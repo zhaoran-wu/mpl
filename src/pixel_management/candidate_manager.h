@@ -120,7 +120,7 @@ class CandidateManager {
     Frame::ptr newst_KF = nullptr;
     std::vector<Frame::ptr> key_frames;
     // add candidate covariance info
-    PixelSelector pixle_selector;
+    PixelSelector pixel_selector;
     // distance map
     DistanceMap dist_map;
     int min_dist_to_active = 5;

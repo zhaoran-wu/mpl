@@ -135,8 +135,8 @@ int main() {
         cm.update_depth_per_frame(curr_frame);
         auto& cans = cm.get_candidate(key_frame);
         for (const auto& can : cans) {
-            Eigen::Vector2i pixle(can.u, can.v);
-            Eigen::Vector3f P = key_frame->unproject(pixle, can.d_inv_synetic_im);
+            Eigen::Vector2i pixel(can.u, can.v);
+            Eigen::Vector3f P = key_frame->unproject(pixel, can.d_inv_synetic_im);
             Eigen::Vector2f p = curr_frame->project(in_out_T_curr_KF * P);
             cv::circle(im_to_vis, cv::Point2f(p(0), p(1)), 2, cv::Scalar(0, 0, 255), 2);
         }

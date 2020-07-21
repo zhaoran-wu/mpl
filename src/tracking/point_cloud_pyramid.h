@@ -15,6 +15,9 @@ struct Voxel {
 
     Eigen::Vector3f position;
     float intensity;
+    bool visible_for_newst_frame;
+    Eigen::Vector2f hit_pixel_in_newst_frame;
+    float depth_in_newst_frame;
 };
 
 typedef std::vector<Voxel> PointCloud;
