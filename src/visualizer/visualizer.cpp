@@ -59,12 +59,12 @@ void Visualizer::run() {
     while (true) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // disp3ay 3d
+        // display 3d
         view_3d.Activate(cam_3d);
         glColor4f(1.0, 1.0, 1.0, 1.0f);
         pangolin::glDrawColouredCube();
 
-        // display image
+        // display  curr frame and key frame depth
         if (curr_frame_changed) {  // double check trick to save time
             std::lock_guard<std::mutex> lg_curr_frame(curr_frame_mutex);
             if (curr_frame_changed) {
@@ -102,7 +102,6 @@ void Visualizer::publish_curr_frame_img(cv::Mat img) {
 void Visualizer::publish_key_frame_depth(cv::Mat img) {
     std::lock_guard<std::mutex> lg_key_frame_depth(key_frame_depth_mutex);
     this->key_frame_depth = img;
-    assert(img.channels() == 4);
     this->key_frame_depth_changed = true;
 }
 void Visualizer::draw_and_publish_curr_frame(std::shared_ptr<PointCloudPyramid> pcp, cv::Mat img,
@@ -120,51 +119,23 @@ void Visualizer::draw_and_publish_curr_frame(std::shared_ptr<PointCloudPyramid> 
 }
 
 void Visualizer::draw_and_publish_key_frame_depth(cv::Mat depth_im) {
-    cv::Mat depth_im_8UC1 = cv::Mat::zeros(depth_im.size(), CV_8UC1);
-    cv::Mat mask = cv::Mat(depth_im.size(), CV_8U, cv::Scalar(255));  // 0 indicate invalid pixel
-
-    std::vector<ushort> valid_depth_vec;
-    // compute lo and hi range of valid pixel
-    for (int r = 0; r < depth_im.rows; ++r) {
-        for (int c = 0; c < depth_im.cols; ++c) {
-            ushort depth = depth_im.at<ushort>(r, c);
-            if (std::isfinite(depth) && depth != 0) valid_depth_vec.push_back(depth);
-        }
-    }
-
-    const float lo_percent = 0.01f;
-    const float hi_percent = 0.99f;
-
-    std::nth_element(valid_depth_vec.begin(), valid_depth_vec.begin() + lo_percent * valid_depth_vec.size(),
-                     valid_depth_vec.end());
-    const ushort lo = valid_depth_vec[lo_percent * valid_depth_vec.size()];
-
-    std::nth_element(valid_depth_vec.begin(), valid_depth_vec.begin() + hi_percent * valid_depth_vec.size(),
-                     valid_depth_vec.end());
-
-    const ushort hi = valid_depth_vec[hi_percent * valid_depth_vec.size()];
+    cv::Mat tmp_depth = cv::Mat::zeros(depth_im.size(), CV_8UC1);
+    cv::Mat mask = tmp_depth.clone();
 
     for (int r = 0; r < depth_im.rows; ++r) {
         for (int c = 0; c < depth_im.cols; ++c) {
             ushort depth = depth_im.at<ushort>(r, c);
-            if (!std::isfinite(depth) || depth == 0) {
-                mask.at<uchar>(r, c) = 0;
-                continue;
-            } else if (depth < lo) {
-                depth_im_8UC1.at<uchar>(r, c) = 255;
-            } else if (depth > hi) {
-                depth_im_8UC1.at<uchar>(r, c) = 0;
-            } else {
-                depth_im_8UC1.at<uchar>(r, c) = 255 - 255 * (depth - lo) / float(hi - lo);
+            if (depth != 0) {
+                tmp_depth.at<uchar>(r, c) = 255 * std::pow((float)depth / std::numeric_limits<ushort>::max(), 0.7f);
+                mask.at<uchar>(r, c) = 255;
             }
         }
     }
 
-    cv::Mat color_img;
-    cv::applyColorMap(depth_im_8UC1, color_img, cv::COLORMAP_JET);
+    cv::applyColorMap(tmp_depth, tmp_depth, cv::COLORMAP_JET);
 
-    cv::Mat result;
-    color_img.copyTo(result, mask);
+    cv::Mat result = cv::Mat::zeros(depth_im.size(), CV_8UC3);
+    tmp_depth.copyTo(result, mask);
 
     cv::cvtColor(result, result, cv::COLOR_BGR2BGRA);
 
