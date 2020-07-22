@@ -4,10 +4,16 @@
 #include "point_cloud_pyramid.h"
 #include <algorithm>
 #include <opencv2/imgproc.hpp>
+#include <thread>
 
 namespace mpl {
 inline void check_and_change_config_according_to_menu(const pangolin::Var<bool>& menu_config, bool& project_config,
                                                       std::mutex& project_config_mutex);
+
+Visualizer::Visualizer() {
+    std::thread th(&Visualizer::run, std::ref(*this));
+    th.detach();
+}
 
 void Visualizer::init() {
     // img data

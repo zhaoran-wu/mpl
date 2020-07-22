@@ -17,7 +17,8 @@ class CamData;
 class Config;
 class Visualizer {
    public:
-    Visualizer() = default;
+    Visualizer();
+    Visualizer(const Visualizer&) = delete;
     void run();
     void close();
 

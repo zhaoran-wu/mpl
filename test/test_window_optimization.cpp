@@ -82,8 +82,6 @@ int main() {
     cv::Mat key_frame_vis = img_draw_vec[0];
 
     PhotometricBA pba;
-
-    std::future<void>f1 =  std::async(std::launch::async,&Visualizer::run,std::ref(*vis));
     
     for (size_t i = 1; i < img_vec.size(); ++i) {
 
@@ -123,5 +121,4 @@ int main() {
 
         }
     }
-    f1.get();
 }
