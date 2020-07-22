@@ -3,6 +3,7 @@
 #include "cam_data.h"
 #include "candidate_manager.h"
 #include "config.h"
+#include "debug.h"
 #include "synetic_image.h"
 #include <future>
 // clang-format off
@@ -19,23 +20,11 @@ bool is_newframe_KF(PointCloudPyramid::ptr pcp, const Sophus::SE3f& T_KF_curr, f
               << "   energy :" << energy << '\n';
     if (abs(T_KF_curr.angleY()) > 0.06 || T_KF_curr.log().norm() > 1.3 || energy > 350.f) return true;
 }
-/*
-template <typename... Args>
-using execute_func = void (*f)(Args...);
 
-template <typename... Args>
-void execute_accoding_to_config(bool project_config, std::mutex config_mutex, execute_func<Args...> f,
-                                const Args&... args) {
-    if (project_config) {
-        config_mutex.lock();
-        if (project_config) {
-            config_mutex.unlock();
-            f(args);
-            continue;
-        }
-        config_mutex.unlock();
-    }
-} */
+void show_debug_key_frame_synetic_img_alignment(cv::Mat frame_img, cv::Mat synetic_img) {
+    cv::imshow("synetic_img", synetic_img);
+    cv::waitKey(1);
+}
 
 int main() {
     std::string project_path = "/home/zhaoran/thesis_ws/mpl/project/";
@@ -135,10 +124,9 @@ int main() {
             th_draw_depth.detach();
 
             // visualization
-            /*             execute_accoding_to_config(config.DEBUG_KEY_FRAME_SYNETIC_IMAGE_ALIGNMENT,
-                                                   config.debug_key_frame_synetci_img_alignment_mutex,
-                                                   show_debug_key_frame_synetic_img_alignment, img_draw_vec[i],
-               syn_im_vec_curr[0]); */
+            debug::execute_func_according_to_config(
+                config.DEBUG_KEY_FRAME_SYNETIC_IMAGE_ALIGNMENT, config.debug_key_frame_synetci_img_alignment_mutex,
+                &show_debug_key_frame_synetic_img_alignment, img_draw_vec[i], syn_im_vec_curr[0]);
         }
     }
 }
