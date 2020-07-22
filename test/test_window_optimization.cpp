@@ -93,13 +93,13 @@ int main() {
         if (!tracker.tracking(curr_frame)) continue;
 
         // visualize tracking result
-        Sophus::SE3f T_curr_KF = get_src_to_dst_transform(curr_frame->get_ref_frame(), curr_frame);
-        std::thread th_draw(&Visualizer::draw_and_publish_curr_frame,std::ref(*vis),pcp,img_draw_vec[i],T_curr_KF);
+        std::thread th_draw(&Visualizer::draw_and_publish_curr_frame,std::ref(*vis),pcp,img_draw_vec[i],curr_frame->get_pose());
         th_draw.detach();
 
 
 
         // todo : a best way to choose KF
+        Sophus::SE3f T_curr_KF = get_src_to_dst_transform(curr_frame->get_ref_frame(), curr_frame);
         bool is_KF = is_newframe_KF(pcp, T_curr_KF, tracker.get_per_pixel_energy());
         if (is_KF) {
 

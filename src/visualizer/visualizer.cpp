@@ -29,13 +29,20 @@ void Visualizer::init() {
     pangolin::CreatePanel("menu").SetBounds(0.0, 1.0, 0.0, pangolin::Attach::Pix(UI_W));
 
     // add Camera Render Object (for view / scene browsing)
-    cam_3d = pangolin::OpenGlRenderState(pangolin::ProjectionMatrix(W, H, 600, 600, W / 2.0, H / 2.0, 0.1, 1000.0),
-                                         pangolin::ModelViewLookAt(0, -1, -2, 0, 0, 0, pangolin::AxisNegY));
+    cam_3d = pangolin::OpenGlRenderState(pangolin::ProjectionMatrix(W, H, 600, 600, W / 2.0, H / 2.0, 0.01, 1000.0),
+                                         pangolin::ModelViewLookAt(0, 10, -10, 0, 0, 0, pangolin::AxisNegY));
 
     // add 3D view(main)
     view_3d = pangolin::CreateDisplay()
                   .SetBounds(0.25, 1.0, pangolin::Attach::Pix(UI_W), 1.0, -W / H)
                   .SetHandler(new pangolin::Handler3D(cam_3d));
+
+    // data to draw the camera frame
+    float scale = 0.1f;
+    tl = unproject(cam_data, Eigen::Vector2i(0, 0), 1 / scale);
+    tr = unproject(cam_data, Eigen::Vector2i(img_cols - 1, 0), 1 / scale);
+    dl = unproject(cam_data, Eigen::Vector2i(0, img_rows - 1), 1 / scale);
+    dr = unproject(cam_data, Eigen::Vector2i(img_cols - 1, img_rows - 1), 1 / scale);
 }
 void Visualizer::run() {
     init();
@@ -57,23 +64,20 @@ void Visualizer::run() {
         .AddDisplay(view_curr_frame)
         .AddDisplay(view_key_frame_depth);
 
-    pangolin::OpenGlMatrix Twc;
-    Twc.SetIdentity();
-
     while (true) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // display 3d
         view_3d.Activate(cam_3d);
         glColor4f(1.0, 1.0, 1.0, 1.0f);
-        pangolin::glDrawColouredCube();
+        draw_cam();
 
         // display  curr frame and key frame depth
-        if (curr_frame_changed) {  // double check trick to save time
+        if (curr_frame_image_changed) {  // double check trick to save time
             std::lock_guard<std::mutex> lg_curr_frame(curr_frame_mutex);
-            if (curr_frame_changed) {
+            if (curr_frame_image_changed) {
                 tex_view_curr_frame.Upload(curr_frame_img.data, GL_BGRA, GL_UNSIGNED_BYTE);
-                curr_frame_changed = false;
+                curr_frame_image_changed = false;
             }
         }
 
@@ -118,10 +122,11 @@ inline void check_and_change_config_according_to_menu(const pangolin::Var<bool>&
     }
 }
 
-void Visualizer::publish_curr_frame_img(cv::Mat img) {
+void Visualizer::publish_curr_frame_img(cv::Mat img, const Sophus::SE3f& T_w_c_) {
     std::lock_guard<std::mutex> lg_curr_frame(curr_frame_mutex);
     this->curr_frame_img = img;
-    this->curr_frame_changed = true;
+    this->T_w_c = T_w_c_;
+    this->curr_frame_image_changed = true;
 }
 
 void Visualizer::publish_key_frame_depth(cv::Mat img) {
@@ -130,7 +135,7 @@ void Visualizer::publish_key_frame_depth(cv::Mat img) {
     this->key_frame_depth_changed = true;
 }
 void Visualizer::draw_and_publish_curr_frame(std::shared_ptr<PointCloudPyramid> pcp, cv::Mat img,
-                                             const Sophus::SE3f& T_curr_KF) {
+                                             const Sophus::SE3f& T_w_c_) {
     // compute statistic
     int point_size = pcp->operator[](0).size();
     std::vector<float> valid_depth_vec;
@@ -176,7 +181,7 @@ void Visualizer::draw_and_publish_curr_frame(std::shared_ptr<PointCloudPyramid> 
     depth_map.copyTo(result, mask);
 
     cv::cvtColor(result, result, cv::COLOR_BGR2RGBA);
-    publish_curr_frame_img(resize(result));
+    publish_curr_frame_img(resize(result), T_w_c_);
 }
 
 void Visualizer::draw_and_publish_key_frame_depth(cv::Mat depth_im) {
@@ -230,6 +235,45 @@ void Visualizer::draw_and_publish_key_frame_depth(cv::Mat depth_im) {
 inline cv::Mat Visualizer::resize(cv::Mat im) const {
     cv::resize(im, im, cv::Size(im.cols >> scale_factor, im.rows >> scale_factor));
     return im;
+}
+
+void Visualizer::draw_cam() {
+    glPushMatrix();
+    curr_frame_mutex.lock();
+    glMultMatrixf(T_w_c.matrix().data());
+    curr_frame_mutex.unlock();
+
+    glColor3f(0, 1.0f, 0);
+
+    glLineWidth(2);
+    glBegin(GL_LINES);
+
+    glVertex3f(0, 0, 0);
+    glVertex3f(tl(0), tl(1), tl(2));
+
+    glVertex3f(0, 0, 0);
+    glVertex3f(tr(0), tr(1), tr(2));
+
+    glVertex3f(0, 0, 0);
+    glVertex3f(dl(0), dl(1), dl(2));
+
+    glVertex3f(0, 0, 0);
+    glVertex3f(dr(0), dr(1), dr(2));
+
+    glVertex3f(tl(0), tl(1), tl(2));
+    glVertex3f(tr(0), tr(1), tr(2));
+
+    glVertex3f(tr(0), tr(1), tr(2));
+    glVertex3f(dr(0), dr(1), dr(2));
+
+    glVertex3f(dr(0), dr(1), dr(2));
+    glVertex3f(dl(0), dl(1), dl(2));
+
+    glVertex3f(dl(0), dl(1), dl(2));
+    glVertex3f(tl(0), tl(1), tl(2));
+
+    glEnd();
+    glPopMatrix();
 }
 
 }  // namespace mpl
