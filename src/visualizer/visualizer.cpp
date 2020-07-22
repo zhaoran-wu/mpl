@@ -44,7 +44,7 @@ void Visualizer::init() {
                   .SetHandler(new pangolin::Handler3D(cam_3d));
 
     // data to draw the camera frame
-    float scale = 0.1f;
+    float scale = 1.0f;
     tl = unproject(cam_data, Eigen::Vector2i(0, 0), 1 / scale);
     tr = unproject(cam_data, Eigen::Vector2i(img_cols - 1, 0), 1 / scale);
     dl = unproject(cam_data, Eigen::Vector2i(0, img_rows - 1), 1 / scale);
@@ -76,7 +76,7 @@ void Visualizer::run() {
         // display 3d
         view_3d.Activate(cam_3d);
         glColor4f(1.0, 1.0, 1.0, 1.0f);
-        draw_cam();
+        draw_curr_frame_cam();
 
         // display  curr frame and key frame depth
         if (curr_frame_image_changed) {  // double check trick to save time
@@ -140,6 +140,7 @@ void Visualizer::publish_key_frame_depth(cv::Mat img) {
     this->key_frame_depth = img;
     this->key_frame_depth_changed = true;
 }
+
 void Visualizer::draw_and_publish_curr_frame(std::shared_ptr<PointCloudPyramid> pcp, cv::Mat img,
                                              const Sophus::SE3f& T_w_c_) {
     // compute statistic
@@ -243,11 +244,18 @@ inline cv::Mat Visualizer::resize(cv::Mat im) const {
     return im;
 }
 
-void Visualizer::draw_cam() {
-    glPushMatrix();
+void Visualizer::draw_curr_frame_cam() {
+    Sophus::SE3f curr_pose;
     curr_frame_mutex.lock();
-    glMultMatrixf(T_w_c.matrix().data());
+    curr_pose = T_w_c;
     curr_frame_mutex.unlock();
+
+    draw_cam(curr_pose);
+}
+
+void Visualizer::draw_cam(const Sophus::SE3f& T_w_c_) {
+    glPushMatrix();
+    glMultMatrixf(T_w_c_.matrix().data());
 
     glColor3f(0, 1.0f, 0);
 

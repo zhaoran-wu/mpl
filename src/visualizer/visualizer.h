@@ -27,7 +27,8 @@ class Visualizer {
     void draw_and_publish_key_frame_depth(cv::Mat depth_im);
 
    private:
-    void draw_cam();
+    void draw_curr_frame_cam();
+    void draw_cam(const Sophus::SE3f& T_w_c);
     cv::Mat resize(cv::Mat im) const;
     void publish_key_frame_depth(cv::Mat img);
     void publish_curr_frame_img(cv::Mat img, const Sophus::SE3f& T_w_c);
