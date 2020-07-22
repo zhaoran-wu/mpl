@@ -1,4 +1,5 @@
 #include "candidate_manager.h"
+#include "debug.h"
 #include "pattern.h"
 #include <algorithm>
 #include <opencv2/highgui.hpp>
@@ -514,16 +515,9 @@ void CandidateManager::activate_candidate() {
             }
         }
     }
-
-    // visualization
-    if (config.DEBUG_DISTANCE_MAP) {
-        config.debug_distance_map_mutex.lock();
-        if (config.DEBUG_DISTANCE_MAP) {
-            config.debug_distance_map_mutex.unlock();
-            std::cout << "current active points num:   " << dist_map.get_num_obstacles() << '\n';
-            dist_map.show_distance_map_for_visualization(true);
-        }
-    }
+    // debug only run if required in config file or setting in the menu
+    debug::execute_accoding_to_config(config.DEBUG_DISTANCE_MAP, config.debug_distance_map_mutex,
+                                      &DistanceMap::show_distance_map_for_visualization, &dist_map, true);
 }
 PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
     PointCloudPyramid::ptr pcp(new PointCloudPyramid);  // todo : avoid allocaction every time

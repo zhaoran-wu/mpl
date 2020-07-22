@@ -32,6 +32,7 @@ void DistanceMap::show_distance_map_for_visualization(bool normalize) {
         distTransform.convertTo(distTransform, CV_8UC1);
         cv::applyColorMap(distTransform, distTransform, cv::COLORMAP_JET);
     }
+    std::cout << "current active points num:   " << get_num_obstacles() << '\n';
     cv::namedWindow("dist_map", cv::WINDOW_AUTOSIZE);
     cv::imshow("dist_map", distTransform);
     cv::waitKey(1);

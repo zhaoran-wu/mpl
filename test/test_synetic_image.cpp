@@ -29,6 +29,7 @@ int main() {
     cv::imwrite("/home/zhaoran/thesis_ws/mpl/test_data/1.depth.png", depth);
     // cv::waitKey(0) ;
     cv::Mat normal = sm.renderingAt(first_pose, mpl::RenderingMode::NORMAL);
+
     cv::imwrite("/home/zhaoran/thesis_ws/mpl/test_data/1.normal.png", normal);
 
     cv::Mat top_view = sm.renderingAt(first_pose, mpl::RenderingMode::TOP_VIEW);

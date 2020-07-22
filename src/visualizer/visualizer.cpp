@@ -7,7 +7,7 @@
 #include <thread>
 
 namespace mpl {
-inline void check_and_change_config_according_to_menu(const pangolin::Var<bool>& menu_config, bool& project_config,
+inline void check_and_change_config_according_to_menu(pangolin::Var<bool>& menu_config, bool& project_config,
                                                       std::mutex& project_config_mutex);
 
 Visualizer::Visualizer() {
@@ -54,8 +54,8 @@ void Visualizer::run() {
     init();
 
     // menu
-    pangolin::Var<bool> menuShowCurrentFrame("menu.Show Current Frame", true, true);
-    pangolin::Var<bool> menuDebugDistanceMap("menu.Show Distance Map", false, true);
+    pangolin::Var<bool> menuDebugDistanceMap("menu.Debug Distance Map", false, true);
+    pangolin::Var<bool> menuShowKeyFrameSyneticImageAlignment("menu.Debug Image Alignment", false, true);
 
     // add img view and set texture
     pangolin::View& view_curr_frame = pangolin::Display("curr frame").SetAspect(img_cols / img_rows);
@@ -71,6 +71,7 @@ void Visualizer::run() {
         .AddDisplay(view_key_frame_depth);
 
     while (true) {
+        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // display 3d
@@ -108,10 +109,14 @@ void Visualizer::run() {
         // other images showed by opencv
         check_and_change_config_according_to_menu(menuDebugDistanceMap, config->DEBUG_DISTANCE_MAP,
                                                   config->debug_distance_map_mutex);
+
+        check_and_change_config_according_to_menu(menuShowKeyFrameSyneticImageAlignment,
+                                                  config->DEBUG_KEY_FRAME_SYNETIC_IMAGE_ALIGNMENT,
+                                                  config->debug_key_frame_synetci_img_alignment_mutex);
     }
 }
 
-inline void check_and_change_config_according_to_menu(const pangolin::Var<bool>& menu_config, bool& project_config,
+inline void check_and_change_config_according_to_menu(pangolin::Var<bool>& menu_config, bool& project_config,
                                                       std::mutex& project_config_mutex) {
     if (menu_config && !project_config) {
         project_config_mutex.lock();

@@ -48,6 +48,9 @@ class Config {
     std::mutex debug_distance_map_mutex;
     bool DEBUG_DISTANCE_MAP = false;
 
+    std::mutex debug_key_frame_synetci_img_alignment_mutex;
+    bool DEBUG_KEY_FRAME_SYNETIC_IMAGE_ALIGNMENT = false;
+
     const int max_iteration_each_lvl[5] = {50, 30, 25, 20, 10};
     const float lamda_init_each_lvl[5] = {1e-8, 1e-5, 1e-1, 1, 1};  // very sensitive : e.g motion blur
     const float lamda_min_eahc_lvl[5] = {1e-14, 1e-10, 1e-9, 1e-7, 1e-7};
