@@ -10,7 +10,7 @@
 class GLFWwindow;
 namespace mpl {
 
-enum RenderingMode { PHTOMETRIC, DEPTH, NORMAL };
+enum RenderingMode { PHTOMETRIC, DEPTH, NORMAL, TOP_VIEW };
 
 class SyneticImage {
    public:
@@ -65,6 +65,7 @@ class SyneticImage {
     void rendering_photometric_image();
     void rendering_depth_image();
     void rendering_normal_image(const Eigen::Isometry3f& pose);
+    void rendering_top_view_image();
 
     Mesh mesh;  // all the ply and texture data
 
@@ -85,6 +86,7 @@ class SyneticImage {
     Eigen::Vector2f zn_zf;                //! z_near and z_far;
     Eigen::Matrix3f Rb_w;                 // ! world to body frame
     Eigen::Isometry3f extrinsic_T_c_cgl;  // ! opengl camera to body frame
+    Eigen::Isometry3f T_gl_top_gl;        //! use for top view, gl view camera to gl top view camera
 
     Sophus::SE3f start_T_w_c0;
 

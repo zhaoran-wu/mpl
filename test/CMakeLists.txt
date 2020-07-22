@@ -1,13 +1,13 @@
-#
-#add_executable(test_synetic_image test_synetic_image.cpp)
-#target_link_libraries(test_synetic_image
-#util
-#GLAD
-#/usr/lib/x86_64-linux-gnu/libglog.so
-#glfw
-#${PROJECT_NAME}_rendering
-#)
-#
+
+add_executable(test_synetic_image test_synetic_image.cpp)
+target_link_libraries(test_synetic_image
+util
+GLAD
+/usr/lib/x86_64-linux-gnu/libglog.so
+glfw
+${PROJECT_NAME}_rendering
+)
+
 #add_executable(test_ply test_read_ply.cpp)
 #target_link_libraries(test_ply
 #util

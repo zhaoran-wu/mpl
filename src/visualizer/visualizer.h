@@ -6,8 +6,8 @@
 
 /**
  * @brief : 1. visualize scene(e.g  point cloud, trajectory, ba window)
- *          2. show image (e.g synetic_im, drawed image, frame image)
- *          3. set param with panel
+ *          2. show image (e.g synetic_im, tracking result)
+ *          3. set param with menu: e.g if show a debug image
  *
  */
 namespace mpl {

@@ -69,6 +69,14 @@ void SyneticImage::preComputeParam() {
     Eigen::Matrix3f extrinsic_R_c_cgl;
     extrinsic_R_c_cgl << 1, 0, 0, 0, -1, 0, 0, 0, -1;
     extrinsic_T_c_cgl.rotate(extrinsic_R_c_cgl);
+
+    T_gl_top_gl = Eigen::Isometry3f::Identity();
+    Eigen::Matrix3f R_gl_top_gl = Eigen::Matrix3f::Identity();
+
+    R_gl_top_gl << 1, 0, 0, 0, 0, -1, 0, 1, 0;
+
+    T_gl_top_gl.rotate(R_gl_top_gl);
+    T_gl_top_gl.translation().z() -= 15;
 }
 
 void SyneticImage::setFrameBuffer() {
@@ -110,14 +118,20 @@ cv::Mat SyneticImage::renderingAt(const Eigen::Isometry3f& pose, const Rendering
     switch (mode) {
         case mpl::PHTOMETRIC: {
             rendering_photometric_image();
-        } break;
+            break;
+        }
         case mpl::DEPTH: {
             rendering_depth_image();
-
-        } break;
+            break;
+        }
         case mpl::NORMAL: {
             rendering_normal_image(pose);
-        } break;
+            break;
+        }
+        case mpl::TOP_VIEW: {
+            rendering_top_view_image();
+            break;
+        }
         default:
             break;
     }
@@ -185,6 +199,17 @@ inline void SyneticImage::rendering_normal_image(const Eigen::Isometry3f& pose) 
     normal_shader.set_uniform_mat_isometry("view", view);
     normal_shader.set_uniform_mat3("normal_R", pose.inverse().rotation().matrix());
     mesh.draw(normal_shader);
+}
+
+inline void SyneticImage::rendering_top_view_image() {
+    photometric_shader.active();
+    photometric_shader.set_uniform_mat4("projection", projection);
+
+    // top view transform
+    view = T_gl_top_gl * view;
+
+    photometric_shader.set_uniform_mat_isometry("view", view);
+    mesh.draw(photometric_shader);
 }
 
 void SyneticImage::set_start_pose(const Eigen::Isometry3f& pose) {

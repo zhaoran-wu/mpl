@@ -30,6 +30,9 @@ int main() {
     // cv::waitKey(0) ;
     cv::Mat normal = sm.renderingAt(first_pose, mpl::RenderingMode::NORMAL);
     cv::imwrite("/home/zhaoran/thesis_ws/mpl/test_data/1.normal.png", normal);
+
+    cv::Mat top_view = sm.renderingAt(first_pose, mpl::RenderingMode::TOP_VIEW);
+    cv::imwrite("/home/zhaoran/thesis_ws/mpl/test_data/1.top_view.png", top_view);
     // cv::imshow("normal",normal);
     // cv::waitKey(0);
     // sm.show(first_pose,mpl::RenderingMode::NORMAL);
