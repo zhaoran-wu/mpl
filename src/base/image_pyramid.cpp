@@ -1,7 +1,9 @@
 #include "image_pyramid.h"
 #include "../util/tictoc.h"
+#include "debug.h"
 #include <algorithm>
 #include <glog/logging.h>
+#include <opencv2/highgui.hpp>
 namespace mpl {
 ImagePyramid::ImagePyramid(const uchar* const row_data) {
     LOG_ASSERT(row_data != nullptr);
@@ -14,6 +16,57 @@ ImagePyramid::ImagePyramid(const uchar* const row_data) {
         parent_image = image_pyramid[lvl].get();
         build_derivative(lvl);
     }
+
+    debug::execute_mem_according_to_config(config.DEBUG_IMAGE_PYRAMID, config.debug_image_pyramid_mutex,
+                                           &ImagePyramid::draw_result, this);
+}
+
+void ImagePyramid::draw_result() const {
+    const int interval = 15;
+    cv::Size size_result_im(cam_data->width[0] + 2 * interval, cam_data->height[0] * 1.5 + 3 * interval);
+
+    cv::Mat im_result = cv::Mat::zeros(size_result_im, CV_8UC1);
+    cv::Mat dx_result = cv::Mat::zeros(size_result_im, CV_32FC1);
+    cv::Mat dy_result = cv::Mat::zeros(size_result_im, CV_32FC1);
+    cv::Mat mag2_result = cv::Mat::zeros(size_result_im, CV_32FC1);
+
+    int l = interval, u = interval;
+
+    for (int lvl = 0; lvl < image_pyramid.size(); ++lvl) {
+        cv::Size size_im(cam_data->width[lvl], cam_data->height[lvl]);
+        cv::Mat im(size_im, CV_8UC1);
+        cv::Mat dx_im(size_im, CV_32FC1);
+        cv::Mat dy_im(size_im, CV_32FC1);
+        cv::Mat mag2_im(size_im, CV_32FC1);
+
+        cv::Rect roi(l, u, cam_data->width[lvl], cam_data->height[lvl]);
+
+        cv::rectangle(im_result, roi, cv::Scalar(255, 0, 0), 2);
+
+        im.data = data(lvl).get();
+        dx_im.data = (uchar*)dx(lvl).get();
+        dy_im.data = (uchar*)dy(lvl).get();
+        mag2_im.data = (uchar*)mag_squared(lvl).get();
+
+        // copy child to father
+        im.copyTo(im_result(roi));
+        dx_im.copyTo(dx_result(roi));
+        dy_im.copyTo(dy_result(roi));
+        mag2_im.copyTo(mag2_result(roi));
+
+        // change child img location
+        if (lvl & 0x1) {
+            l += cam_data->width[lvl] + interval;
+        } else {
+            u += cam_data->height[lvl] + interval;
+        }
+    }
+
+    cv::imshow("im pyramid", im_result);
+    cv::imshow("dx pyramid", dx_result);
+    cv::imshow("dy pyramid", dy_result);
+    cv::imshow("mag2 pyramid", mag2_result);
+    cv::waitKey(1);
 }
 
 // generate image pyramid:  parent ---(samping)---> child

@@ -3,6 +3,7 @@
 #include "config.h"
 #include <iostream>
 #include <memory>
+#include <opencv2/imgproc.hpp>
 #include <vector>
 namespace mpl {
 typedef unsigned char uchar;
@@ -30,10 +31,10 @@ class ImagePyramid {
     // dx,dy: derivative in x and y direction
     // mag_squared: squared magitude image
     // lvl: 0 is the biggst image lvl
-    uchar_ptr data(const int lvl);
-    float_ptr dx(const int lvl);
-    float_ptr dy(const int lvl);
-    float_ptr mag_squared(const int lvl);
+    uchar_ptr data(const int lvl) const;
+    float_ptr dx(const int lvl) const;
+    float_ptr dy(const int lvl) const;
+    float_ptr mag_squared(const int lvl) const;
 
     // get value per pixel at lvl
     uchar at(const int u, const int v, const int lvl = 0) const;
@@ -60,24 +61,26 @@ class ImagePyramid {
     std::vector<float_ptr> mag2_pyramid;  // dx^2 + dy^2
 
     CamData* cam_data;
+
+    void draw_result() const;
 };
 
 //########################################################//
 //#####################implementation#####################//
 
-inline ImagePyramid::uchar_ptr ImagePyramid::data(const int lvl) {
+inline ImagePyramid::uchar_ptr ImagePyramid::data(const int lvl) const {
     return this->image_pyramid[lvl];
 }
 
-inline ImagePyramid::float_ptr ImagePyramid::dx(const int lvl) {
+inline ImagePyramid::float_ptr ImagePyramid::dx(const int lvl) const {
     return this->dx_pyramid[lvl];
 }
 
-inline ImagePyramid::float_ptr ImagePyramid::dy(const int lvl) {
+inline ImagePyramid::float_ptr ImagePyramid::dy(const int lvl) const {
     return this->dy_pyramid[lvl];
 }
 
-inline ImagePyramid::float_ptr ImagePyramid::mag_squared(const int lvl) {
+inline ImagePyramid::float_ptr ImagePyramid::mag_squared(const int lvl) const {
     return this->mag2_pyramid[lvl];
 }
 

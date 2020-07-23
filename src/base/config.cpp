@@ -32,6 +32,7 @@ bool Config::readYamlFile(const std::string& file_path) {
     return true;
 }
 
+// todo make sure thread safe : lock all the child mutex together ?
 Config& Config::getInstance() {
     static Config unique_config;
     return unique_config;
