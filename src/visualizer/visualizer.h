@@ -25,6 +25,11 @@ class Visualizer {
     void draw_and_publish_curr_frame(std::shared_ptr<PointCloudPyramid> pcp, cv::Mat img, const Sophus::SE3f& T_w_c);
 
     void draw_and_publish_key_frame_depth(cv::Mat depth_im);
+    // stop main thread
+    // this function need to call in the main thread's main loop
+    void stop_or_start_according_to_pangolin_menu();
+    std::mutex stop_main_thread_mutex;
+    bool stop_main_thread = false;
 
    private:
     void draw_curr_frame_cam();
@@ -33,7 +38,6 @@ class Visualizer {
     void publish_key_frame_depth(cv::Mat img);
     void publish_curr_frame_img(cv::Mat img, const Sophus::SE3f& T_w_c);
     void init();
-    bool should_stop = false;
 
     // curr frame
     std::mutex curr_frame_mutex;

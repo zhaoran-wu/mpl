@@ -3,6 +3,7 @@
 #include "frame.h"
 #include "point_cloud_pyramid.h"
 #include <algorithm>
+#include <chrono>
 #include <opencv2/imgproc.hpp>
 #include <thread>
 
@@ -54,6 +55,7 @@ void Visualizer::run() {
     init();
 
     // menu
+    pangolin::Var<bool> menuStop("menu.Stop", false, true);
     pangolin::Var<bool> menuDebugDistanceMap("menu.Debug Distance Map", false, true);
     pangolin::Var<bool> menuShowKeyFrameSyneticImageAlignment("menu.Debug Image Alignment", false, true);
     pangolin::Var<bool> menuDebugPixelSelection("menu.Debug Pixel Selection", false, true);
@@ -109,6 +111,7 @@ void Visualizer::run() {
         pangolin::FinishFrame();
 
         // other images showed by opencv
+        check_and_change_config_according_to_menu(menuStop, this->stop_main_thread, this->stop_main_thread_mutex);
         check_and_change_config_according_to_menu(menuDebugDistanceMap, config->DEBUG_DISTANCE_MAP,
                                                   config->debug_distance_map_mutex);
 
@@ -302,4 +305,12 @@ void Visualizer::draw_cam(const Sophus::SE3f& T_w_c_) {
     glPopMatrix();
 }
 
+void Visualizer::stop_or_start_according_to_pangolin_menu() {
+    std::unique_lock<std::mutex> ul(stop_main_thread_mutex);
+    while (stop_main_thread) {
+        ul.unlock();
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+        ul.lock();
+    }
+}
 }  // namespace mpl

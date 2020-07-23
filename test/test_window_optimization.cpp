@@ -45,6 +45,11 @@ void show_debug_key_frame_synetic_img_alignment(cv::Mat frame_img, cv::Mat synet
     std::cout << "  diff sum :" << diff_sum << " num pixel : " << num_pixel << " average diff " << diff_sum / num_pixel
               << '\n';
 
+    cv::vconcat(result, frame_img_single_channel, result);
+    cv::vconcat(result, synetic_img_single_channel, result);
+
+    cv::resize(result, result, cv::Size(result.cols / 1.5, result.rows / 1.5));
+
     cv::imshow("alignment result", result);
     cv::waitKey(1);
 }
@@ -114,6 +119,7 @@ int main() {
     PhotometricBA pba;
 
     for (size_t i = off_set + 1; i < img_vec.size(); ++i) {
+        vis->stop_or_start_according_to_pangolin_menu();
         // cv::imshow("frame", key_frame_vis);
         // cv::imshow("synetic", syn_im_vec_curr[0]);
         debug::execute_func_according_to_config(
