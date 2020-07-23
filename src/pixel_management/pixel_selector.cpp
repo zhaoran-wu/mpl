@@ -38,11 +38,38 @@ int PixelSelector::select(ImagePyramid::ptr pyramid_ptr, std::vector<Eigen::Vect
     if (is_finish) {
         std::move(candidates.begin(), candidates.end(), std::back_inserter(candidates_out));
 
-        LOG(INFO) << "PIXEL SELECTION :" << this->candidates.size() << " is selected" << '\n'
-                  << "time cost : " << time_cost / 1000.0f << " ms";
+        debug::execute_mem_according_to_config(config->DEBUG_PIXEL_SELECTION, config->debug_pixel_selection_mutex,
+                                               &PixelSelector::draw_result, this, candidates_out, pyramid_ptr,
+                                               time_cost);
+
         return this->candidates.size();
     }
     return 0;
+}
+
+void PixelSelector::draw_result(const std::vector<Eigen::Vector3i>& candidates, ImagePyramid::ptr pyramid_ptr,
+                                const float time_cost) const {
+    cv::Mat raw_im(cam->height[0], cam->width[0], CV_8UC1);
+    raw_im.data = pyramid_ptr->data(0).get();
+    cv::Mat result;
+    cv::cvtColor(raw_im, result, CV_GRAY2BGR);
+
+    for (const auto& can : candidates) {
+        cv::Scalar color;
+        if (can(2) == 0) {
+            color = cv::Scalar(0, 255, 0);
+        } else if (can(2) == 1) {
+            color = cv::Scalar(255, 0, 0);
+        } else {
+            color = cv::Scalar(0, 0, 255);
+        }
+
+        cv::circle(result, cv::Point(can(0), can(1)), 1, color, 2);
+    }
+    cv::imshow("pixle selection", result);
+    LOG(INFO) << "PIXEL SELECTION :" << this->candidates.size() << " is selected" << '\n'
+              << "time cost : " << time_cost / 1000.0f << " ms";
+    cv::waitKey(1);
 }
 
 void PixelSelector::fill_thresh_map() {

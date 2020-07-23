@@ -56,6 +56,7 @@ void Visualizer::run() {
     // menu
     pangolin::Var<bool> menuDebugDistanceMap("menu.Debug Distance Map", false, true);
     pangolin::Var<bool> menuShowKeyFrameSyneticImageAlignment("menu.Debug Image Alignment", false, true);
+    pangolin::Var<bool> menuDebugPixelSelection("menu.Debug Pixel Selection", false, true);
 
     // add img view and set texture
     pangolin::View& view_curr_frame = pangolin::Display("curr frame").SetAspect(img_cols / img_rows);
@@ -113,6 +114,8 @@ void Visualizer::run() {
         check_and_change_config_according_to_menu(menuShowKeyFrameSyneticImageAlignment,
                                                   config->DEBUG_KEY_FRAME_SYNETIC_IMAGE_ALIGNMENT,
                                                   config->debug_key_frame_synetci_img_alignment_mutex);
+        check_and_change_config_according_to_menu(menuDebugPixelSelection, config->DEBUG_PIXEL_SELECTION,
+                                                  config->debug_pixel_selection_mutex);
     }
 }
 

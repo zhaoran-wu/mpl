@@ -1,5 +1,6 @@
 #pragma once
 #include "config.h"
+#include "debug.h"
 #include "image_pyramid.h"
 #include <Eigen/Core>
 #include <memory>
@@ -92,6 +93,9 @@ class PixelSelector {
     std::vector<Eigen::Vector3i> candidates;
 
     int recursive_count;
+
+    void draw_result(const std::vector<Eigen::Vector3i>& candidates, ImagePyramid::ptr pyramid_ptr,
+                     const float time_cost) const;
 };
 
 //########################################################//
