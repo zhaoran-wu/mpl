@@ -39,12 +39,12 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
         }
     }
     // detect if tracking failed
-    if (min_energy / point_cloud_pyramid_->operator[](lvls - 1).size() > 800) {
-        ++this->failaure_cnt;
-        return false;
-    } else {
-        failaure_cnt = 0;
-    }
+    // if (min_energy / point_cloud_pyramid_->operator[](lvls - 1).size() > 800) {
+    //    ++this->failaure_cnt;
+    //    return false;
+    //} else {
+    //    failaure_cnt = 0;
+    //}
 
     std::cout << "best movement idx : " << idx << '\n';
     init_pose = movement_prediction[idx] * T_last_lastKF;
@@ -70,14 +70,14 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
         }
         min_energy = optimizer.solve(iterations, lamda_init, lamda_min, huber_radius);
     }
-    LOG(INFO) << "tracking use time : " << tictoc::toc() / 1000.f << "ms";
-    std::cout << "final energy per pixel :" << min_energy / point_cloud_pyramid_->operator[](0).size() << '\n';
-    if (min_energy / point_cloud_pyramid_->operator[](0).size() > 450) {
-        ++this->failaure_cnt;
-        return false;
-    } else {
-        failaure_cnt = 0;
-    }
+    // LOG(INFO) << "tracking use time : " << tictoc::toc() / 1000.f << "ms";
+    // std::cout << "final energy per pixel :" << min_energy / point_cloud_pyramid_->operator[](0).size() << '\n';
+    // if (min_energy / point_cloud_pyramid_->operator[](0).size() > 450) {
+    //    ++this->failaure_cnt;
+    //    return false;
+    //} else {
+    //    failaure_cnt = 0;
+    //}
     per_pixel_energy = min_energy / point_cloud_pyramid_->operator[](0).size();
     Sophus::SE3f T_curr_lastKF = optimizer.getT();
     AffineLight aff_curr_lastKF = optimizer.getAffineLight();

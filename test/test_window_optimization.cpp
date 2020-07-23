@@ -22,7 +22,30 @@ bool is_newframe_KF(PointCloudPyramid::ptr pcp, const Sophus::SE3f& T_KF_curr, f
 }
 
 void show_debug_key_frame_synetic_img_alignment(cv::Mat frame_img, cv::Mat synetic_img) {
-    cv::imshow("synetic_img", synetic_img);
+    cv::Mat abs_diff_img;
+    cv::Mat synetic_img_single_channel, frame_img_single_channel;
+
+    cv::cvtColor(synetic_img, synetic_img_single_channel, CV_RGBA2GRAY);
+    cv::cvtColor(frame_img, frame_img_single_channel, CV_RGB2GRAY);
+
+    cv::absdiff(frame_img_single_channel, synetic_img_single_channel, abs_diff_img);
+
+    cv::Mat mask = synetic_img_single_channel.clone();
+
+    cv::threshold(mask, mask, 1, 1, cv::THRESH_BINARY);
+
+    cv::Mat result;
+
+    abs_diff_img.copyTo(result, mask);
+
+    double num_pixel = cv::sum(mask)[0];
+
+    double diff_sum = cv::sum(result)[0];
+
+    std::cout << "  diff sum :" << diff_sum << " num pixel : " << num_pixel << " average diff " << diff_sum / num_pixel
+              << '\n';
+
+    cv::imshow("alignment result", result);
     cv::waitKey(1);
 }
 
@@ -68,11 +91,12 @@ int main() {
     // 2. generate point cloud pyramid on newst frame for tracking
 
     // system begin
+    int start_idx = 0;  // 20
+    synetic_image.set_start_pose(pose.atIndex(start_idx));
+    Sophus::SE3f render_pose = Sophus::SE3f::transZ(0.0);
 
-    synetic_image.set_start_pose(pose.atIndex(0));
-    Sophus::SE3f render_pose = Sophus::SE3f(Eigen::Quaternionf::Identity(), Eigen::Vector3f(0, 0, 0));
-
-    Frame::ptr key_frame = Frame::create(img_vec[0]);
+    int off_set = 0;  // 80
+    Frame::ptr key_frame = Frame::create(img_vec[off_set]);
     std::vector<cv::Mat> syn_im_vec_curr = synetic_image.renderingAt(render_pose);
     std::shared_ptr<Visualizer> vis(new Visualizer);
     CandidateManager cm(vis);
@@ -85,11 +109,18 @@ int main() {
     tracker.set_tracking_ref(key_frame, pcp);
 
     // draw candidates before and after tracking
-    cv::Mat key_frame_vis = img_draw_vec[0];
+    cv::Mat key_frame_vis = img_draw_vec[off_set];
 
     PhotometricBA pba;
 
-    for (size_t i = 1; i < img_vec.size(); ++i) {
+    for (size_t i = off_set + 1; i < img_vec.size(); ++i) {
+        cv::imshow("frame", key_frame_vis);
+        cv::imshow("synetic", syn_im_vec_curr[0]);
+        debug::execute_func_according_to_config(
+            config.DEBUG_KEY_FRAME_SYNETIC_IMAGE_ALIGNMENT, config.debug_key_frame_synetci_img_alignment_mutex,
+            &show_debug_key_frame_synetic_img_alignment, key_frame_vis, syn_im_vec_curr[0]);
+        cv::waitKey(0);
+
         Frame::ptr curr_frame = Frame::create(img_vec[i]);
 
         // if tracking failed(due to e.g over exposure), throw this frame just away
@@ -104,6 +135,7 @@ int main() {
         Sophus::SE3f T_curr_KF = get_src_to_dst_transform(curr_frame->get_ref_frame(), curr_frame);
         bool is_KF = is_newframe_KF(pcp, T_curr_KF, tracker.get_per_pixel_energy());
         if (is_KF) {
+            key_frame_vis = img_draw_vec[i];
             // rendering at new key frame's pose
             render_pose = curr_frame->get_pose();
             syn_im_vec_curr = synetic_image.renderingAt(render_pose);
@@ -122,11 +154,6 @@ int main() {
             std::thread th_draw_depth(&Visualizer::draw_and_publish_key_frame_depth, std::ref(*vis),
                                       syn_im_vec_curr[1]);
             th_draw_depth.detach();
-
-            // visualization
-            debug::execute_func_according_to_config(
-                config.DEBUG_KEY_FRAME_SYNETIC_IMAGE_ALIGNMENT, config.debug_key_frame_synetci_img_alignment_mutex,
-                &show_debug_key_frame_synetic_img_alignment, img_draw_vec[i], syn_im_vec_curr[0]);
         }
     }
 }
