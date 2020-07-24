@@ -1,6 +1,7 @@
 #pragma once
 #include <opencv2/highgui.hpp>
 #include <pangolin/pangolin.h>
+#include <point_cloud_pyramid.h>
 #include <sophus/se3.hpp>
 #include <string>
 
@@ -22,9 +23,13 @@ class Visualizer {
     void run();
     void close();
 
-    void draw_and_publish_curr_frame(std::shared_ptr<PointCloudPyramid> pcp, cv::Mat img, const Sophus::SE3f& T_w_c);
+    // called in main thread
+    void publish_curr_frame_tracking_info(std::shared_ptr<PointCloudPyramid> pcp, cv::Mat img,
+                                          const Sophus::SE3f& T_w_c, const Sophus::SE3f& T_c_kf);
 
+    // called in main thread
     void draw_and_publish_key_frame_depth(cv::Mat depth_im);
+
     // stop main thread
     // this function need to call in the main thread's main loop
     void stop_or_start_according_to_pangolin_menu();
@@ -32,17 +37,21 @@ class Visualizer {
     bool stop_main_thread = false;
 
    private:
+    void draw_tracking_point_cloud();
     void draw_curr_frame_cam();
+
     void draw_cam(const Sophus::SE3f& T_w_c);
     cv::Mat resize(cv::Mat im) const;
-    void publish_key_frame_depth(cv::Mat img);
-    void publish_curr_frame_img(cv::Mat img, const Sophus::SE3f& T_w_c);
+    void set_key_frame_depth(cv::Mat img);
+    void set_curr_frame_tracking_info(cv::Mat img, const Sophus::SE3f& T_w_c, const Sophus::SE3f& T_c_kf);
     void init();
 
     // curr frame
     std::mutex curr_frame_mutex;
     cv::Mat curr_frame_img;
     Sophus::SE3f T_w_c;
+    Sophus::SE3f T_c_kf;
+    std::vector<Voxel> pcd;
     bool curr_frame_image_changed = false;
 
     // key frame depth

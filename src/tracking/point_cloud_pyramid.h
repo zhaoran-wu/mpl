@@ -7,6 +7,8 @@
 namespace mpl {
 
 struct Voxel {
+    Voxel() = default;
+
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     Voxel(const Eigen::Vector3f& position, const float intensity) {
         this->position = position;

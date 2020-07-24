@@ -1,7 +1,6 @@
 #include "visualizer.h"
 #include "cam_data.h"
 #include "frame.h"
-#include "point_cloud_pyramid.h"
 #include <algorithm>
 #include <chrono>
 #include <opencv2/imgproc.hpp>
@@ -37,7 +36,7 @@ void Visualizer::init() {
 
     // add Camera Render Object (for view / scene browsing)
     cam_3d = pangolin::OpenGlRenderState(pangolin::ProjectionMatrix(W, H, 600, 600, W / 2.0, H / 2.0, 0.01, 1000.0),
-                                         pangolin::ModelViewLookAt(0, 10, -10, 0, 0, 0, pangolin::AxisNegY));
+                                         pangolin::ModelViewLookAt(0, -10, -15, 0, 0, 0, pangolin::AxisNegY));
 
     // add 3D view(main)
     view_3d = pangolin::CreateDisplay()
@@ -61,7 +60,7 @@ void Visualizer::run() {
     pangolin::Var<bool> menuDebugPixelSelection("menu.Debug Pixel Selection", false, true);
     pangolin::Var<bool> menuDebugImagePyramid("menu.Debug Image Pydamid", false, true);
     pangolin::Var<bool> menuDebugCoarseToFineTracking("menu.Debug Pyramid Tracking", false, true);
-    pangolin::Var<bool> menuDebugDepthSafeMask("menu.Debug Depth Safe Mask Tracking", false, true);
+    pangolin::Var<bool> menuDebugDepthSafeMask("menu.Debug Depth Safe Mask", false, true);
 
     // add img view and set texture
     pangolin::View& view_curr_frame = pangolin::Display("curr frame").SetAspect(img_cols / img_rows);
@@ -82,7 +81,7 @@ void Visualizer::run() {
 
         // display 3d
         view_3d.Activate(cam_3d);
-        glColor4f(1.0, 1.0, 1.0, 1.0f);
+        draw_tracking_point_cloud();
         draw_curr_frame_cam();
 
         // display  curr frame and key frame depth
@@ -151,27 +150,33 @@ inline void check_and_change_config_according_to_menu(pangolin::Var<bool>& menu_
     }
 }
 
-void Visualizer::publish_curr_frame_img(cv::Mat img, const Sophus::SE3f& T_w_c_) {
+void Visualizer::set_curr_frame_tracking_info(cv::Mat img, const Sophus::SE3f& T_w_c_, const Sophus::SE3f& T_c_kf) {
     std::lock_guard<std::mutex> lg_curr_frame(curr_frame_mutex);
     this->curr_frame_img = img;
     this->T_w_c = T_w_c_;
     this->curr_frame_image_changed = true;
+    this->T_c_kf = T_c_kf;
 }
 
-void Visualizer::publish_key_frame_depth(cv::Mat img) {
+void Visualizer::set_key_frame_depth(cv::Mat img) {
     std::lock_guard<std::mutex> lg_key_frame_depth(key_frame_depth_mutex);
     this->key_frame_depth = img;
     this->key_frame_depth_changed = true;
 }
 
-void Visualizer::draw_and_publish_curr_frame(std::shared_ptr<PointCloudPyramid> pcp, cv::Mat img,
-                                             const Sophus::SE3f& T_w_c_) {
+void Visualizer::publish_curr_frame_tracking_info(std::shared_ptr<PointCloudPyramid> pcp, cv::Mat img,
+                                                  const Sophus::SE3f& T_w_c_, const Sophus::SE3f& T_c_kf) {
     // compute statistic
-    int point_size = pcp->operator[](0).size();
+    curr_frame_mutex.lock();
+    this->pcd.resize(pcp->operator[](0).size());
+    std::copy(pcp->operator[](0).begin(), pcp->operator[](0).end(), pcd.begin());
+    curr_frame_mutex.unlock();
+
+    int point_size = pcd.size();
     std::vector<float> valid_depth_vec;
     valid_depth_vec.reserve(point_size);
 
-    for (const auto& point : pcp->operator[](0)) {
+    for (const auto& point : pcd) {
         if (!point.visible_for_newst_frame) continue;
         if (isfinite(point.depth_in_newst_frame) && point.depth_in_newst_frame > 1e-10) {
             valid_depth_vec.push_back(point.depth_in_newst_frame);
@@ -189,7 +194,7 @@ void Visualizer::draw_and_publish_curr_frame(std::shared_ptr<PointCloudPyramid> 
     cv::Mat result = img.clone();
     cv::Mat depth_map = cv::Mat(result.size(), CV_8UC1, cv::Scalar(0));
 
-    for (auto& point : pcp->operator[](0)) {
+    for (const auto& point : pcd) {
         if (!point.visible_for_newst_frame) continue;
         Eigen::Vector2f hit_pixel = point.hit_pixel_in_newst_frame;
 
@@ -209,7 +214,26 @@ void Visualizer::draw_and_publish_curr_frame(std::shared_ptr<PointCloudPyramid> 
     depth_map.copyTo(result, mask);
 
     cv::cvtColor(result, result, cv::COLOR_BGR2RGBA);
-    publish_curr_frame_img(resize(result), T_w_c_);
+    set_curr_frame_tracking_info(resize(result), T_w_c_, T_c_kf);
+}
+
+void Visualizer::draw_tracking_point_cloud() {
+    this->curr_frame_mutex.lock();
+    std::vector<Voxel> point_cloud(pcd.size());
+    std::copy(pcd.begin(), pcd.end(), point_cloud.begin());
+    const Sophus::SE3f T_w_kf = this->T_w_c * this->T_c_kf;
+    this->curr_frame_mutex.unlock();
+
+    glPointSize(4.0f);
+    glBegin(GL_POINTS);
+
+    glColor4f(0.0f, 1.0f, 0.0f, 1.0f);
+    for (auto& point : pcd) {
+        if (!point.visible_for_newst_frame) continue;
+        Eigen::Vector3f P_w = T_w_kf * point.position;
+        glVertex3f(P_w(0), P_w(1), P_w(2));
+    }
+    glEnd();
 }
 
 void Visualizer::draw_and_publish_key_frame_depth(cv::Mat depth_im) {
@@ -255,7 +279,7 @@ void Visualizer::draw_and_publish_key_frame_depth(cv::Mat depth_im) {
 
     cv::cvtColor(result, result, cv::COLOR_BGR2RGBA);
 
-    publish_key_frame_depth(resize(result));
+    set_key_frame_depth(resize(result));
 }
 
 inline cv::Mat Visualizer::resize(cv::Mat im) const {
@@ -276,9 +300,9 @@ void Visualizer::draw_cam(const Sophus::SE3f& T_w_c_) {
     glPushMatrix();
     glMultMatrixf(T_w_c_.matrix().data());
 
-    glColor3f(0, 1.0f, 0);
+    glColor3f(1.0f, 0, 0);
 
-    glLineWidth(2);
+    glLineWidth(3);
     glBegin(GL_LINES);
 
     glVertex3f(0, 0, 0);

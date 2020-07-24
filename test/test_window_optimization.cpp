@@ -132,13 +132,13 @@ int main() {
         // if tracking failed(due to e.g over exposure), throw this frame just away
         if (!tracker.tracking(curr_frame)) continue;
 
+        Sophus::SE3f T_curr_KF = get_src_to_dst_transform(curr_frame->get_ref_frame(), curr_frame);
         // visualize tracking result
-        std::thread th_draw(&Visualizer::draw_and_publish_curr_frame, std::ref(*vis), pcp, img_draw_vec[i],
-                            curr_frame->get_pose());
+        std::thread th_draw(&Visualizer::publish_curr_frame_tracking_info, std::ref(*vis), pcp, img_draw_vec[i],
+                            curr_frame->get_pose(), T_curr_KF);
         th_draw.detach();
 
         // todo : a best way to choose KF
-        Sophus::SE3f T_curr_KF = get_src_to_dst_transform(curr_frame->get_ref_frame(), curr_frame);
         bool is_KF = is_newframe_KF(pcp, T_curr_KF, tracker.get_per_pixel_energy());
         if (is_KF) {
             key_frame_vis = img_draw_vec[i];
