@@ -42,7 +42,7 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
         }
     }
     // detect if tracking failed
-    if (min_energy / point_cloud_pyramid_->operator[](lvls - 1).size() > 800) {
+    if (min_energy / point_cloud_pyramid_->operator[](lvls - 1).size() > 1200) {
         ++this->failaure_cnt;
         return false;
     } else {
@@ -85,7 +85,7 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
         config.DEBUG_COARSE_TO_FINE_TRACKING, config.debug_coarse_to_fine_tracking_mutex, &Tracker::draw_result, this,
         point_cloud_pyramid_, T_curr_lastKF_pyramid, to_track_frame, time_cost, energy_vec);
 
-    if (min_energy / point_cloud_pyramid_->operator[](0).size() > 450) {
+    if (min_energy / point_cloud_pyramid_->operator[](0).size() > 1800) {
         ++this->failaure_cnt;
         return false;
     } else {

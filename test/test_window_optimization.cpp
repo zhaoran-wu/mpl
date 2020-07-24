@@ -124,7 +124,7 @@ int main() {
         // cv::imshow("synetic", syn_im_vec_curr[0]);
         debug::execute_func_according_to_config(
             config.DEBUG_KEY_FRAME_SYNETIC_IMAGE_ALIGNMENT, config.debug_key_frame_synetci_img_alignment_mutex,
-            &show_debug_key_frame_synetic_img_alignment, key_frame_vis, syn_im_vec_curr[0]);
+            show_debug_key_frame_synetic_img_alignment, key_frame_vis, syn_im_vec_curr[0]);
         // cv::waitKey(0);
 
         Frame::ptr curr_frame = Frame::create(img_vec[i]);

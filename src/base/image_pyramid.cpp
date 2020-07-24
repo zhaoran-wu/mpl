@@ -41,18 +41,28 @@ void ImagePyramid::draw_result() const {
 
         cv::Rect roi(l, u, cam_data->width[lvl], cam_data->height[lvl]);
 
-        cv::rectangle(im_result, roi, cv::Scalar(255, 0, 0), 2);
-
         im.data = data(lvl).get();
         dx_im.data = (uchar*)dx(lvl).get();
         dy_im.data = (uchar*)dy(lvl).get();
         mag2_im.data = (uchar*)mag_squared(lvl).get();
 
+        cv::Mat dx_clone = dx_im.clone();
+        cv::Mat dy_clone = dy_im.clone();
+        cv::Mat mag2_clone = mag2_im.clone();
+
+        // normalize
+        cv::normalize(dx_clone, dx_clone, 0, 1, cv::NORM_MINMAX);
+        cv::normalize(dy_clone, dy_clone, 0, 1, cv::NORM_MINMAX);
+        cv::normalize(mag2_clone, mag2_clone, 0, 1, cv::NORM_MINMAX);
+
+        // draw while frame
+        cv::rectangle(im_result, roi, cv::Scalar(255, 0, 0), 2);
+        cv::rectangle(mag2_result, roi, cv::Scalar(1), 2);
         // copy child to father
         im.copyTo(im_result(roi));
-        dx_im.copyTo(dx_result(roi));
-        dy_im.copyTo(dy_result(roi));
-        mag2_im.copyTo(mag2_result(roi));
+        dx_clone.copyTo(dx_result(roi));
+        dy_clone.copyTo(dy_result(roi));
+        mag2_clone.copyTo(mag2_result(roi));
 
         // change child img location
         if (lvl & 0x1) {

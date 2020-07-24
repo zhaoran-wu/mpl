@@ -60,6 +60,9 @@ class Config {
     std::mutex debug_coarse_to_fine_tracking_mutex;
     bool DEBUG_COARSE_TO_FINE_TRACKING = false;
 
+    std::mutex debug_depth_safe_mask_mutex;
+    bool DEBUG_DEPTH_SAFE_MASK = false;
+
     // std::mutex debug_pixel_selection_mutex;
     // bool DEBUG_PIXEL_SELECTION = false;
 

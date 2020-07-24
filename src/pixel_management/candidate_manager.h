@@ -97,6 +97,7 @@ class CandidateManager {
 
     std::pair<Eigen::Vector2f, Eigen::Vector2f> get_search_range(const Candidate& can, const Eigen::Vector3f& pR,
                                                                  const Eigen::Vector3f& Kt) const;
+    // safe depth has a vuale 0 in the mask
     cv::Mat generate_depth_safe_mask(const cv::Mat synetic_depth_im) const;
 
     // line search part

@@ -32,14 +32,14 @@ void execute_mem_according_to_config(bool& project_config, std::mutex& config_mu
 }
 
 // same as the upper template but for non-member function
-template <typename FuncPtr, typename... Args>
-void execute_func_according_to_config(bool& project_config, std::mutex& config_mutex, FuncPtr f, const Args&... args) {
+template <typename Func, typename... Args>
+void execute_func_according_to_config(bool& project_config, std::mutex& config_mutex, Func f, const Args&... args) {
     if (project_config) {
         config_mutex.lock();
         if (project_config) {
             config_mutex.unlock();
-            (*f)(args...);  // accordubg to cpp standard, can not use member function as template param,but
-                            // function pointer
+            f(args...);  // accordubg to cpp standard, can not use member function as template param,but
+                         // function pointer
             return;
         }
         config_mutex.unlock();

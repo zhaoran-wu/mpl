@@ -61,6 +61,7 @@ void Visualizer::run() {
     pangolin::Var<bool> menuDebugPixelSelection("menu.Debug Pixel Selection", false, true);
     pangolin::Var<bool> menuDebugImagePyramid("menu.Debug Image Pydamid", false, true);
     pangolin::Var<bool> menuDebugCoarseToFineTracking("menu.Debug Pyramid Tracking", false, true);
+    pangolin::Var<bool> menuDebugDepthSafeMask("menu.Debug Depth Safe Mask Tracking", false, true);
 
     // add img view and set texture
     pangolin::View& view_curr_frame = pangolin::Display("curr frame").SetAspect(img_cols / img_rows);
@@ -128,6 +129,8 @@ void Visualizer::run() {
 
         check_and_change_config_according_to_menu(menuDebugCoarseToFineTracking, config->DEBUG_COARSE_TO_FINE_TRACKING,
                                                   config->debug_coarse_to_fine_tracking_mutex);
+        check_and_change_config_according_to_menu(menuDebugDepthSafeMask, config->DEBUG_DEPTH_SAFE_MASK,
+                                                  config->debug_depth_safe_mask_mutex);
     }
 }
 

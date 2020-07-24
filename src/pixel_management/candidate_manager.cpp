@@ -126,6 +126,7 @@ bool CandidateManager::is_synetic_depth_valid(const Candidate& can, const Frame:
 }
 
 cv::Mat CandidateManager::generate_depth_safe_mask(const cv::Mat synetic_depth_im) const {
+    auto& config = Config::getInstance();
     // calc depth gradient magnitude
     cv::Mat dx, dy;  // 1st derivative in x,y
     cv::Sobel(synetic_depth_im, dx, CV_32F, 1, 0);
@@ -140,26 +141,10 @@ cv::Mat CandidateManager::generate_depth_safe_mask(const cv::Mat synetic_depth_i
             mag.at<float>(r, c) /= synetic_depth_im.at<ushort>(r, c);
         }
     }
-    /*
-        for (int r = 0; r < mag.rows; ++r) {
-            for (int c = 0; c < mag.cols; ++c) {
-                std::cout << " r :" << r << ",  c :" << c << "--->   " << mag.at<float>(r, c) << '\n';
-            }
-        }
-
-        cv::imshow("mag", mag);
-        cv::waitKey(0) */
-    ;
 
     cv::Mat mask, mask_dilated;
 
-    // create binary mask according to magnitude
-    /*     cv::Mat mag_clone = mag.clone();
-        std::nth_element(mag_clone.begin<float>(),
-                         mag_clone.begin<float>() + mag.rows * mag.cols * 0.6f,
-                         mag_clone.end<float>());*/
-    ushort threshold_value = 1;  //*(mag_clone.begin<float>() + mag.rows * mag.cols * 0.6f);
-
+    float threshold_value = 0.38;
     cv::threshold(mag, mask, threshold_value, 1, cv::THRESH_BINARY);
 
     // dilation
@@ -169,11 +154,15 @@ cv::Mat CandidateManager::generate_depth_safe_mask(const cv::Mat synetic_depth_i
                                   cv::Point(dilation_size, dilation_size));
     /// Apply the dilation operation
     cv::dilate(mask, mask_dilated, element);
-    /*
-        cv::imshow("mask not delated", mask);
-        cv::imshow("final mask", mask_dilated);
-        cv::waitKey(0) */
-    ;
+
+    debug::execute_func_according_to_config(config.DEBUG_DEPTH_SAFE_MASK, config.debug_depth_safe_mask_mutex, [&]() {
+        cv::Mat result;
+        cv::vconcat(mag, mask, result);
+        cv::vconcat(result, mask_dilated, result);
+        cv::resize(result, result, cv::Size(int(result.cols * 0.7), int(result.rows * 0.7)));
+        cv::imshow("depth safe mask", result);
+        cv::waitKey(1);
+    });
 
     return mask_dilated;
 }
