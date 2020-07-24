@@ -27,6 +27,8 @@ class Frame {
     void set_ref_frame(const Frame::ptr& frame);
 
     // get member variable
+    int width(const int lvl = 0) const;
+    int height(const int lvl = 0) const;
     ImagePyramid::ptr get_image_pyramid() const;
     Sophus::SE3f get_pose() const;      // return T_w_c
     AffineLight get_aff_light() const;  // return global aff light
@@ -197,6 +199,12 @@ inline float Frame::mag_squared(const Eigen::Matrix<T, 2, 1>& pixel, const int l
 template <typename T>
 inline bool Frame::is_in_image(const Eigen::Matrix<T, 2, 1>& pixel, const int lvl) const {
     return this->pyramid->is_in_image((float)pixel(0), (float)pixel(1), lvl);
+}
+inline int Frame::width(const int lvl) const {
+    return cam->width[lvl];
+}
+inline int Frame::height(const int lvl) const {
+    return cam->height[lvl];
 }
 // help function
 inline Sophus::SE3f get_src_to_dst_transform(const Frame::ptr src, const Frame::ptr dst) {

@@ -57,6 +57,9 @@ class Config {
     std::mutex debug_image_pyramid_mutex;
     bool DEBUG_IMAGE_PYRAMID = false;
 
+    std::mutex debug_coarse_to_fine_tracking_mutex;
+    bool DEBUG_COARSE_TO_FINE_TRACKING = false;
+
     // std::mutex debug_pixel_selection_mutex;
     // bool DEBUG_PIXEL_SELECTION = false;
 

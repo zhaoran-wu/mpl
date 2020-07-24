@@ -1,5 +1,7 @@
 #include "tracker.h"
 #include "../util/tictoc.h"
+#include "debug.h"
+#include <opencv2/highgui.hpp>
 
 namespace mpl {
 
@@ -31,26 +33,30 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
         optimizer.init(init_pose, init_aff_light, point_cloud_pyramid_, to_track_frame);
         optimizer.set_lvl(lvls - 1);
         float energy = optimizer.solve(iterations, lamda_init, lamda_min, huber_radius);
-        std::cout << " idx :" << i << "energy per pixel :" << energy / point_cloud_pyramid_->operator[](lvls - 1).size()
-                  << '\n';
+        // std::cout << " idx :" << i << "energy per pixel :" << energy / point_cloud_pyramid_->operator[](lvls -
+        // 1).size()
+        //          << '\n';
         if (energy < min_energy) {
             idx = i;
             min_energy = energy;
         }
     }
     // detect if tracking failed
-    // if (min_energy / point_cloud_pyramid_->operator[](lvls - 1).size() > 800) {
-    //    ++this->failaure_cnt;
-    //    return false;
-    //} else {
-    //    failaure_cnt = 0;
-    //}
+    if (min_energy / point_cloud_pyramid_->operator[](lvls - 1).size() > 800) {
+        ++this->failaure_cnt;
+        return false;
+    } else {
+        failaure_cnt = 0;
+    }
 
     std::cout << "best movement idx : " << idx << '\n';
     init_pose = movement_prediction[idx] * T_last_lastKF;
     // tracking with best prediction
 
     optimizer.init(init_pose, init_aff_light, point_cloud_pyramid_, to_track_frame);
+
+    std::vector<Sophus::SE3f> T_curr_lastKF_pyramid;
+    std::vector<float> energy_vec;
 
     tictoc::tic();
     for (int lvl = lvls - 1; lvl >= 0; --lvl) {
@@ -69,15 +75,22 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
             huber_radius = config.huber_residual_each_lvl[lvl];
         }
         min_energy = optimizer.solve(iterations, lamda_init, lamda_min, huber_radius);
+        T_curr_lastKF_pyramid.push_back(optimizer.getT());
+        energy_vec.push_back(min_energy);
     }
-    // LOG(INFO) << "tracking use time : " << tictoc::toc() / 1000.f << "ms";
-    // std::cout << "final energy per pixel :" << min_energy / point_cloud_pyramid_->operator[](0).size() << '\n';
-    // if (min_energy / point_cloud_pyramid_->operator[](0).size() > 450) {
-    //    ++this->failaure_cnt;
-    //    return false;
-    //} else {
-    //    failaure_cnt = 0;
-    //}
+    Config& config = Config::getInstance();
+
+    float time_cost = tictoc::toc();
+    debug::execute_mem_according_to_config(
+        config.DEBUG_COARSE_TO_FINE_TRACKING, config.debug_coarse_to_fine_tracking_mutex, &Tracker::draw_result, this,
+        point_cloud_pyramid_, T_curr_lastKF_pyramid, to_track_frame, time_cost, energy_vec);
+
+    if (min_energy / point_cloud_pyramid_->operator[](0).size() > 450) {
+        ++this->failaure_cnt;
+        return false;
+    } else {
+        failaure_cnt = 0;
+    }
     per_pixel_energy = min_energy / point_cloud_pyramid_->operator[](0).size();
     Sophus::SE3f T_curr_lastKF = optimizer.getT();
     AffineLight aff_curr_lastKF = optimizer.getAffineLight();
@@ -150,6 +163,56 @@ void Tracker::generate_movement_predictions() {
     movement_prediction[18] = Sophus::SE3f::transZ(-0.4) * Sophus::SE3f::rotY(-0.08);
     movement_prediction[19] = Sophus::SE3f::transZ(-0.4) * Sophus::SE3f::rotY(-0.1f);
     movement_prediction[20] = Sophus::SE3f::transZ(-0.4) * Sophus::SE3f::rotY(-0.12f);
+}
+
+void Tracker::draw_result(PointCloudPyramid::ptr pcp, const std::vector<Sophus::SE3f>& T_vec, Frame::ptr frame,
+                          const float time_cost, const std::vector<float> energy_vec) const {
+    const int interval = 15;
+    cv::Size size_result_im(frame->width() + 2 * interval, frame->height() * 1.5 + 3 * interval);
+
+    cv::Mat result = cv::Mat::zeros(size_result_im, CV_8UC3);
+
+    int l = interval, u = interval;
+
+    for (int lvl = 0; lvl < pcp->lvls(); ++lvl) {
+        cv::Size size_im(frame->width(lvl), frame->height(lvl));
+
+        cv::Mat im(size_im, CV_8UC1);
+        im.data = frame->get_image_pyramid()->data(lvl).get();
+
+        cv::Rect roi(l, u, frame->width(lvl), frame->height(lvl));
+
+        cv::rectangle(result, roi, cv::Scalar(255, 0, 0), 2);
+
+        cv::Mat im_to_draw;
+        cv::cvtColor(im, im_to_draw, cv::COLOR_GRAY2BGR);
+        // draw all candidate on image(with tracking energy)
+
+        for (const auto& point : pcp->operator[](lvl)) {
+            Eigen::Vector2f p = frame->project(T_vec[T_vec.size() - lvl - 1] * point.position, lvl);
+            int thickness = (lvl == 0) ? 2 : 1;
+            cv::circle(im_to_draw, cv::Point(p(0), p(1)), 1, cv::Scalar(0, 255, 0), thickness);
+        }
+
+        // copy child to father
+        im_to_draw.copyTo(result(roi));
+
+        // change child img location
+        if (lvl & 0x1) {
+            l += frame->width(lvl) + interval;
+        } else {
+            u += frame->height(lvl) + interval;
+        }
+        LOG(INFO) << '\n'
+                  << "lvl : " << lvl << " point cloud size : " << point_cloud_pyramid_->operator[](lvl).size()
+                  << "  final energy per pixel :"
+                  << energy_vec[energy_vec.size() - lvl - 1] / point_cloud_pyramid_->operator[](lvl).size();
+    }
+
+    LOG(INFO) << "tracking use time : " << time_cost / 1000.f << "ms";
+
+    cv::imshow("coarse to fine tracking", result);
+    cv::waitKey(1);
 }
 
 }  // namespace mpl

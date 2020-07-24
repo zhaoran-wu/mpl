@@ -60,6 +60,7 @@ void Visualizer::run() {
     pangolin::Var<bool> menuShowKeyFrameSyneticImageAlignment("menu.Debug Image Alignment", false, true);
     pangolin::Var<bool> menuDebugPixelSelection("menu.Debug Pixel Selection", false, true);
     pangolin::Var<bool> menuDebugImagePyramid("menu.Debug Image Pydamid", false, true);
+    pangolin::Var<bool> menuDebugCoarseToFineTracking("menu.Debug Pyramid Tracking", false, true);
 
     // add img view and set texture
     pangolin::View& view_curr_frame = pangolin::Display("curr frame").SetAspect(img_cols / img_rows);
@@ -74,7 +75,7 @@ void Visualizer::run() {
         .AddDisplay(view_curr_frame)
         .AddDisplay(view_key_frame_depth);
 
-    while (true) {
+    while (!pangolin::ShouldQuit()) {
         glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -112,6 +113,7 @@ void Visualizer::run() {
 
         // other images showed by opencv
         check_and_change_config_according_to_menu(menuStop, this->stop_main_thread, this->stop_main_thread_mutex);
+
         check_and_change_config_according_to_menu(menuDebugDistanceMap, config->DEBUG_DISTANCE_MAP,
                                                   config->debug_distance_map_mutex);
 
@@ -123,6 +125,9 @@ void Visualizer::run() {
 
         check_and_change_config_according_to_menu(menuDebugImagePyramid, config->DEBUG_IMAGE_PYRAMID,
                                                   config->debug_image_pyramid_mutex);
+
+        check_and_change_config_according_to_menu(menuDebugCoarseToFineTracking, config->DEBUG_COARSE_TO_FINE_TRACKING,
+                                                  config->debug_coarse_to_fine_tracking_mutex);
     }
 }
 

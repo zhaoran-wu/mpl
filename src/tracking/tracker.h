@@ -35,6 +35,8 @@ class Tracker {
    private:
     // generate pediction T_curr_last
     void generate_movement_predictions();
+    void draw_result(PointCloudPyramid::ptr pcp, const std::vector<Sophus::SE3f>& T_vec, Frame::ptr frame,
+                     const float time_cost, const std::vector<float> energy_vec) const;
 
     // we update our 10 movement predection each times a new frame is tracked
     // those movement prediction are designed for autonomous car

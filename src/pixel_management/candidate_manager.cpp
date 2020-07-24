@@ -558,7 +558,7 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
                             it->first->unproject(Eigen::Vector2i(can.u, can.v), can.d_inv_synetic_im);
                         ++cnt;
                         for (int lvl = 0; lvl < lvls; ++lvl) {
-                            if ((lvl != 0 && cnt % lvl == 0) || lvl == 0) {
+                            if ((lvl != 0 && cnt % (lvl + 1) == 0) || lvl == 0) {
                                 float color = newst_KF->at(can.projection_on_newst_KF);
                                 //! use color on newst kf to estimate the aff
                                 //! param;
