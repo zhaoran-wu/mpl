@@ -193,10 +193,8 @@ void Visualizer::draw_and_publish_curr_frame(std::shared_ptr<PointCloudPyramid> 
         float depth = point.depth_in_newst_frame;
         if (!isfinite(depth) || depth < 1e-10) {
             continue;
-        } else if (depth < lo) {
-            depth = lo;
-        } else if (depth > hi) {
-            depth = hi;
+        } else {
+            depth = std::max(std::min(depth, hi), lo);
         }
 
         uchar wrapped_depth = 255 * std::pow((depth - lo) / (hi - lo), 0.9f);
@@ -238,10 +236,8 @@ void Visualizer::draw_and_publish_key_frame_depth(cv::Mat depth_im) {
             ushort depth = depth_im.at<ushort>(r, c);
             if (!isfinite(depth) || depth < 1e-10) {
                 continue;
-            } else if (depth < lo) {
-                depth = lo;
-            } else if (depth > hi) {
-                depth = hi;
+            } else {
+                depth = std::min(std::max((float)depth, lo), hi);
             }
             wrapped_depth_im.at<uchar>(r, c) = 255 * std::pow((depth - lo) / (hi - lo), 0.9f);
         }

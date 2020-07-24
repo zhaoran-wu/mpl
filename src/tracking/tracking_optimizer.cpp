@@ -85,6 +85,10 @@ float TrackingOptimizer::solve(const int iterations, const float lamda_init, con
         }
         // LOG(INFO) << " iteration end  -----------------------------------";
     }
+
+    // assign voxel final energy and hit position
+    if (curr_lvl == 0) assign_final_tracking_result_to_voxel();
+
     return sum_weighted_squared_residual;
 }
 
@@ -92,6 +96,24 @@ inline void TrackingOptimizer::update(const Vec8 delta_x) {
     Eigen::Map<const Sophus::Vector6d> delta_se3(delta_x.data());
     pose = Sophus::SE3d::exp(delta_se3) * pose;
     affine_light.update(delta_x(6), delta_x(7));
+}
+void TrackingOptimizer::assign_final_tracking_result_to_voxel() const {
+    for (auto& voxel : (*point_cloud_pyramid)[0]) {
+        Eigen::Vector3f P = map(pose, voxel.position);  // point in curr frame
+        voxel.depth_in_newst_frame = P(2);
+        Eigen::Vector2f hit_pixel = to_track_frame->project(P);
+        if (!to_track_frame->is_in_image(hit_pixel)) {
+            voxel.visible_for_newst_frame = false;
+            continue;
+        } else {
+            voxel.visible_for_newst_frame = true;
+        }
+        voxel.hit_pixel_in_newst_frame = hit_pixel;
+
+        float intensity_on_image = to_track_frame->at(hit_pixel);
+        float r = calc_residual(intensity_on_image, voxel.intensity);
+        voxel.last_tracking_energy = calc_huber_weigted_redidual(calc_huber_weight(r), r);
+    }
 }
 
 inline float TrackingOptimizer::calc_huber_weight(const float residual) const {
@@ -112,16 +134,16 @@ void TrackingOptimizer::build_problem() {
         const Eigen::Vector3f P = map(pose, voxel.position);  // point in curr frame
         const Eigen::Vector2f hit_pixel = to_track_frame->project(P, curr_lvl);
 
-        if (curr_lvl == 0) {
-            voxel.visible_for_newst_frame = true;
-            voxel.hit_pixel_in_newst_frame = hit_pixel;
-            voxel.depth_in_newst_frame = P(2);
-        }
+        // if (curr_lvl == 0) {
+        //    voxel.visible_for_newst_frame = true;
+        //    voxel.hit_pixel_in_newst_frame = hit_pixel;
+        //    voxel.depth_in_newst_frame = P(2);
+        //}
         if (!to_track_frame->is_in_image(hit_pixel(0), hit_pixel(1), curr_lvl)) {
             continue;
-            if (curr_lvl == 0) {
-                voxel.visible_for_newst_frame = false;
-            }
+            // if (curr_lvl == 0) {
+            //    voxel.visible_for_newst_frame = false;
+            //}
         }
 
         const float intensity_on_image = to_track_frame->at(hit_pixel, curr_lvl);

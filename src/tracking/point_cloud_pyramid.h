@@ -18,6 +18,7 @@ struct Voxel {
     bool visible_for_newst_frame;
     Eigen::Vector2f hit_pixel_in_newst_frame;
     float depth_in_newst_frame;
+    float last_tracking_energy;  // final energy in last tracking
 };
 
 typedef std::vector<Voxel> PointCloud;

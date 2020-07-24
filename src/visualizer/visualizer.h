@@ -57,7 +57,7 @@ class Visualizer {
     // general settings of window
     float W = 640.0f;
     float H = 480.0f;
-    const float UI_W = 200.0f;
+    const float UI_W = 220.0f;
 
     // data to draw the camera
     Eigen::Vector3f tl;

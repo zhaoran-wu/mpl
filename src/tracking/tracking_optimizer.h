@@ -26,6 +26,7 @@ class TrackingOptimizer {
     // accumulate to H and b
     void update(const Vec8 delta_x);
     void build_problem();
+    void assign_final_tracking_result_to_voxel() const;
     void accumulate_H_b(float roboust_weight);
     Mat88 get_damped_hessian();
     void scaling_H_b();

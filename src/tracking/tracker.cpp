@@ -187,11 +187,52 @@ void Tracker::draw_result(PointCloudPyramid::ptr pcp, const std::vector<Sophus::
         cv::Mat im_to_draw;
         cv::cvtColor(im, im_to_draw, cv::COLOR_GRAY2BGR);
         // draw all candidate on image(with tracking energy)
+        if (lvl != 0) {
+            for (const auto& point : pcp->operator[](lvl)) {
+                Eigen::Vector2f p =
+                    frame->project(T_vec[T_vec.size() - lvl - 1] * point.position, lvl);  // todo avoid reprojection
+                int thickness = (lvl == 0) ? 2 : 1;
+                cv::Scalar color;
+                if (lvl != 0) {
+                    color = cv::Scalar(0, 255, 0);
+                    cv::circle(im_to_draw, cv::Point(p(0), p(1)), 1, color, thickness);
+                }
+            }
+        } else {
+            // compute statistic
+            int point_size = pcp->operator[](0).size();
+            std::vector<float> energy_vec;
+            energy_vec.reserve(point_size);
 
-        for (const auto& point : pcp->operator[](lvl)) {
-            Eigen::Vector2f p = frame->project(T_vec[T_vec.size() - lvl - 1] * point.position, lvl);
-            int thickness = (lvl == 0) ? 2 : 1;
-            cv::circle(im_to_draw, cv::Point(p(0), p(1)), 1, cv::Scalar(0, 255, 0), thickness);
+            for (const auto& point : pcp->operator[](0)) {
+                if (!point.visible_for_newst_frame) continue;
+                energy_vec.push_back(point.last_tracking_energy);
+            }
+
+            const float lo_percent = 0.05;
+            const float hi_percent = 0.95;
+            float lo, hi;
+            std::sort(energy_vec.begin(), energy_vec.end());
+            lo = energy_vec[lo_percent * energy_vec.size()];
+            hi = energy_vec[hi_percent * energy_vec.size()];
+
+            cv::Mat energy_map = cv::Mat(im_to_draw.size(), CV_8UC1, cv::Scalar(0));
+
+            for (auto& point : pcp->operator[](0)) {
+                if (!point.visible_for_newst_frame) continue;
+                Eigen::Vector2f hit_pixel = point.hit_pixel_in_newst_frame;
+
+                float energy = point.last_tracking_energy;
+
+                energy = std::min(std::max(energy, lo), hi);
+
+                uchar wrapped_energy = 255 * std::pow((energy - lo) / (hi - lo), 0.7f);
+
+                cv::circle(energy_map, cv::Point2f(hit_pixel(0), hit_pixel(1)), 1, cv::Scalar(wrapped_energy), 2);
+            }
+            cv::Mat mask = energy_map.clone();
+            cv::applyColorMap(energy_map, energy_map, cv::COLORMAP_JET);
+            energy_map.copyTo(im_to_draw, mask);
         }
 
         // copy child to father
