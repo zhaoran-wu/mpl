@@ -36,7 +36,7 @@ void Visualizer::init() {
 
     // add Camera Render Object (for view / scene browsing)
     cam_3d = pangolin::OpenGlRenderState(pangolin::ProjectionMatrix(W, H, 600, 600, W / 2.0, H / 2.0, 0.01, 1000.0),
-                                         pangolin::ModelViewLookAt(0, -10, -15, 0, 0, 0, pangolin::AxisNegY));
+                                         pangolin::ModelViewLookAt(2, -2, -12, 0, 0, 0, pangolin::AxisNegY));
 
     // add 3D view(main)
     view_3d = pangolin::CreateDisplay()
@@ -44,7 +44,7 @@ void Visualizer::init() {
                   .SetHandler(new pangolin::Handler3D(cam_3d));
 
     // data to draw the camera frame
-    float scale = 1.0f;
+    float scale = 0.9f;
     tl = unproject(cam_data, Eigen::Vector2i(0, 0), 1 / scale);
     tr = unproject(cam_data, Eigen::Vector2i(img_cols - 1, 0), 1 / scale);
     dl = unproject(cam_data, Eigen::Vector2i(0, img_rows - 1), 1 / scale);
