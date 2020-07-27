@@ -134,16 +134,8 @@ void TrackingOptimizer::build_problem() {
         const Eigen::Vector3f P = map(pose, voxel.position);  // point in curr frame
         const Eigen::Vector2f hit_pixel = to_track_frame->project(P, curr_lvl);
 
-        // if (curr_lvl == 0) {
-        //    voxel.visible_for_newst_frame = true;
-        //    voxel.hit_pixel_in_newst_frame = hit_pixel;
-        //    voxel.depth_in_newst_frame = P(2);
-        //}
         if (!to_track_frame->is_in_image(hit_pixel(0), hit_pixel(1), curr_lvl)) {
             continue;
-            // if (curr_lvl == 0) {
-            //    voxel.visible_for_newst_frame = false;
-            //}
         }
 
         const float intensity_on_image = to_track_frame->at(hit_pixel, curr_lvl);
@@ -189,8 +181,7 @@ void TrackingOptimizer::build_problem() {
         // LOG(INFO) << "r :" << sum_weighted_squared_residual;
         accumulate_H_b(huber_weight);
     }
-    // std::cerr << " huber radius :" << huber_radius
-    //          << " num outlier :" << num_outlier << '\n';
+    // std::cerr << " huber radius :" << huber_radius << " num outlier :" << num_outlier << '\n';
     // LOG(INFO) << " H : " << '\n' << H;
     scaling_H_b();
 

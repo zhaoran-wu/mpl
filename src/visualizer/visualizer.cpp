@@ -54,7 +54,7 @@ void Visualizer::run() {
     init();
 
     // menu
-    pangolin::Var<bool> menuStop("menu.Stop", false, true);
+    pangolin::Var<bool> menuStop("menu.Stop", true, true);
     pangolin::Var<bool> menuDebugDistanceMap("menu.Debug Distance Map", false, true);
     pangolin::Var<bool> menuShowKeyFrameSyneticImageAlignment("menu.Debug Image Alignment", false, true);
     pangolin::Var<bool> menuDebugPixelSelection("menu.Debug Pixel Selection", false, true);

@@ -27,7 +27,7 @@ PhotometricBAConfig::PhotometricBAConfig() {
 
     // solver options
     this->solverOptions.logging_type = ceres::SILENT;  // ceres::PER_MINIMIZER_ITERATION;
-    this->solverOptions.minimizer_progress_to_stdout = true;
+    this->solverOptions.minimizer_progress_to_stdout = false;
 
     this->solverOptions.linear_solver_type = ceres::DENSE_SCHUR;
     this->solverOptions.minimizer_type = ceres::TRUST_REGION;

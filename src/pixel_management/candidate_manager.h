@@ -28,8 +28,9 @@ enum class CandidateStatus {
 };
 
 struct Candidate {
-    float color[8];   // pattern color
-    float weight[8];  // pattern weight
+    float color;
+    float synetic_color[8];  // pattern color of synetic image
+    float weight[8];         // pattern weight
     int u;
     int v;
     float d_inv_synetic_im;  // in m, initialized with synetic depth map, = 0 if
@@ -127,7 +128,8 @@ class CandidateManager {
     DistanceMap dist_map;
     int min_dist_to_active = 5;
 
-    bool is_initialized = false;
+    bool is_initialized = false;  // initialized: has enough activate point, else directly use synetic depth image in
+                                  // curr frame to tracking
     std::shared_ptr<Visualizer> vis_ptr;
 };
 

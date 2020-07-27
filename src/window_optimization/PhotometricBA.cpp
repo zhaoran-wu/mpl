@@ -49,7 +49,7 @@ void PhotometricBA::solve(CandidateManager& cm) {
     // stats
     const ceres::Solver::Summary& summary = problem.summary();
 
-    std::cout << summary.FullReport() << '\n';
+    // std::cout << summary.FullReport() << '\n';
 
     // merge solution
     std::vector<PhotometricResidual*> obsToRemove;

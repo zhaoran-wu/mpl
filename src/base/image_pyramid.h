@@ -25,7 +25,7 @@ class ImagePyramid {
     typedef std::shared_ptr<uchar[]> uchar_ptr;
     typedef std::shared_ptr<float[]> float_ptr;
 
-    ImagePyramid(const uchar* const row_data);
+    ImagePyramid(const uchar* const row_data, bool only_photometirc = false);
 
     // data :row image
     // dx,dy: derivative in x and y direction

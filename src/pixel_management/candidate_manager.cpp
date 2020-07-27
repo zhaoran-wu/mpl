@@ -69,6 +69,7 @@ void CandidateManager::select_candidate(const Frame::ptr frame, const cv::Mat sy
             get_rotatet_pattern((cam.K[0] * T_old_new.rotationMatrix() * cam.K_inv[0]).topLeftCorner<2, 2>());
     }
 
+    // initialize candidate
     for (const auto& p : pixel_selected) {
         Candidate can;
         can.host_frame = frame;
@@ -114,14 +115,14 @@ bool CandidateManager::is_synetic_depth_valid(const Candidate& can, const Frame:
         float u = point_on_lastKF(0) + rotated_pattern[i][0];
         float v = point_on_lastKF(1) + rotated_pattern[i][1];
 
-        energy += can.weight[i] * abs(calc_light_diff(can.color[i], target_frame->at(u, v), aff_old_new));
+        energy += can.weight[i] * abs(calc_light_diff(can.color, target_frame->at(u, v), aff_old_new));
     }
     static int cnt = 0;
 
     // std::cout << " curr energy : " << energy << " outlier num: " << cnt <<
     // '\n';
 
-    if (energy >= 30.f) ++cnt;
+    if (energy >= 30.f) ++cnt;  //!
     return (energy < 30.0f);
 }
 
@@ -161,7 +162,7 @@ cv::Mat CandidateManager::generate_depth_safe_mask(const cv::Mat synetic_depth_i
         cv::vconcat(result, mask_dilated, result);
         cv::resize(result, result, cv::Size(int(result.cols * 0.7), int(result.rows * 0.7)));
         cv::imshow("depth safe mask", result);
-        cv::waitKey(1);
+        cv::waitKey(0);
     });
 
     return mask_dilated;
@@ -295,7 +296,7 @@ float CandidateManager::optimize(float& u_best, float& v_best, const Candidate& 
                 energy += 1e5;
                 continue;
             }
-            float residual = calc_light_diff(can.color[idx], (float)frame->at(u, v), aff);
+            float residual = calc_light_diff(can.synetic_color[idx], (float)frame->at(u, v), aff);
             float dResdDist = direction(0) * frame->dx(u, v) + direction(1) * frame->dy(u, v);
 
             H += dResdDist * dResdDist;
@@ -386,7 +387,7 @@ float CandidateManager::line_search(float& u_best, float& v_best, const Candidat
                 energy += 1e5;
                 continue;
             }
-            float residual = calc_light_diff(can.color[idx], hitColor, aff);
+            float residual = calc_light_diff(can.synetic_color[idx], hitColor, aff);
 
             energy += can.weight[idx] * can.weight[idx] * residual * residual;
         }
@@ -414,9 +415,10 @@ void CandidateManager::calc_structure_mat(Frame::ptr host_frame, Candidate& can)
         dxdy(0) = host_frame->dx(u, v);
         dxdy(1) = host_frame->dy(u, v);
 
-        can.color[idx] = (float)host_frame->at(u, v);
+        can.color = host_frame->at(u, v);
+        can.synetic_color[idx] = (float)host_frame->at_synetic(u, v);
         can.structure_mat += dxdy * dxdy.transpose();
-        float w = -std::sqrt(std::pow(can.color[idx] - can.color[0], 2)) / 7;
+        float w = -std::sqrt(std::pow(can.synetic_color[idx] - can.synetic_color[0], 2)) / 7;
         can.weight[idx] = exp(w);
         sum += can.weight[idx];
     }
@@ -455,8 +457,8 @@ void CandidateManager::activate_candidate() {
     int min_square_dist = pow(min_dist_to_active, 2);
 
     // choose new active points
-    std::cout << " before add ,we have active points : " << dist_map.get_num_obstacles()
-              << " min_dist :" << min_square_dist << '\n';
+    // std::cout << " before add ,we have active points : " << dist_map.get_num_obstacles()
+    //          << " min_dist :" << min_square_dist << '\n';
 
     for (auto it = candidate_map.begin(); it != candidate_map.end(); ++it) {
         if (it->first == newst_KF) continue;
@@ -477,11 +479,11 @@ void CandidateManager::activate_candidate() {
                 // remove outlier
                 float color = newst_KF->at(can.projection_on_newst_KF);
                 auto aff = get_src_to_dst_aff_light(it->first, newst_KF);
-                float color_diff = std::abs(calc_light_diff(can.color[0], color, aff));
+                float color_diff = std::abs(calc_light_diff(can.synetic_color[0], color, aff));
                 // std::cout << "color diff " << color_diff << '\n';
-                if (color_diff > 70) {
-                    continue;
-                }
+                //! if (color_diff > 70) {
+                //!    continue;
+                //!}
 
                 can.is_active = true;  // activate candidate
                 dist_map.add(can.projection_on_newst_KF);
@@ -513,6 +515,7 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
     // before get a new reference point cloud we need to update our active point
     // set
     activate_candidate();
+
     if (!is_initialized) {
         const int lvls = pcp->lvls();
         if (candidate_map.size() < 1e10) {
@@ -524,7 +527,7 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
                 ++cnt;
                 for (int lvl = 0; lvl < lvls; ++lvl) {
                     if ((lvl != 0 && cnt % lvl == 0) || lvl == 0) {
-                        (*pcp)[lvl].emplace_back(position, can.color[0]);
+                        (*pcp)[lvl].emplace_back(position, can.synetic_color[0]);
                         ++can.age;
                     }
                 }
@@ -548,7 +551,7 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
                         ++cnt;
                         for (int lvl = 0; lvl < lvls; ++lvl) {
                             if ((lvl != 0 && cnt % (lvl + 1) == 0) || lvl == 0) {
-                                float color = newst_KF->at(can.projection_on_newst_KF);
+                                float color = newst_KF->at_synetic(can.projection_on_newst_KF);
                                 //! use color on newst kf to estimate the aff
                                 //! param;
 
@@ -571,7 +574,7 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
                 ++cnt;
                 for (int lvl = 0; lvl < lvls; ++lvl) {
                     if ((lvl != 0 && cnt % lvl == 0) || lvl == 0) {
-                        (*pcp)[lvl].emplace_back(position, can.color[0]);
+                        (*pcp)[lvl].emplace_back(position, can.synetic_color[0]);
                         ++can.age;
                     }
                 }
@@ -632,6 +635,7 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
         }
     }
  */
+    LOG(INFO) << "curr point cloud size :" << pcp->operator[](0).size();
     return pcp;
 }
 }  // namespace mpl

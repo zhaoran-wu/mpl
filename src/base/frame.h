@@ -25,11 +25,13 @@ class Frame {
     void set_aff_light(const int alpha, const int beta);  // global aff_w_c
     void set_tracking_result(const Sophus::SE3f& T_curr_refKF, const AffineLight& aff_light_curr_refKF);
     void set_ref_frame(const Frame::ptr& frame);
+    void set_synetic_photometirc_im(cv::Mat synetic_photometric_im);
 
     // get member variable
     int width(const int lvl = 0) const;
     int height(const int lvl = 0) const;
     ImagePyramid::ptr get_image_pyramid() const;
+    ImagePyramid::ptr get_synetic_photometric_pyramid() const;
     Sophus::SE3f get_pose() const;      // return T_w_c
     AffineLight get_aff_light() const;  // return global aff light
     Frame::ptr get_ref_frame();         // get the frame, which used to tracking curr frame;
@@ -47,6 +49,7 @@ class Frame {
     template <typename T>
     float mag_squared(const T u, const T v, const int lvl = 0) const;
     template <typename T>
+
     float at(const Eigen::Matrix<T, 2, 1>& pixel, const int lvl = 0) const;
     template <typename T>
     float dy(const Eigen::Matrix<T, 2, 1>& pixel, const int lvl = 0) const;
@@ -54,6 +57,11 @@ class Frame {
     float dx(const Eigen::Matrix<T, 2, 1>& pixel, const int lvl = 0) const;
     template <typename T>
     float mag_squared(const Eigen::Matrix<T, 2, 1>& pixel, const int lvl = 0) const;
+
+    template <typename T>
+    float at_synetic(const T u, const T v, const int lvl = 0) const;
+    template <typename T>
+    float at_synetic(const Eigen::Matrix<T, 2, 1>& pixel, const int lvl = 0) const;
 
     // unproject a pixel(in pixel coordinate system) in to p3d in current frame coordinate system
     Eigen::Vector3f unproject(const Eigen::Vector2i& pixel, const float inv_d, const int lvl = 0) const;
@@ -70,6 +78,7 @@ class Frame {
     void merge_optimization_result();
 
    private:
+    ImagePyramid::ptr synetic_photometirc_pyramid = nullptr;
     ImagePyramid::ptr pyramid = nullptr;
     Frame::ptr refKF = nullptr;
 
@@ -84,6 +93,9 @@ class Frame {
     CamData* cam;
     static int id_cnt;
 };
+
+//########################################################//
+//#####################implementation#####################//
 
 inline int Frame::get_id() const {
     return id;
@@ -136,9 +148,16 @@ inline AffineLight Frame::get_aff_light() const {
 inline ImagePyramid::ptr Frame::get_image_pyramid() const {
     return this->pyramid;
 }
+inline ImagePyramid::ptr Frame::get_synetic_photometric_pyramid() const {
+    return this->synetic_photometirc_pyramid;
+}
 
 inline void Frame::set_ref_frame(const Frame::ptr& frame) {
     this->refKF = frame;
+}
+inline void Frame::set_synetic_photometirc_im(cv::Mat synetic_photometric_im) {
+    cv::cvtColor(synetic_photometric_im, synetic_photometric_im, cv::COLOR_BGR2GRAY);
+    this->synetic_photometirc_pyramid = std::make_shared<ImagePyramid>(synetic_photometric_im.data, true);
 }
 
 inline const std::unique_ptr<FrameParameterBlock>& Frame::get_frame_block() const {
@@ -194,6 +213,15 @@ inline float Frame::dx(const Eigen::Matrix<T, 2, 1>& pixel, const int lvl) const
 template <typename T>
 inline float Frame::mag_squared(const Eigen::Matrix<T, 2, 1>& pixel, const int lvl) const {
     return this->pyramid->mag_squared(pixel(0), pixel(1), lvl);
+}
+
+template <typename T>
+float Frame::at_synetic(const T u, const T v, const int lvl) const {
+    return this->synetic_photometirc_pyramid->at(u, v, lvl);
+}
+template <typename T>
+float Frame::at_synetic(const Eigen::Matrix<T, 2, 1>& pixel, const int lvl) const {
+    return this->synetic_photometirc_pyramid->at(pixel(0), pixel(1), lvl);
 }
 
 template <typename T>

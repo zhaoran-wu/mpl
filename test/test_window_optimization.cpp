@@ -16,8 +16,8 @@ using namespace std;
 using namespace mpl;
 
 bool is_newframe_KF(PointCloudPyramid::ptr pcp, const Sophus::SE3f& T_KF_curr, float energy) {
-    std::cout << "@@@@@@@@ log norm: " << T_KF_curr.log().norm() << "  angle Y : " << abs(T_KF_curr.angleY())
-              << "   energy :" << energy << '\n';
+    // std::cout << "@@@@@@@@ log norm: " << T_KF_curr.log().norm() << "  angle Y : " << abs(T_KF_curr.angleY())
+    //          << "   energy :" << energy << '\n';
     if (abs(T_KF_curr.angleY()) > 0.06 || T_KF_curr.log().norm() > 1.3 || energy > 350.f) return true;
 }
 
@@ -51,7 +51,7 @@ void show_debug_key_frame_synetic_img_alignment(cv::Mat frame_img, cv::Mat synet
     cv::resize(result, result, cv::Size(result.cols / 1.5, result.rows / 1.5));
 
     cv::imshow("alignment result", result);
-    cv::waitKey(1);
+    cv::waitKey(0);
 }
 
 int main() {
@@ -104,7 +104,10 @@ int main() {
     Frame::ptr key_frame = Frame::create(img_vec[off_set]);
     std::vector<cv::Mat> syn_im_vec_curr = synetic_image.renderingAt(render_pose);
     std::shared_ptr<Visualizer> vis(new Visualizer);
+    vis->stop_or_start_according_to_pangolin_menu();
     CandidateManager cm(vis);
+
+    key_frame->set_synetic_photometirc_im(syn_im_vec_curr[0]);
     cm.select_candidate(key_frame, syn_im_vec_curr[1]);
     std::vector<Candidate>& candidates = cm.get_candidate(key_frame);
 
@@ -112,6 +115,20 @@ int main() {
 
     Tracker tracker;
     tracker.set_tracking_ref(key_frame, pcp);
+
+    // given initial pose is not precise, so estimate it(tracking itself)
+    tracker.tracking(key_frame);
+    Eigen::Isometry3f T_c_c0 = static_cast<Eigen::Isometry3f>(key_frame->get_pose().matrix());
+    // reset rendering start pose
+    synetic_image.set_start_pose(pose.atIndex(start_idx) * T_c_c0.inverse());
+
+    LOG(INFO) << " T_c_c0" << '\n' << T_c_c0.matrix();
+    debug::execute_func_according_to_config(
+        config.DEBUG_KEY_FRAME_SYNETIC_IMAGE_ALIGNMENT, config.debug_key_frame_synetci_img_alignment_mutex,
+        show_debug_key_frame_synetic_img_alignment, img_draw_vec[0], syn_im_vec_curr[0]);
+    std::thread th_draw(&Visualizer::publish_curr_frame_tracking_info, std::ref(*vis), pcp, img_draw_vec[0],
+                        key_frame->get_pose(), key_frame->get_pose().inverse());
+    th_draw.detach();
 
     // draw candidates before and after tracking
     cv::Mat key_frame_vis = img_draw_vec[off_set];
@@ -147,10 +164,11 @@ int main() {
             syn_im_vec_curr = synetic_image.renderingAt(render_pose);
 
             // add new frame to the window, and select candidate on it
+            curr_frame->set_synetic_photometirc_im(syn_im_vec_curr[0]);
             cm.select_candidate(curr_frame, syn_im_vec_curr[1]);
 
             // optimize key frame window
-            pba.solve(cm);
+            //! pba.solve(cm);
 
             // get and set new tracking reference point cloud after optimization
             pcp = cm.get_point_cloud_pyramid();

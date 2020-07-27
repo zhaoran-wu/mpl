@@ -5,7 +5,7 @@
 #include <glog/logging.h>
 #include <opencv2/highgui.hpp>
 namespace mpl {
-ImagePyramid::ImagePyramid(const uchar* const row_data) {
+ImagePyramid::ImagePyramid(const uchar* const row_data, bool only_photometric) {
     LOG_ASSERT(row_data != nullptr);
     cam_data = &CamData::getInstance();
     auto& config = Config::getInstance();
@@ -14,11 +14,15 @@ ImagePyramid::ImagePyramid(const uchar* const row_data) {
     for (int lvl = 0; lvl < config.PYRAMID_LVLS; ++lvl) {
         build_image(parent_image, lvl);
         parent_image = image_pyramid[lvl].get();
-        build_derivative(lvl);
+        if (!only_photometric) {
+            build_derivative(lvl);
+        }
     }
 
-    debug::execute_mem_according_to_config(config.DEBUG_IMAGE_PYRAMID, config.debug_image_pyramid_mutex,
-                                           &ImagePyramid::draw_result, this);
+    if (!only_photometric) {
+        debug::execute_mem_according_to_config(config.DEBUG_IMAGE_PYRAMID, config.debug_image_pyramid_mutex,
+                                               &ImagePyramid::draw_result, this);
+    }
 }
 
 void ImagePyramid::draw_result() const {
@@ -76,7 +80,7 @@ void ImagePyramid::draw_result() const {
     cv::imshow("dx pyramid", dx_result);
     cv::imshow("dy pyramid", dy_result);
     cv::imshow("mag2 pyramid", mag2_result);
-    cv::waitKey(1);
+    cv::waitKey(0);
 }
 
 // generate image pyramid:  parent ---(samping)---> child

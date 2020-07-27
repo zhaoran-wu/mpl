@@ -50,7 +50,7 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters, double* 
 
     const float energyThreshold = 100;  // TODO
 
-    const auto& color = point->color;
+    const auto& color = point->synetic_color;
     const auto& weight = point->weight;
 
     // residual computation

@@ -34,7 +34,7 @@ class Visualizer {
     // this function need to call in the main thread's main loop
     void stop_or_start_according_to_pangolin_menu();
     std::mutex stop_main_thread_mutex;
-    bool stop_main_thread = false;
+    bool stop_main_thread = true;
 
    private:
     void draw_tracking_point_cloud();

@@ -69,7 +69,7 @@ void PixelSelector::draw_result(const std::vector<Eigen::Vector3i>& candidates, 
     cv::imshow("pixle selection", result);
     LOG(INFO) << "PIXEL SELECTION :" << this->candidates.size() << " is selected" << '\n'
               << "time cost : " << time_cost / 1000.0f << " ms";
-    cv::waitKey(1);
+    cv::waitKey(0);
 }
 
 void PixelSelector::fill_thresh_map() {

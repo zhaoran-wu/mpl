@@ -35,7 +35,7 @@ void DistanceMap::show_distance_map_for_visualization(bool normalize) {
     std::cout << "current active points num:   " << get_num_obstacles() << '\n';
     cv::namedWindow("dist_map", cv::WINDOW_AUTOSIZE);
     cv::imshow("dist_map", distTransform);
-    cv::waitKey(1);
+    cv::waitKey(0);
 }
 
 float DistanceMap::dist(int x, int y) const {

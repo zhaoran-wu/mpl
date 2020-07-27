@@ -28,21 +28,20 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
     int huber_radius = 100;
     float lamda_min = 1e-7;
     //
-    for (int i = 0; i < 22; ++i) {
+    for (int i = 0; i < 21; ++i) {
         init_pose = movement_prediction[i] * T_last_lastKF;
         optimizer.init(init_pose, init_aff_light, point_cloud_pyramid_, to_track_frame);
         optimizer.set_lvl(lvls - 1);
         float energy = optimizer.solve(iterations, lamda_init, lamda_min, huber_radius);
-        // std::cout << " idx :" << i << "energy per pixel :" << energy / point_cloud_pyramid_->operator[](lvls -
-        // 1).size()
-        //          << '\n';
+        std::cout << " idx :" << i << "energy per pixel :" << energy / point_cloud_pyramid_->operator[](lvls - 1).size()
+                  << '\n';
         if (energy < min_energy) {
             idx = i;
             min_energy = energy;
         }
     }
     // detect if tracking failed
-    if (min_energy / point_cloud_pyramid_->operator[](lvls - 1).size() > 1200) {
+    if (min_energy / point_cloud_pyramid_->operator[](lvls - 1).size() > 950) {
         ++this->failaure_cnt;
         return false;
     } else {
@@ -85,7 +84,7 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
         config.DEBUG_COARSE_TO_FINE_TRACKING, config.debug_coarse_to_fine_tracking_mutex, &Tracker::draw_result, this,
         point_cloud_pyramid_, T_curr_lastKF_pyramid, to_track_frame, time_cost, energy_vec);
 
-    if (min_energy / point_cloud_pyramid_->operator[](0).size() > 1800) {
+    if (min_energy / point_cloud_pyramid_->operator[](0).size() > 700) {
         ++this->failaure_cnt;
         return false;
     } else {
@@ -253,7 +252,7 @@ void Tracker::draw_result(PointCloudPyramid::ptr pcp, const std::vector<Sophus::
     LOG(INFO) << "tracking use time : " << time_cost / 1000.f << "ms";
 
     cv::imshow("coarse to fine tracking", result);
-    cv::waitKey(1);
+    cv::waitKey(0);
 }
 
 }  // namespace mpl
