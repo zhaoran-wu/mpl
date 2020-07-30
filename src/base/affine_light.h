@@ -36,6 +36,8 @@ class AffineLight {
     float a() const;
     float b() const;
 
+    AffineLight inverse() const;
+
     static const int DoF = 2;
     static const int num_parameters = 2;
 
@@ -75,6 +77,10 @@ inline float AffineLight::a() const {
 
 inline float AffineLight::b() const {
     return -exp(-alpha_) * this->beta_;
+}
+
+inline AffineLight AffineLight::inverse() const {
+    return AffineLight(-alpha_, b());
 }
 
 inline AffineLight& AffineLight::operator=(const AffineLight& affLight) {

@@ -12,36 +12,43 @@ void Tracker::set_tracking_ref(const Frame::ptr ref_frame, const PointCloudPyram
 }
 
 bool Tracker::tracking(Frame::ptr to_track_frame) {
+    auto& config = Config::getInstance();
     // select best movement prediction
 
     to_track_frame->set_ref_frame(curr_ref_frame);
     generate_movement_predictions();
 
     Sophus::SE3f init_pose;
-    AffineLight init_aff_light = aff_last_lastKF;
+    AffineLight init_aff_light = aff_last_map;
 
     float min_energy = std::numeric_limits<float>::max();
     int idx = 0;
     int lvls = point_cloud_pyramid_->lvls();
-    int iterations = 20;
-    float lamda_init = 1;
-    int huber_radius = 100;
-    float lamda_min = 1e-7;
+    int iterations = config.max_iteration_each_lvl[lvls - 1];
+    float lamda_init = config.lamda_init_each_lvl[lvls - 1];
+    int huber_radius = config.huber_residual_each_lvl[lvls - 1];
+    float lamda_min = config.lamda_min_eahc_lvl[lvls - 1];
     //
     for (int i = 0; i < 21; ++i) {
         init_pose = movement_prediction[i] * T_last_lastKF;
         optimizer.init(init_pose, init_aff_light, point_cloud_pyramid_, to_track_frame);
         optimizer.set_lvl(lvls - 1);
         float energy = optimizer.solve(iterations, lamda_init, lamda_min, huber_radius);
-        std::cout << " idx :" << i << "energy per pixel :" << energy / point_cloud_pyramid_->operator[](lvls - 1).size()
+        std::cout << " idx :" << i
+                  << "energy per pixel :" << std::sqrt(energy / point_cloud_pyramid_->operator[](lvls - 1).size())
                   << '\n';
-        if (energy < min_energy) {
+        if (energy < min_energy && energy > 1e-10) {
             idx = i;
             min_energy = energy;
         }
     }
     // detect if tracking failed
-    if (min_energy / point_cloud_pyramid_->operator[](lvls - 1).size() > 950) {
+    float min_per_pixel_energy = sqrt(min_energy / point_cloud_pyramid_->operator[](lvls - 1).size());
+    float thresh1 = (to_track_frame->get_id() < 10) ? 60 : 60;
+
+    if (min_per_pixel_energy > thresh1) {
+        std::cout << "@@@@@@@@@@@@tracking failed : no good prediction"
+                  << "    min energy:   " << min_per_pixel_energy << '\n';
         ++this->failaure_cnt;
         return false;
     } else {
@@ -64,10 +71,9 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
         if (lvl > 4) {
             iterations = 8;
             lamda_init = 1e-2;
-            huber_radius = 100;
+            huber_radius = 35;
             lamda_min = 1e-5;
         } else {
-            auto& config = Config::getInstance();
             iterations = config.max_iteration_each_lvl[lvl];
             lamda_init = config.lamda_init_each_lvl[lvl];
             lamda_min = config.lamda_min_eahc_lvl[lvl];
@@ -77,27 +83,31 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
         T_curr_lastKF_pyramid.push_back(optimizer.getT());
         energy_vec.push_back(min_energy);
     }
-    Config& config = Config::getInstance();
 
     float time_cost = tictoc::toc();
     debug::execute_mem_according_to_config(
         config.DEBUG_COARSE_TO_FINE_TRACKING, config.debug_coarse_to_fine_tracking_mutex, &Tracker::draw_result, this,
         point_cloud_pyramid_, T_curr_lastKF_pyramid, to_track_frame, time_cost, energy_vec);
 
-    if (min_energy / point_cloud_pyramid_->operator[](0).size() > 700) {
+    per_pixel_energy = sqrt(min_energy / point_cloud_pyramid_->operator[](0).size());
+    Sophus::SE3f T_curr_lastKF = optimizer.getT();
+    AffineLight aff_curr_map = optimizer.getAffineLight();
+
+    float thresh = (to_track_frame->get_id() < 10) ? 60 : 60;
+    if (per_pixel_energy > thresh) {
+        std::cout << "@@@@@@@@@@@@@@@@@@@@@@@@@ tracking failed :"
+                  << "per pixel energy :" << per_pixel_energy << "alpha : " << aff_curr_map.alpha()
+                  << " beta : " << aff_curr_map.beta() << "@@@@@@@" << '\n';
         ++this->failaure_cnt;
         return false;
     } else {
         failaure_cnt = 0;
     }
-    per_pixel_energy = min_energy / point_cloud_pyramid_->operator[](0).size();
-    Sophus::SE3f T_curr_lastKF = optimizer.getT();
-    AffineLight aff_curr_lastKF = optimizer.getAffineLight();
 
-    to_track_frame->set_tracking_result(T_curr_lastKF, aff_curr_lastKF);
+    to_track_frame->set_tracking_result(T_curr_lastKF, aff_curr_map);
 
     T_last_lastKF = T_curr_lastKF;
-    aff_last_lastKF = aff_curr_lastKF;
+    aff_last_map = aff_curr_map;
 
     over_last_frame = last_frame;
     last_frame = to_track_frame;
@@ -107,21 +117,18 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
 
 void Tracker::generate_movement_predictions() {
     Sophus::SE3f T_last_overlast;
-    AffineLight aff_last_overlast;
 
     if (last_frame == nullptr || over_last_frame == nullptr) {
         T_last_overlast = Sophus::SE3f::transZ(-0.7f);
 
-        aff_last_overlast = AffineLight(0, 0);
     } else {
         T_last_overlast = get_src_to_dst_transform(over_last_frame, last_frame);
-        aff_last_overlast = get_src_to_dst_aff_light(over_last_frame, last_frame);
     }
 
     std::cout << "last translation :" << T_last_overlast.translation().transpose() << '\n';
     std::cout << "last rotation X :" << T_last_overlast.angleX() << " last rotation Y :" << T_last_overlast.angleY()
-              << " last roration Z : " << T_last_overlast.angleZ() << "aff a :" << aff_last_overlast.alpha()
-              << "aff b:  " << aff_last_overlast.beta() << '\n';
+              << " last roration Z : " << T_last_overlast.angleZ() << "aff alpha:" << aff_last_map.alpha()
+              << "aff beta:  " << aff_last_map.beta() << '\n';
 
     // 1x movement // assume T_last_overlast = T_curr_last
     movement_prediction[0] = T_last_overlast;
@@ -167,9 +174,9 @@ void Tracker::generate_movement_predictions() {
 void Tracker::draw_result(PointCloudPyramid::ptr pcp, const std::vector<Sophus::SE3f>& T_vec, Frame::ptr frame,
                           const float time_cost, const std::vector<float> energy_vec) const {
     const int interval = 15;
-    cv::Size size_result_im(frame->width() + 2 * interval, frame->height() * 1.5 + 3 * interval);
+    cv::Size back_ground_size(frame->width() + 2 * interval, frame->height() * 1.5 + 3 * interval);
 
-    cv::Mat result = cv::Mat::zeros(size_result_im, CV_8UC3);
+    cv::Mat result = cv::Mat::zeros(back_ground_size, CV_8UC3);
 
     int l = interval, u = interval;
 
@@ -246,7 +253,7 @@ void Tracker::draw_result(PointCloudPyramid::ptr pcp, const std::vector<Sophus::
         LOG(INFO) << '\n'
                   << "lvl : " << lvl << " point cloud size : " << point_cloud_pyramid_->operator[](lvl).size()
                   << "  final energy per pixel :"
-                  << energy_vec[energy_vec.size() - lvl - 1] / point_cloud_pyramid_->operator[](lvl).size();
+                  << std::sqrt(energy_vec[energy_vec.size() - lvl - 1] / point_cloud_pyramid_->operator[](lvl).size());
     }
 
     LOG(INFO) << "tracking use time : " << time_cost / 1000.f << "ms";

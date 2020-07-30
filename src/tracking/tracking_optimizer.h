@@ -32,7 +32,7 @@ class TrackingOptimizer {
     void scaling_H_b();
     void scaling_delta_x(Vec8& delta_x);
     float calc_residual(const float curr_intensity, const float point_cloud_intensity) const;
-    float calc_sum_weighted_squared_residual() const;
+    float calc_sum_weighted_squared_residual(bool use_weight = true) const;
 
     float calc_huber_weight(const float residual) const;
     float calc_huber_weigted_redidual(const float huber_weight, const float residual) const;
@@ -42,7 +42,7 @@ class TrackingOptimizer {
     int curr_lvl;
 
     Sophus::SE3d pose;         // T_curr_ref   pose from reference to curr frame
-    AffineLight affine_light;  // Aff_curr_ref, aff light map ref frame to curr frame
+    AffineLight affine_light;  // Aff_curr_map, aff light map to curr frame
     PointCloudPyramid::ptr point_cloud_pyramid;
     Frame::ptr to_track_frame;
 

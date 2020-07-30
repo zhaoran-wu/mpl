@@ -22,11 +22,13 @@ PixelSelector::PixelSelector() {
     candidates.reserve(2 * config->PIXEL_SELECTION_NUM);  // todo experiment check this num
 }
 
-int PixelSelector::select(ImagePyramid::ptr pyramid_ptr, std::vector<Eigen::Vector3i>& candidates_out) {
-    LOG_ASSERT(pyramid_ptr != nullptr);
+int PixelSelector::select(ImagePyramid::ptr pyramid_ptr, std::vector<Eigen::Vector3i>& candidates_out, cv::Mat mask_) {
+    this->mask = mask_;
+
     if (this->candidates.size()) {
         reset();
     }
+
     tictoc::tic();
     this->mag2_ptr = pyramid_ptr->mag_squared(0);
 
@@ -34,6 +36,7 @@ int PixelSelector::select(ImagePyramid::ptr pyramid_ptr, std::vector<Eigen::Vect
     filtering_thresh_map();
 
     bool is_finish = select_adaptively(this->pot_dim);
+
     int time_cost = tictoc::toc();
     if (is_finish) {
         std::move(candidates.begin(), candidates.end(), std::back_inserter(candidates_out));
@@ -209,7 +212,6 @@ void PixelSelector::select_in_one_grid(const int grid_x, const int grid_y) {
         if (mag2_max > thresh_map[thresh_idx(candidate)] * config->PIXEL_SELECTION_DOWNWEIGHT *
                            config->PIXEL_SELECTION_DOWNWEIGHT) {
             candidates.push_back(candidate);
-            is_one_block_success = true;
         }
     }
 }
@@ -240,10 +242,10 @@ float PixelSelector::find_max_mag2(Eigen::Vector3i& candidate, const int grid_x,
             auto max_iter = std::max_element(pot_mag2_vec.begin(), pot_mag2_vec.end());
             int distance = std::distance(pot_mag2_vec.begin(), max_iter);
 
-            if (distance < 0) return 0;
             candidate(0) = grid_x * grid_dim + block_x * block_dim + pot_x * pot_dim + distance % pot_dim;
             candidate(1) = grid_y * grid_dim + block_y * block_dim + pot_y * pot_dim + distance / pot_dim;
             candidate(2) = 0;
+            if (distance < 0 || this->mask.at<float>(candidate(1), candidate(0)) > 1e-10) return 0;
 
             return *max_iter;
         } break;
@@ -259,11 +261,12 @@ float PixelSelector::find_max_mag2(Eigen::Vector3i& candidate, const int grid_x,
                 memcpy(&block_mag2_vec[y * block_dim], &block_head_ptr[y * cam->width[0]], block_dim * sizeof(float));
             }
             auto max_iter = std::max_element(block_mag2_vec.begin(), block_mag2_vec.end());
-            int distance = std::distance(max_iter, block_mag2_vec.begin());
-            if (distance < 0) return 0;
+            int distance = std::distance(block_mag2_vec.begin(), max_iter);
             candidate(0) = grid_x * grid_dim + block_x * block_dim + distance % block_dim;
             candidate(1) = grid_y * grid_dim + block_y * block_dim + distance / block_dim;
             candidate(2) = 1;
+
+            if (distance < 0 || this->mask.at<float>(candidate(1), candidate(0)) > 1e-10) return 0;
 
             return *max_iter;
         } break;
@@ -282,14 +285,13 @@ float PixelSelector::find_max_mag2(Eigen::Vector3i& candidate, const int grid_x,
                 memcpy(&grid_mag2_vec[y * grid_dim], &grid_head_ptr[y * cam->width[0]], grid_dim * sizeof(float));
             }
             auto max_iter = std::max_element(grid_mag2_vec.begin(), grid_mag2_vec.end());
-            int distance = std::distance(max_iter, grid_mag2_vec.begin());
+            int distance = std::distance(grid_mag2_vec.begin(), max_iter);
 
-            if (distance < 0) return 0;
-            if (candidate(0) < 0 || candidate(1) < 0) {
-                candidate(0) = grid_x * grid_dim + distance % grid_dim;
-                candidate(1) = grid_y * grid_dim + distance / grid_dim;
-                candidate(2) = 2;
-            }
+            candidate(0) = grid_x * grid_dim + distance % grid_dim;
+            candidate(1) = grid_y * grid_dim + distance / grid_dim;
+            candidate(2) = 2;
+
+            if (distance < 0 || this->mask.at<float>(candidate(1), candidate(0)) > 1e-10) return 0;
 
             return *max_iter;
         } break;

@@ -33,7 +33,7 @@ class Frame {
     ImagePyramid::ptr get_image_pyramid() const;
     ImagePyramid::ptr get_synetic_photometric_pyramid() const;
     Sophus::SE3f get_pose() const;      // return T_w_c
-    AffineLight get_aff_light() const;  // return global aff light
+    AffineLight get_aff_light() const;  // return aff_w_c
     Frame::ptr get_ref_frame();         // get the frame, which used to tracking curr frame;
     int get_id() const;
     const std::unique_ptr<FrameParameterBlock>& get_frame_block() const;  // get ceres param block
@@ -84,7 +84,7 @@ class Frame {
 
     // global info
     Sophus::SE3f T_w_c = Sophus::SE3f::transZ(0.0f);  // T_w_c;
-    AffineLight affine_light = AffineLight(0, 0);     // aff_w_c
+    AffineLight affine_light = AffineLight(0, 0);     // aff_w_c;
     int id;
 
     // ceres optimization params
@@ -131,10 +131,11 @@ inline void Frame::set_aff_light(const int alpha, const int beta) {
     this->affine_light = AffineLight(alpha, beta);
 }
 
-inline void Frame::set_tracking_result(const Sophus::SE3f& T_curr_refKF, const AffineLight& aff_light_curr_refKF) {
+inline void Frame::set_tracking_result(const Sophus::SE3f& T_curr_refKF, const AffineLight& aff_light_curr_w) {
     // inital global info
     this->T_w_c = this->refKF->T_w_c * T_curr_refKF.inverse();
-    this->affine_light = calc_dst_global_aff(this->refKF->affine_light, aff_light_curr_refKF);
+
+    this->affine_light = aff_light_curr_w.inverse();
 }
 
 inline Sophus::SE3f Frame::get_pose() const {
@@ -157,7 +158,7 @@ inline void Frame::set_ref_frame(const Frame::ptr& frame) {
 }
 inline void Frame::set_synetic_photometirc_im(cv::Mat synetic_photometric_im) {
     cv::cvtColor(synetic_photometric_im, synetic_photometric_im, cv::COLOR_BGR2GRAY);
-    this->synetic_photometirc_pyramid = std::make_shared<ImagePyramid>(synetic_photometric_im.data, true);
+    this->synetic_photometirc_pyramid = std::make_shared<ImagePyramid>(synetic_photometric_im.data, false);
 }
 
 inline const std::unique_ptr<FrameParameterBlock>& Frame::get_frame_block() const {

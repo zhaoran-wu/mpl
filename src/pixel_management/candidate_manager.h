@@ -31,6 +31,7 @@ struct Candidate {
     float color;
     float synetic_color[8];  // pattern color of synetic image
     float weight[8];         // pattern weight
+    float alignment_weight = 1;
     int u;
     int v;
     float d_inv_synetic_im;  // in m, initialized with synetic depth map, = 0 if
@@ -79,7 +80,7 @@ class CandidateManager {
      * @param frame
      * @param synetic_depth_im
      */
-    void select_candidate(const Frame::ptr frame, const cv::Mat synetic_depth_im);
+    void select_candidate(const Frame::ptr frame, const cv::Mat synetic_depth_im, cv::Mat alignment_mask);
 
     PointCloudPyramid::ptr get_point_cloud_pyramid();
 
@@ -115,7 +116,7 @@ class CandidateManager {
     void update_depth_on_old_frame(Candidate& can, const Sophus::SE3f& T_new_old, const AffineLight& aff_new_old,
                                    Frame::ptr new_frame);
 
-    void calc_structure_mat(Frame::ptr host_frame, Candidate& can);
+    void calc_structure_mat(Frame::ptr host_frame, Candidate& can, cv::Mat weight_mask);
 
     // map frame ptr to it's candidate
     std::unordered_map<Frame::ptr, std::vector<Candidate>> candidate_map;
@@ -131,6 +132,8 @@ class CandidateManager {
     bool is_initialized = false;  // initialized: has enough activate point, else directly use synetic depth image in
                                   // curr frame to tracking
     std::shared_ptr<Visualizer> vis_ptr;
+
+    PointCloudPyramid::ptr last_pcp = nullptr;
 };
 
 inline void Candidate::update(float d_inv_obs, float var_obs) {

@@ -25,9 +25,10 @@ class PixelSelector {
      * @param candidates_out candidate_out(0):x , candidate_out(1):y ,
      * candidate_out(2): only for visulization, indicate in which searchRegion
      * ,it was selected
+     * @param mask : candidate will not select if has a value of 0 in mask
      * @return int
      */
-    int select(ImagePyramid::ptr pyramid_ptr, std::vector<Eigen::Vector3i>& candidates_out);
+    int select(ImagePyramid::ptr pyramid_ptr, std::vector<Eigen::Vector3i>& candidates_out, cv::Mat mask);
 
    private:
     // reset when new image to be selected
@@ -96,6 +97,8 @@ class PixelSelector {
 
     void draw_result(const std::vector<Eigen::Vector3i>& candidates, ImagePyramid::ptr pyramid_ptr,
                      const float time_cost) const;
+
+    cv::Mat mask;
 };
 
 //########################################################//

@@ -54,7 +54,7 @@ class Tracker {
 
     // movement pridiction part
     Sophus::SE3f T_last_lastKF = Sophus::SE3f(Eigen::Quaternionf::Identity(), Eigen::Vector3f(0, 0, 0));
-    AffineLight aff_last_lastKF = AffineLight(0, 0);
+    AffineLight aff_last_map = AffineLight(0, 0);
 
     Frame::ptr last_frame = nullptr;
     Frame::ptr over_last_frame = nullptr;

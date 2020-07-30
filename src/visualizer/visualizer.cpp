@@ -213,6 +213,15 @@ void Visualizer::publish_curr_frame_tracking_info(std::shared_ptr<PointCloudPyra
     cv::applyColorMap(depth_map, depth_map, cv::COLORMAP_JET);
     depth_map.copyTo(result, mask);
 
+    // draw outlier
+    for (const auto& point : pcd) {
+        if (!point.visible_for_newst_frame) continue;
+        Eigen::Vector2f hit_pixel = point.hit_pixel_in_newst_frame;
+        if (point.is_outlier) {
+            cv::circle(result, cv::Point2f(hit_pixel(0), hit_pixel(1)), 1, cv::Scalar(255, 255, 255), 2);
+        }
+    }
+
     cv::cvtColor(result, result, cv::COLOR_BGR2RGBA);
     set_curr_frame_tracking_info(resize(result), T_w_c_, T_c_kf);
 }

@@ -62,13 +62,13 @@ void DistanceMap::compute(std::unordered_map<Frame::ptr, std::vector<Candidate>>
             const Eigen::Vector2f point_in_frame = unproject_trans_project(can, it.first, frame);
 
             if (!is_in_img(*cam, point_in_frame)) {
-                can.status = (can.status == CandidateStatus::BAD) ? CandidateStatus::BAD : CandidateStatus::OOB;
+                // can.status = (can.status == CandidateStatus::BAD) ? CandidateStatus::BAD : CandidateStatus::OOB;
                 continue;
             }
             can.projection_on_newst_KF = point_in_frame;
 
             // check active point
-            if (!can.is_active || can.age > 7) continue;
+            if (!can.is_active || can.age > 7 || can.status == CandidateStatus::BAD) continue;
 
             int x = static_cast<int>(point_in_frame[0]);
             int y = static_cast<int>(point_in_frame[1]);

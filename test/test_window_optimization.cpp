@@ -21,37 +21,68 @@ bool is_newframe_KF(PointCloudPyramid::ptr pcp, const Sophus::SE3f& T_KF_curr, f
     if (abs(T_KF_curr.angleY()) > 0.06 || T_KF_curr.log().norm() > 1.3 || energy > 350.f) return true;
 }
 
-void show_debug_key_frame_synetic_img_alignment(cv::Mat frame_img, cv::Mat synetic_img) {
+void show_debug_key_frame_synetic_img_alignment(cv::Mat frame_img, cv::Mat synetic_img, cv::Mat mask,
+                                                cv::Mat alignment_weight_mask) {
+    cv::Mat mask_32F;
+    cv::Mat zero_mat(mask.size(), CV_8UC1, cv::Scalar(0.0f));
+    cv::Mat synetic_8U;
+    synetic_img.convertTo(synetic_8U, CV_8UC1);
+
+    alignment_weight_mask.copyTo(zero_mat, synetic_8U);
+
+    zero_mat.convertTo(mask_32F, CV_32FC1);
+
+    cv::normalize(frame_img, frame_img, 0, 1, cv::NORM_MINMAX);
+    cv::normalize(mask_32F, mask_32F, 0, 1, cv::NORM_MINMAX);
+    cv::normalize(synetic_img, synetic_img, 0, 1, cv::NORM_MINMAX);
+
+    double num_pixel = cv::sum(mask)[0];
+
+    double diff_sum = cv::sum(mask_32F)[0];
+
+    std::cout << "  diff sum :" << diff_sum << " num pixel : " << num_pixel << " average diff "
+              << 255 * diff_sum / num_pixel << '\n';
+
+    cv::vconcat(mask_32F, frame_img, frame_img);
+    cv::vconcat(frame_img, synetic_img, frame_img);
+
+    cv::resize(frame_img, frame_img, cv::Size(frame_img.cols / 1.5, frame_img.rows / 1.5));
+
+    cv::imshow("alignment result", frame_img);
+    cv::waitKey(0);
+}
+
+cv::Mat make_alignment_weight_mask(cv::Mat frame_img, cv::Mat synetic_img, const AffineLight& aff_map_c) {
+    Config& config = Config::getInstance();
+
     cv::Mat abs_diff_img;
     cv::Mat synetic_img_single_channel, frame_img_single_channel;
 
     cv::cvtColor(synetic_img, synetic_img_single_channel, CV_RGBA2GRAY);
-    cv::cvtColor(frame_img, frame_img_single_channel, CV_RGB2GRAY);
+    cv::Mat mask = synetic_img_single_channel.clone();
+
+    synetic_img_single_channel.convertTo(synetic_img_single_channel, CV_32FC1);
+    frame_img.convertTo(frame_img_single_channel, CV_32FC1);
+
+    cv::Mat zero_mat = cv::Mat::zeros(synetic_img_single_channel.size(), CV_32FC1);
+    cv::addWeighted(frame_img_single_channel, exp(aff_map_c.alpha()), zero_mat, 0, aff_map_c.beta(),
+                    frame_img_single_channel);
 
     cv::absdiff(frame_img_single_channel, synetic_img_single_channel, abs_diff_img);
 
-    cv::Mat mask = synetic_img_single_channel.clone();
-
     cv::threshold(mask, mask, 1, 1, cv::THRESH_BINARY);
 
-    cv::Mat result;
+    cv::Mat result(mask.size(), CV_8UC1, cv::Scalar(255));
+    cv::Mat abs_8U;
+    cv::normalize(abs_diff_img, abs_8U, 0, 255, cv::NORM_MINMAX);
+    abs_8U.convertTo(abs_8U, CV_8UC1);
+    abs_8U.copyTo(result, mask);
 
-    abs_diff_img.copyTo(result, mask);
+    debug::execute_func_according_to_config(
+        config.DEBUG_KEY_FRAME_SYNETIC_IMAGE_ALIGNMENT, config.debug_key_frame_synetci_img_alignment_mutex,
+        show_debug_key_frame_synetic_img_alignment, frame_img_single_channel, synetic_img_single_channel, mask, result);
 
-    double num_pixel = cv::sum(mask)[0];
-
-    double diff_sum = cv::sum(result)[0];
-
-    std::cout << "  diff sum :" << diff_sum << " num pixel : " << num_pixel << " average diff " << diff_sum / num_pixel
-              << '\n';
-
-    cv::vconcat(result, frame_img_single_channel, result);
-    cv::vconcat(result, synetic_img_single_channel, result);
-
-    cv::resize(result, result, cv::Size(result.cols / 1.5, result.rows / 1.5));
-
-    cv::imshow("alignment result", result);
-    cv::waitKey(0);
+    return result;
 }
 
 int main() {
@@ -76,7 +107,7 @@ int main() {
     std::string data_path = "/home/zhaoran/dataset/KITTI/sequences/00/image_0/";
     std::vector<cv::Mat> img_vec;
     std::vector<cv::Mat> img_draw_vec;
-    for (int i = 0; i < 200; ++i) {
+    for (int i = 0; i < 600; ++i) {
         int im_id = 80 + i;
         string im_name = (im_id < 100) ? "0000" + to_string(im_id) + ".png" : "000" + to_string(im_id) + ".png";
         cv::Mat im_tmp = cv::imread(data_path + im_name);
@@ -108,7 +139,8 @@ int main() {
     CandidateManager cm(vis);
 
     key_frame->set_synetic_photometirc_im(syn_im_vec_curr[0]);
-    cm.select_candidate(key_frame, syn_im_vec_curr[1]);
+    cv::Mat alignment_weight_mask = cv::Mat::zeros(syn_im_vec_curr[1].size(), CV_8UC1);
+    cm.select_candidate(key_frame, syn_im_vec_curr[1], alignment_weight_mask);
     std::vector<Candidate>& candidates = cm.get_candidate(key_frame);
 
     PointCloudPyramid::ptr pcp = cm.get_point_cloud_pyramid();
@@ -122,11 +154,10 @@ int main() {
     // reset rendering start pose
     synetic_image.set_start_pose(pose.atIndex(start_idx) * T_c_c0.inverse());
 
-    LOG(INFO) << " T_c_c0" << '\n' << T_c_c0.matrix();
-    debug::execute_func_according_to_config(
-        config.DEBUG_KEY_FRAME_SYNETIC_IMAGE_ALIGNMENT, config.debug_key_frame_synetci_img_alignment_mutex,
-        show_debug_key_frame_synetic_img_alignment, img_draw_vec[0], syn_im_vec_curr[0]);
-    std::thread th_draw(&Visualizer::publish_curr_frame_tracking_info, std::ref(*vis), pcp, img_draw_vec[0],
+    // debug::execute_func_according_to_config(
+    //    config.DEBUG_KEY_FRAME_SYNETIC_IMAGE_ALIGNMENT, config.debug_key_frame_synetci_img_alignment_mutex,
+    //    show_debug_key_frame_synetic_img_alignment, img_draw_vec[0], syn_im_vec_curr[0], key_frame->get_aff_light());
+    std::thread th_draw(&Visualizer::publish_curr_frame_tracking_info, std::ref(*vis), pcp, img_draw_vec[off_set],
                         key_frame->get_pose(), key_frame->get_pose().inverse());
     th_draw.detach();
 
@@ -139,9 +170,10 @@ int main() {
         vis->stop_or_start_according_to_pangolin_menu();
         // cv::imshow("frame", key_frame_vis);
         // cv::imshow("synetic", syn_im_vec_curr[0]);
-        debug::execute_func_according_to_config(
-            config.DEBUG_KEY_FRAME_SYNETIC_IMAGE_ALIGNMENT, config.debug_key_frame_synetci_img_alignment_mutex,
-            show_debug_key_frame_synetic_img_alignment, key_frame_vis, syn_im_vec_curr[0]);
+        // debug::execute_func_according_to_config(
+        //    config.DEBUG_KEY_FRAME_SYNETIC_IMAGE_ALIGNMENT, config.debug_key_frame_synetci_img_alignment_mutex,
+        //    show_debug_key_frame_synetic_img_alignment, key_frame_vis, syn_im_vec_curr[0],
+        //    key_frame->get_aff_light());
         // cv::waitKey(0);
 
         Frame::ptr curr_frame = Frame::create(img_vec[i]);
@@ -158,6 +190,7 @@ int main() {
         // todo : a best way to choose KF
         bool is_KF = is_newframe_KF(pcp, T_curr_KF, tracker.get_per_pixel_energy());
         if (is_KF) {
+            key_frame = curr_frame;
             key_frame_vis = img_draw_vec[i];
             // rendering at new key frame's pose
             render_pose = curr_frame->get_pose();
@@ -165,7 +198,9 @@ int main() {
 
             // add new frame to the window, and select candidate on it
             curr_frame->set_synetic_photometirc_im(syn_im_vec_curr[0]);
-            cm.select_candidate(curr_frame, syn_im_vec_curr[1]);
+            cv::Mat alignment_weight_mask =
+                make_alignment_weight_mask(img_vec[i], syn_im_vec_curr[0], key_frame->get_aff_light());
+            cm.select_candidate(curr_frame, syn_im_vec_curr[1], alignment_weight_mask);
 
             // optimize key frame window
             //! pba.solve(cm);

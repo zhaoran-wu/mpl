@@ -6,13 +6,13 @@
 
 namespace mpl {
 
+class Candidate;
 struct Voxel {
     Voxel() = default;
 
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    Voxel(const Eigen::Vector3f& position, const float intensity) {
-        this->position = position;
-        this->intensity = intensity;
+    Voxel(Candidate* can, const Eigen::Vector3f& position, const float intensity, const float weight = 1)
+        : position(position), intensity(intensity), weight(weight), can(can) {
     }
 
     Eigen::Vector3f position;
@@ -21,10 +21,12 @@ struct Voxel {
     Eigen::Vector2f hit_pixel_in_newst_frame;
     float depth_in_newst_frame;
     float last_tracking_energy;  // final energy in last tracking
+    float weight;
+    bool is_outlier = false;
+    Candidate* can;  // correspond candidate;
 };
 
 typedef std::vector<Voxel> PointCloud;
-class Candidate;
 class PointCloudPyramid {
    public:
     typedef std::shared_ptr<PointCloudPyramid> ptr;
