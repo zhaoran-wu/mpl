@@ -87,7 +87,6 @@ void CandidateManager::select_candidate(const Frame::ptr frame, const cv::Mat sy
         calc_structure_mat(frame, can, alignment_mask);
 
         if (!is_synetic_depth_valid(can, frame, newst_KF, T_old_new, aff_old_new, rotated_pattern)) {
-            can.d_inv_synetic_im = 0.0f;
             continue;
         }
         candidate_vec.push_back(std::move(can));
@@ -117,14 +116,14 @@ bool CandidateManager::is_synetic_depth_valid(const Candidate& can, const Frame:
         float u = point_on_lastKF(0) + rotated_pattern[i][0];
         float v = point_on_lastKF(1) + rotated_pattern[i][1];
 
-        energy += can.weight[i] * abs(calc_light_diff(can.color, target_frame->at(u, v), aff_old_new));
+        energy += can.weight[i] * abs(calc_light_diff(can.color[i], target_frame->at(u, v), aff_old_new));
     }
     static int cnt = 0;
 
     // std::cout << " curr energy : " << energy << " outlier num: " << cnt << '\n';
 
-    if (energy >= 80.f) ++cnt;  //!
-    return (energy < 80.0f);
+    if (energy >= 28.f) ++cnt;  //!
+    return (energy < 28.0f);
 }
 
 cv::Mat CandidateManager::generate_depth_safe_mask(const cv::Mat synetic_depth_im) const {
@@ -416,7 +415,7 @@ void CandidateManager::calc_structure_mat(Frame::ptr host_frame, Candidate& can,
         dxdy(0) = host_frame->dx(u, v);
         dxdy(1) = host_frame->dy(u, v);
 
-        can.color = host_frame->at(u, v);
+        can.color[idx] = host_frame->at(u, v);
         can.synetic_color[idx] = (float)host_frame->at_synetic(u, v);
         can.structure_mat += dxdy * dxdy.transpose();
         float w1 = -std::abs(can.synetic_color[idx] - can.synetic_color[0]) / 8.0f;

@@ -28,7 +28,7 @@ enum class CandidateStatus {
 };
 
 struct Candidate {
-    float color;
+    float color[8];
     float synetic_color[8];  // pattern color of synetic image
     float weight[8];         // pattern weight
     float alignment_weight = 1;
@@ -93,6 +93,7 @@ class CandidateManager {
     std::vector<Frame::ptr>& get_key_frames();
 
    private:
+    // valid : depth from model is nearly correct
     bool is_synetic_depth_valid(const Candidate& can, const Frame::ptr host_frame, const Frame::ptr target_frame,
                                 const Sophus::SE3f T_old_new, const AffineLight& aff_old_new,
                                 const std::vector<Eigen::Vector2f> rotated_pattern) const;
