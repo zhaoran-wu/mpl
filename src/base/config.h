@@ -66,10 +66,10 @@ class Config {
     // std::mutex debug_pixel_selection_mutex;
     // bool DEBUG_PIXEL_SELECTION = false;
 
-    const int max_iteration_each_lvl[5] = {50, 30, 25, 15, 10};
+    const int max_iteration_each_lvl[5] = {50, 25, 20, 15, 10};
     const float lamda_init_each_lvl[5] = {1e-8, 1e-6, 1e-5, 1, 100};  // very sensitive : e.g motion blur
-    const float lamda_min_eahc_lvl[5] = {1e-14, 1e-10, 1e-9, 1e-6, 1e-7};
-    const int huber_residual_each_lvl[5] = {22, 26, 28, 35, 40};
+    const float lamda_min_eahc_lvl[5] = {1e-14, 1e-10, 1e-9, 1e-5, 1e-7};
+    const int huber_residual_each_lvl[5] = {10, 15, 20, 28, 40};
 
     static const int WINDOW_SIZE = 7;
 };

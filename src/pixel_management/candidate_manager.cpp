@@ -122,8 +122,8 @@ bool CandidateManager::is_synetic_depth_valid(const Candidate& can, const Frame:
 
     // std::cout << " curr energy : " << energy << " outlier num: " << cnt << '\n';
 
-    if (energy >= 28.f) ++cnt;  //!
-    return (energy < 28.0f);
+    if (energy >= 30.f) ++cnt;  //!
+    return (energy < 30.0f);
 }
 
 cv::Mat CandidateManager::generate_depth_safe_mask(const cv::Mat synetic_depth_im) const {
