@@ -418,12 +418,13 @@ void CandidateManager::calc_structure_mat(Frame::ptr host_frame, Candidate& can,
         can.color[idx] = host_frame->at(u, v);
         can.synetic_color[idx] = (float)host_frame->at_synetic(u, v);
         can.structure_mat += dxdy * dxdy.transpose();
-        float w1 = -std::abs(can.synetic_color[idx] - can.synetic_color[0]) / 8.0f;
+        float w1 = -std::abs(can.synetic_color[idx] - can.synetic_color[0]) / 16.0f;
         can.weight[idx] = exp(w1);
         sum += can.weight[idx];
 
-        can.alignment_weight = std::sqrt(std::exp(-((int)weight_mask.at<uchar>(can.v, can.u) / 10.0f)));
-        // std::cout << "!!!!weight :" << can.alignment_weight << '\n';
+        can.alignment_weight = std::sqrt(std::exp(-((int)weight_mask.at<uchar>(can.v, can.u) / 16.0f)));
+        // std::cout << "diff : " << (int)weight_mask.at<uchar>(can.v, can.u) << "   weight :" << can.alignment_weight
+        //          << '\n';
     }
 
     for (int i = 0; i < 8; ++i) {
