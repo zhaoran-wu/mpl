@@ -15,8 +15,8 @@ namespace mpl {
  */
 enum class CandidateStatus {
     NOT_ACTIVE,  // never been used to generate a tracking reference point cloud
-    ACTIVE,      // used to generate a tracking referenc point cloud,(good track >= 0, bad track <=1)
-    OUTLIER,     // good track = 0 , bad track = 1;
+    ACTIVE,      // used to generate a tracking referenc point cloud,(good track = 0, bad track = 0 or 1)
+    OUTLIER,     // good track = 0 , bad track = 2;
     OOB,         // out of boundary: good track > 0, bad track >= 1;
                  // 1. good track > 0 but not in curr imag(bad track = 1)
                  // 2. occlusion : good track > 0, bad track > 1
@@ -80,7 +80,7 @@ class CandidateManager {
                                 const std::vector<Eigen::Vector2f> rotated_pattern) const;
 
     // safe depth has a vuale 0 in the mask
-    cv::Mat generate_depth_safe_mask(const cv::Mat synetic_depth_im) const;
+    cv::Mat generate_depth_safe_mask(const cv::Mat synetic_depth_im);
 
     void calc_structure_mat(Frame::ptr host_frame, Candidate& can, cv::Mat weight_mask);
 
@@ -100,6 +100,8 @@ class CandidateManager {
     std::shared_ptr<Visualizer> vis_ptr;
 
     PointCloudPyramid::ptr last_pcp = nullptr;
+
+    cv::Mat safe_mask;
 };
 
 inline const std::unique_ptr<PointParameterBlock>& Candidate::get_point_block() const {

@@ -29,11 +29,11 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
     int huber_radius = config.huber_residual_each_lvl[lvls - 1];
     float lamda_min = config.lamda_min_eahc_lvl[lvls - 1];
     //
-    for (int i = 0; i < 21; ++i) {
+    for (int i = 0; i < 25; ++i) {
         init_pose = movement_prediction[i] * T_last_lastKF;
         optimizer.init(init_pose, init_aff_light, point_cloud_pyramid_, to_track_frame);
         optimizer.set_lvl(lvls - 1);
-        float energy = optimizer.solve(iterations, lamda_init, lamda_min, huber_radius);
+        float energy = optimizer.solve(iterations, lamda_init, lamda_min, huber_radius, false);
         std::cout << " idx :" << i
                   << "energy per pixel :" << std::sqrt(energy / point_cloud_pyramid_->operator[](lvls - 1).size())
                   << '\n';
@@ -83,7 +83,7 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
             lamda_min = config.lamda_min_eahc_lvl[lvl];
             huber_radius = config.huber_residual_each_lvl[lvl];
         }
-        min_energy = optimizer.solve(iterations, lamda_init, lamda_min, huber_radius);
+        min_energy = optimizer.solve(iterations, lamda_init, lamda_min, huber_radius, true);
         T_curr_lastKF_pyramid.push_back(optimizer.getT());
         energy_vec.push_back(min_energy);
     }
@@ -173,6 +173,10 @@ void Tracker::generate_movement_predictions() {
     movement_prediction[18] = Sophus::SE3f::transZ(-0.4) * Sophus::SE3f::rotY(-0.08);
     movement_prediction[19] = Sophus::SE3f::transZ(-0.4) * Sophus::SE3f::rotY(-0.1f);
     movement_prediction[20] = Sophus::SE3f::transZ(-0.4) * Sophus::SE3f::rotY(-0.12f);
+    movement_prediction[21] = Sophus::SE3f::transZ(-0.32) * Sophus::SE3f::rotY(+0.06f);
+    movement_prediction[22] = Sophus::SE3f::transZ(-0.4) * Sophus::SE3f::rotY(+0.08);
+    movement_prediction[23] = Sophus::SE3f::transZ(-0.4) * Sophus::SE3f::rotY(+0.1f);
+    movement_prediction[24] = Sophus::SE3f::transZ(-0.4) * Sophus::SE3f::rotY(+0.12f);
 }
 
 void Tracker::draw_result(PointCloudPyramid::ptr pcp, const std::vector<Sophus::SE3f>& T_vec, Frame::ptr frame,

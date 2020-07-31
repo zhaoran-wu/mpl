@@ -46,7 +46,7 @@ class Tracker {
     // 2* (0.5x movement + turn left , 0.5x movement + turn right)
     // no movement
     // forward movement
-    Sophus::SE3f movement_prediction[24];
+    Sophus::SE3f movement_prediction[25];
     PointCloudPyramid::ptr point_cloud_pyramid_;
     TrackingOptimizer optimizer;
 

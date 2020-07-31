@@ -5,7 +5,7 @@
 #include <glog/logging.h>
 #include <opencv2/highgui.hpp>
 namespace mpl {
-ImagePyramid::ImagePyramid(const uchar* const row_data, bool is_synetic) {
+ImagePyramid::ImagePyramid(const uchar* const row_data, bool is_synetic, const AffineLight& aff_curr_w) {
     LOG_ASSERT(row_data != nullptr);
     cam_data = &CamData::getInstance();
     auto& config = Config::getInstance();
@@ -14,7 +14,7 @@ ImagePyramid::ImagePyramid(const uchar* const row_data, bool is_synetic) {
     for (int lvl = 0; lvl < config.PYRAMID_LVLS; ++lvl) {
         build_image(parent_image, lvl);
         parent_image = image_pyramid[lvl].get();
-        build_derivative(lvl, is_synetic);
+        build_derivative(lvl, is_synetic, aff_curr_w);
     }
 
     debug::execute_mem_according_to_config(config.DEBUG_IMAGE_PYRAMID, config.debug_image_pyramid_mutex,
@@ -99,7 +99,7 @@ void ImagePyramid::build_image(const uchar* parent_image, const int child_lvl) {
 }
 
 // generate dx,dy, mag_squared pyramid: direct compute with image in same lvl
-void ImagePyramid::build_derivative(const int lvl, bool is_synetic) {
+void ImagePyramid::build_derivative(const int lvl, bool is_synetic, const AffineLight& aff_curr_w) {
     int w_lvl = cam_data->width[lvl];
     int h_lvl = cam_data->height[lvl];
     int num_pixel = w_lvl * h_lvl;
@@ -114,10 +114,15 @@ void ImagePyramid::build_derivative(const int lvl, bool is_synetic) {
 
     uchar_ptr im(new uchar[num_pixel]);
 
-    if (is_synetic) {
+    if (is_synetic) {  // select on affine corrected img
         cv::Mat im_clone(cv::Size(cam_data->width[lvl], cam_data->height[lvl]), CV_8UC1, cv::Scalar(0));
+        cv::Mat zero_mat = im_clone.clone();
+
         std::memcpy(im_clone.data, im_lvl.get(), num_pixel);
-        cv::equalizeHist(im_clone, im_clone);
+        // cv::imshow("before", im_clone);
+        cv::addWeighted(im_clone, exp(aff_curr_w.alpha()), zero_mat, 0, aff_curr_w.beta(), im_clone);
+        // cv::imshow("after", im_clone);
+        // cv::waitKey(0);
         std::memcpy(im.get(), im_clone.data, num_pixel);
     } else {
         im = im_lvl;

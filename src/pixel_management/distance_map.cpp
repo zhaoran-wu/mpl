@@ -43,15 +43,28 @@ float DistanceMap::dist(int x, int y) const {
 }
 
 int DistanceMap::get_num_obstacles() const {
-    return this->num_obstacles;
+    return this->num_obstacles - unreal_obsacles_cnt;
 }
 
-void DistanceMap::compute(std::unordered_map<Frame::ptr, std::vector<Candidate>>& candidate_map,
-                          const Frame::ptr frame) {
+void DistanceMap::compute(std::unordered_map<Frame::ptr, std::vector<Candidate>>& candidate_map, const Frame::ptr frame,
+                          cv::Mat mask) {
     // reset distance map
     std::fill(this->dist_map, this->dist_map + this->w * this->h, std::numeric_limits<float>::max());
     this->num_obstacles = 0;
-
+    // set according to mask
+    unreal_obsacles_cnt = 0;
+    if (!mask.empty()) {
+        for (int r = 0; r < mask.rows; ++r) {
+            for (int c = 0; c < mask.cols; ++c) {
+                if (mask.at<float>(r, c)) {
+                    unreal_obsacles_cnt++;
+                    this->obstacles[++this->num_obstacles] = Eigen::Vector2i(c, r);
+                    this->require_update[this->num_obstacles] = true;
+                    this->dist_map[c + (r * this->w)] = 0;
+                }
+            }
+        }
+    }
     // generate point in newst key frame and put dist = 0 in distance map
     for (auto& it : candidate_map) {
         if (it.first == frame) continue;

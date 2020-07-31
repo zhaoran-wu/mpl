@@ -158,7 +158,8 @@ inline void Frame::set_ref_frame(const Frame::ptr& frame) {
 }
 inline void Frame::set_synetic_photometirc_im(cv::Mat synetic_photometric_im) {
     cv::cvtColor(synetic_photometric_im, synetic_photometric_im, cv::COLOR_BGR2GRAY);
-    this->synetic_photometirc_pyramid = std::make_shared<ImagePyramid>(synetic_photometric_im.data, true);
+    this->synetic_photometirc_pyramid =
+        std::make_shared<ImagePyramid>(synetic_photometric_im.data, true, affine_light.inverse());
 }
 
 inline const std::unique_ptr<FrameParameterBlock>& Frame::get_frame_block() const {

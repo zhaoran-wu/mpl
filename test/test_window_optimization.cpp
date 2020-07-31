@@ -127,11 +127,11 @@ int main() {
     // 2. generate point cloud pyramid on newst frame for tracking
 
     // system begin
-    int start_idx = 0;  // 20
+    int start_idx = 110;  // 20
     synetic_image.set_start_pose(pose.atIndex(start_idx));
     Sophus::SE3f render_pose = Sophus::SE3f::transZ(0.0);
 
-    int off_set = 0;  // 80
+    int off_set = start_idx * 4;  // 80
     Frame::ptr key_frame = Frame::create(img_vec[off_set]);
     std::vector<cv::Mat> syn_im_vec_curr = synetic_image.renderingAt(render_pose);
     std::shared_ptr<Visualizer> vis(new Visualizer);

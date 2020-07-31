@@ -17,7 +17,8 @@ class TrackingOptimizer {
     void init(const Sophus::SE3f init_pose, const AffineLight init_rel_affL,
               PointCloudPyramid::ptr ref_point_cloud_prymid, Frame::ptr to_track_frame);
 
-    float solve(const int iterations, const float lamda_init, const float lamda_min, const int l1_turacation);
+    float solve(const int iterations, const float lamda_init, const float lamda_min, const int l1_turacation,
+                const bool remove_outlier);
     Sophus::SE3f getT() const;
     AffineLight getAffineLight() const;
     void set_lvl(const int lvl);
@@ -26,13 +27,13 @@ class TrackingOptimizer {
     // accumulate to H and b
     void update(const Vec8 delta_x);
     void build_problem();
-    void assign_final_tracking_result_to_voxel() const;
+    void assign_final_tracking_result_to_voxel(const bool remove_outlier) const;
     void accumulate_H_b(float roboust_weight);
     Mat88 get_damped_hessian();
     void scaling_H_b();
     void scaling_delta_x(Vec8& delta_x);
     float calc_residual(const float curr_intensity, const float point_cloud_intensity) const;
-    float calc_sum_weighted_squared_residual(bool use_weight = true) const;
+    float calc_sum_weighted_squared_residual(bool use_weight) const;
 
     float calc_huber_weight(const float residual) const;
     float calc_huber_weigted_redidual(const float huber_weight, const float residual) const;

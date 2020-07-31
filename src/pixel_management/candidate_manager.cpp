@@ -37,10 +37,10 @@ void CandidateManager::select_candidate(const Frame::ptr frame, const cv::Mat sy
         key_frames.erase(key_frames.begin());
     }
 
-    cv::Mat mask = generate_depth_safe_mask(synetic_depth_im);
+    safe_mask = generate_depth_safe_mask(synetic_depth_im);
 
     std::vector<Eigen::Vector3i> pixel_selected;
-    pixel_selector.select(frame->get_synetic_photometric_pyramid(), pixel_selected, mask);
+    pixel_selector.select(frame->get_synetic_photometric_pyramid(), pixel_selected, safe_mask);
 
     std::vector<Candidate> candidate_vec;
     // todo reserve candidate
@@ -70,7 +70,8 @@ void CandidateManager::select_candidate(const Frame::ptr frame, const cv::Mat sy
         can.d_inv_synetic_im = 1000.f / d;
         calc_structure_mat(frame, can, alignment_mask);
 
-        if (!is_synetic_depth_valid(can, frame, newst_KF, T_old_new, aff_old_new, rotated_pattern)) {
+        if (!is_synetic_depth_valid(can, frame, newst_KF, T_old_new, aff_old_new, rotated_pattern) ||
+            (int)alignment_mask.at<uchar>(can.v, can.u) > 26) {
             continue;
         }
         candidate_vec.push_back(std::move(can));
@@ -111,7 +112,7 @@ bool CandidateManager::is_synetic_depth_valid(const Candidate& can, const Frame:
     return (energy < 30.0f);
 }
 
-cv::Mat CandidateManager::generate_depth_safe_mask(const cv::Mat synetic_depth_im) const {
+cv::Mat CandidateManager::generate_depth_safe_mask(const cv::Mat synetic_depth_im) {
     auto& config = Config::getInstance();
     // calc depth gradient magnitude
     cv::Mat dx, dy;  // 1st derivative in x,y
@@ -134,10 +135,11 @@ cv::Mat CandidateManager::generate_depth_safe_mask(const cv::Mat synetic_depth_i
     cv::threshold(mag, mask, threshold_value, 255, cv::THRESH_BINARY);
 
     // dilation
-    int dilation_size = 4;  // 10
+    int dilation_size = 8;  // 10
     cv::Mat element =
         cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(2 * dilation_size + 1, 2 * dilation_size + 1),
                                   cv::Point(dilation_size, dilation_size));
+
     /// Apply the dilation operation
     cv::dilate(mask, mask_dilated, element);
 
@@ -168,11 +170,11 @@ void CandidateManager::calc_structure_mat(Frame::ptr host_frame, Candidate& can,
         int v = pattern[idx][1] + can.v;
 
         can.synetic_color[idx] = (float)host_frame->at_synetic(u, v);
-        float w1 = -std::abs(can.synetic_color[idx] - can.synetic_color[0]) / 16.0f;
+        float w1 = -std::abs(can.synetic_color[idx] - can.synetic_color[0]) / 32.0f;
         can.weight[idx] = exp(w1);
         sum += can.weight[idx];
 
-        can.alignment_weight = std::sqrt(std::exp(-((int)weight_mask.at<uchar>(can.v, can.u) / 16.0f)));
+        can.alignment_weight = std::sqrt(std::exp(-((int)weight_mask.at<uchar>(can.v, can.u) / 32.0f)));
         // std::cout << "diff : " << (int)weight_mask.at<uchar>(can.v, can.u) << "   weight :" << can.alignment_weight
         //          << '\n';
     }
@@ -185,7 +187,8 @@ void CandidateManager::calc_structure_mat(Frame::ptr host_frame, Candidate& can,
 void CandidateManager::activate_candidate() {
     auto& cam = CamData::getInstance();
     // pre-compute the distance map of (already) active points
-    dist_map.compute(candidate_map, newst_KF);
+
+    dist_map.compute(candidate_map, newst_KF, safe_mask);
 
     // set the min dist to active based on statistics
     Config& config = Config::getInstance();
@@ -267,13 +270,14 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
         for (auto& can : candidate_map[newst_KF]) {
             ++cnt;
             for (int lvl = 0; lvl < lvls; ++lvl) {
-                if ((lvl != 0 && cnt % lvl == 0) || lvl == 0) {
+                if ((lvl != 0 && cnt % (lvl + 1) == 0) || lvl == 0) {
                     Eigen::Vector3f position = newst_KF->unproject(Eigen::Vector2i(can.u, can.v), can.d_inv_synetic_im);
 
                     (*pcp)[lvl].emplace_back(
                         &can, position,
                         newst_KF->at_synetic<float>(((can.u + 0.5f) / std::pow(2.0f, lvl)) - 0.5f,
-                                                    ((can.v + 0.5f) / std::pow(2.0f, lvl)) - 0.5f, lvl));
+                                                    ((can.v + 0.5f) / std::pow(2.0f, lvl)) - 0.5f, lvl),
+                        can.alignment_weight);
                 }
             }
         }
@@ -303,18 +307,19 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
             }
             // for all can in newst KF(not active yet)
             for (auto& can : candidate_map[newst_KF]) {
-                if (dist_map.dist(can.u, can.v) < 20) continue;
+                if (dist_map.dist(can.u, can.v) < 12) continue;
                 dist_map.add(Eigen::Vector2f(can.u, can.v));
 
                 ++cnt;
                 for (int lvl = 0; lvl < lvls; ++lvl) {
-                    if ((lvl != 0 && cnt % lvl == 0) || lvl == 0) {
+                    if ((lvl != 0 && cnt % (lvl + 1) == 0) || lvl == 0) {
                         Eigen::Vector3f position =
                             newst_KF->unproject(Eigen::Vector2i(can.u, can.v), can.d_inv_synetic_im);
                         (*pcp)[lvl].emplace_back(
                             &can, position,
                             newst_KF->at_synetic<float>(((can.u + 0.5f) / std::pow(2.0f, lvl)) - 0.5f,
-                                                        ((can.v + 0.5f) / std::pow(2.0f, lvl)) - 0.5f, lvl));
+                                                        ((can.v + 0.5f) / std::pow(2.0f, lvl)) - 0.5f, lvl),
+                            can.alignment_weight);
                     }
                 }
             }

@@ -1,4 +1,5 @@
 #pragma once
+#include "affine_light.h"
 #include "cam_data.h"
 #include "config.h"
 #include <iostream>
@@ -25,7 +26,7 @@ class ImagePyramid {
     typedef std::shared_ptr<uchar[]> uchar_ptr;
     typedef std::shared_ptr<float[]> float_ptr;
 
-    ImagePyramid(const uchar* const row_data, bool is_synetic);
+    ImagePyramid(const uchar* const row_data, bool is_synetic, const AffineLight& aff_curr_w = AffineLight(0, 0));
 
     // data :row image
     // dx,dy: derivative in x and y direction
@@ -53,7 +54,7 @@ class ImagePyramid {
 
    private:
     void build_image(const uchar* parent_image, const int lvl);
-    void build_derivative(const int lvl, bool is_synetic);
+    void build_derivative(const int lvl, bool is_synetic, const AffineLight& aff_curr_w);
 
     std::vector<uchar_ptr> image_pyramid;
     std::vector<float_ptr> dx_pyramid;
