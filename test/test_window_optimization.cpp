@@ -127,7 +127,7 @@ int main() {
     // 2. generate point cloud pyramid on newst frame for tracking
 
     // system begin
-    int start_idx = 110;  // 20
+    int start_idx = 0;  // 20
     synetic_image.set_start_pose(pose.atIndex(start_idx));
     Sophus::SE3f render_pose = Sophus::SE3f::transZ(0.0);
 

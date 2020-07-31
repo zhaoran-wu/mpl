@@ -71,7 +71,7 @@ void CandidateManager::select_candidate(const Frame::ptr frame, const cv::Mat sy
         calc_structure_mat(frame, can, alignment_mask);
 
         if (!is_synetic_depth_valid(can, frame, newst_KF, T_old_new, aff_old_new, rotated_pattern) ||
-            (int)alignment_mask.at<uchar>(can.v, can.u) > 26) {
+            (int)alignment_mask.at<uchar>(can.v, can.u) > 20) {
             continue;
         }
         candidate_vec.push_back(std::move(can));
