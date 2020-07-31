@@ -302,23 +302,22 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
                 ++can.age;
             }
             // for all can in newst KF(not active yet)
-            /*             for (auto& can : candidate_map[newst_KF]) {
-                            if (dist_map.dist(can.u, can.v) < 12) continue;
-                            dist_map.add(Eigen::Vector2f(can.u, can.v));
+            for (auto& can : candidate_map[newst_KF]) {
+                if (dist_map.dist(can.u, can.v) < 20) continue;
+                dist_map.add(Eigen::Vector2f(can.u, can.v));
 
-                            ++cnt;
-                            for (int lvl = 0; lvl < lvls; ++lvl) {
-                                if ((lvl != 0 && cnt % lvl == 0) || lvl == 0) {
-                                    Eigen::Vector3f position =
-                                        newst_KF->unproject(Eigen::Vector2i(can.u, can.v), can.d_inv_synetic_im);
-                                    (*pcp)[lvl].emplace_back(
-                                        &can, position,
-                                        newst_KF->at_synetic<float>(((can.u + 0.5f) / std::pow(2.0f, lvl)) - 0.5f,
-                                                                    ((can.v + 0.5f) / std::pow(2.0f, lvl)) - 0.5f,
-               lvl));
-                                }
-                            }
-                        } */
+                ++cnt;
+                for (int lvl = 0; lvl < lvls; ++lvl) {
+                    if ((lvl != 0 && cnt % lvl == 0) || lvl == 0) {
+                        Eigen::Vector3f position =
+                            newst_KF->unproject(Eigen::Vector2i(can.u, can.v), can.d_inv_synetic_im);
+                        (*pcp)[lvl].emplace_back(
+                            &can, position,
+                            newst_KF->at_synetic<float>(((can.u + 0.5f) / std::pow(2.0f, lvl)) - 0.5f,
+                                                        ((can.v + 0.5f) / std::pow(2.0f, lvl)) - 0.5f, lvl));
+                    }
+                }
+            }
         }
     }
 

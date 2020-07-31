@@ -125,7 +125,7 @@ void TrackingOptimizer::assign_final_tracking_result_to_voxel() const {
 
         float factor = std::pow(curr_lvl, 0.4) + 1;
         if (r * r > 6000 * factor || ((curr_lvl == 0) && (to_track_frame->mag_squared(hit_pixel) <
-                                                          0.25 * config->PIXEL_SELECTION_HERURISTIC_CONST))) {
+                                                          0.5 * config->PIXEL_SELECTION_HERURISTIC_CONST))) {
             // std::cout << "last tracking energy " << r * r << " mag 2 "
             //          << to_track_frame->mag_squared(hit_pixel, curr_lvl) << '\n';
             voxel.is_outlier = true;
