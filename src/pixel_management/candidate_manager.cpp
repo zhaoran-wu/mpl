@@ -25,20 +25,6 @@ std::vector<Frame::ptr>& CandidateManager::get_key_frames() {
 CandidateManager::CandidateManager(std::shared_ptr<Visualizer> vis_ptr_) : vis_ptr(vis_ptr_) {
 }
 
-void CandidateManager::update_depth_per_frame(const Frame::ptr new_frame) {
-    for (auto it = candidate_map.begin(); it != candidate_map.end(); ++it) {
-        Frame::ptr old_frame = it->first;
-        if (old_frame == new_frame) continue;
-
-        SE3f T_new_old = get_src_to_dst_transform(old_frame, new_frame);
-        AffineLight aff_new_old = get_src_to_dst_aff_light(old_frame, new_frame);
-
-        for (auto& can : it->second) {
-            update_depth_on_old_frame(can, T_new_old, aff_new_old, new_frame);
-        }
-    }
-}
-
 void CandidateManager::select_candidate(const Frame::ptr frame, const cv::Mat synetic_depth_im,
                                         cv::Mat alignment_mask) {
     // frame is key frame --> set frame block data for optimization
@@ -101,14 +87,14 @@ bool CandidateManager::is_synetic_depth_valid(const Candidate& can, const Frame:
                                               const Frame::ptr target_frame, const SE3f T_old_new,
                                               const AffineLight& aff_old_new,
                                               const vector<Vector2f> rotated_pattern) const {
-    if (!isfinite(can.d_inv_synetic_im)) return false;
-
     if (target_frame == nullptr) return true;
 
+    // project on last keyframe to validate
     const Vector2f& point_on_lastKF =
         target_frame->project(T_old_new * host_frame->unproject(Vector2i(can.u, can.v), can.d_inv_synetic_im));
 
-    if (!target_frame->is_in_image(point_on_lastKF(0), point_on_lastKF(1))) return false;
+    if (!target_frame->is_in_image(point_on_lastKF(0), point_on_lastKF(1))) return true;
+
     // valid
 
     float energy = 0;
@@ -116,7 +102,8 @@ bool CandidateManager::is_synetic_depth_valid(const Candidate& can, const Frame:
         float u = point_on_lastKF(0) + rotated_pattern[i][0];
         float v = point_on_lastKF(1) + rotated_pattern[i][1];
 
-        energy += can.weight[i] * abs(calc_light_diff(can.color[i], target_frame->at(u, v), aff_old_new));
+        energy +=
+            can.weight[i] * abs(calc_light_diff(can.synetic_color[i], target_frame->at_synetic(u, v), aff_old_new));
     }
     static int cnt = 0;
 
@@ -176,248 +163,13 @@ std::unordered_map<Frame::ptr, std::vector<Candidate>>& CandidateManager::get_ca
     return candidate_map;
 }
 
-void CandidateManager::update_depth_on_old_frame(Candidate& can, const Sophus::SE3f& T_new_old,
-                                                 const AffineLight& aff_new_old, Frame::ptr new_frame) {
-    if (can.status == CandidateStatus::OOB || can.status == CandidateStatus::BAD) return;
-
-    auto& cam = CamData::getInstance();
-
-    Matrix3f KRKinv = cam.K[0] * T_new_old.rotationMatrix() * cam.K_inv[0];
-    Vector3f Kt = cam.K[0] * T_new_old.translation();
-
-    Vector3f pR = KRKinv * Vector3f(can.u + 0.5f, can.v + 0.5f, 1);
-
-    // get search area
-    auto p_near_p_far = get_search_range(can, pR, Kt);
-    const auto& p_near = p_near_p_far.first;
-    const auto& p_far = p_near_p_far.second;
-
-    if (!is_in_img(cam, p_near) && !is_in_img(cam, p_far)) {
-        can.status = (can.status == CandidateStatus::NOT_INITIALIZED) ? CandidateStatus::BAD : CandidateStatus::OOB;
-        return;
-    }
-
-    // calc corrected pattern
-    Matrix2f Rplane = KRKinv.topLeftCorner<2, 2>();
-    vector<Vector2f> rotatetPattern = get_rotatet_pattern(Rplane);
-
-    // line search
-    float u_best, v_best;
-    float energy_best = line_search(u_best, v_best, can, new_frame, p_near, p_far, rotatetPattern, aff_new_old);
-
-    if (!(energy_best < 50.f)) {
-        if (can.status == CandidateStatus::NOT_INITIALIZED) {
-            can.status = CandidateStatus::BAD;
-        } else {
-            can.status = (can.status == CandidateStatus::OUTLIER) ? CandidateStatus::OOB : CandidateStatus::OUTLIER;
-        }
-        return;
-    }
-
-    // optimization
-    Vector2f vec_far_to_near = p_near - p_far;
-    Vector2f direction = vec_far_to_near.normalized();
-    float energy_best_optimize = optimize(u_best, v_best, can, direction, new_frame, rotatetPattern, aff_new_old);
-    /*     std::cout << can.u << "   " << can.v << "    best u : " << u_best
-                  << "  v_best : " << v_best << "   energy before :" <<
-       energy_best
-                  << "    energy after : " << energy_best_optimize << '\n' */
-    ;
-
-    // update
-    update(u_best, v_best, can, direction, pR, Kt);
-}
-
-void CandidateManager::update(const float u_best, const float v_best, Candidate& can, const Eigen::Vector2f& direction,
-                              const Eigen::Vector3f& pR, const Eigen::Vector3f& Kt) {
-    float dx = direction(0);
-    float dy = direction(1);
-
-    // assert(abs(dx * dx + dy * dy - 1.f) < 1e-3);
-    float a = (Vector2f(dx, dy).transpose() * can.structure_mat * Vector2f(dx, dy));
-    float b = (Vector2f(dy, -dx).transpose() * can.structure_mat * Vector2f(dy, -dx));
-    float errorInPixel = 0.2f + 0.2f * (a + b) / a;
-
-    float d_inv_min_obs, d_inv_max_obs;
-    if (dx * dx > dy * dy) {
-        d_inv_min_obs = (pR[2] * (u_best - errorInPixel * dx) - pR[0]) / (Kt[0] - Kt[2] * (u_best - errorInPixel * dx));
-        d_inv_max_obs = (pR[2] * (u_best + errorInPixel * dx) - pR[0]) / (Kt[0] - Kt[2] * (u_best + errorInPixel * dx));
-    } else {
-        d_inv_min_obs = (pR[2] * (v_best - errorInPixel * dy) - pR[1]) / (Kt[1] - Kt[2] * (v_best - errorInPixel * dy));
-        d_inv_max_obs = (pR[2] * (v_best + errorInPixel * dy) - pR[1]) / (Kt[1] - Kt[2] * (v_best + errorInPixel * dy));
-    }
-    if (d_inv_min_obs > d_inv_max_obs) std::swap<float>(d_inv_max_obs, d_inv_min_obs);
-    /*     std::cout << "Error :   " << errorInPixel << "  u:   " << can.u
-                  << "    v:   " << can.v << "   min : " << d_inv_min_obs
-                  << "   max : " << d_inv_max_obs << '\n'; */
-    float d_inv_obs = (d_inv_max_obs + d_inv_min_obs) / 2;
-    if ((d_inv_obs < 0)) {
-        can.status = (can.status == CandidateStatus::NOT_INITIALIZED) ? CandidateStatus::BAD : CandidateStatus::OUTLIER;
-        return;
-    }
-    float d_inv_old = can.d_inv;
-
-    can.update(d_inv_obs, std::pow(d_inv_max_obs - d_inv_min_obs, 2));
-
-    if (!std::isinf(can.d_inv_synetic_im)) {
-        float diff = std::abs(can.d_inv_synetic_im / can.d_inv - 1);
-        if (diff < 1e-2) {
-            can.status = CandidateStatus::IS_MAP_POINT;
-            return;
-        }
-    }
-
-    if (d_inv_old != 0) {
-        float diff = std::abs(can.d_inv / d_inv_old - 1);
-        if (diff < 1e-2) {
-            can.status = CandidateStatus::NOT_MAP_BUT_CONVERGE;
-            return;
-        }
-    }
-    can.status = CandidateStatus::ILL_CONDITIONED;
-    return;
-}
-
-float CandidateManager::optimize(float& u_best, float& v_best, const Candidate& can, const Eigen::Vector2f& direction,
-                                 const Frame::ptr frame, const vector<Eigen::Vector2f>& rotatetPattern,
-                                 const AffineLight& aff) const {
-    float u_old = u_best, v_old = v_best, gnstepsize = 1, stepBack = 0;
-    int gnStepsGood = 0, gnStepsBad = 0;
-
-    float energy_best = 1e5;
-
-    for (int it = 0; it < 3; it++) {
-        float H = 1, b = 0, energy = 0;
-        for (int idx = 0; idx < 8; idx++) {
-            float u = u_best + rotatetPattern[idx][0];
-            float v = v_best + rotatetPattern[idx][1];
-
-            if (!std::isfinite(frame->at(u, v))) {
-                energy += 1e5;
-                continue;
-            }
-            float residual = calc_light_diff(can.synetic_color[idx], (float)frame->at(u, v), aff);
-            float dResdDist = direction(0) * frame->dx(u, v) + direction(1) * frame->dy(u, v);
-
-            H += dResdDist * dResdDist;
-            b += residual * dResdDist;
-            energy += can.weight[idx] * can.weight[idx] * residual * residual;
-        }
-
-        if (energy > energy_best) {
-            gnStepsBad++;
-
-            // do a smaller step from old point.
-            stepBack *= 0.5;
-            u_best = u_old + stepBack * direction(0);
-            v_best = v_old + stepBack * direction(1);
-        } else {
-            gnStepsGood++;
-
-            float step = -gnstepsize * b / H;
-            if (step < -0.5)
-                step = -0.5;
-            else if (step > 0.5)
-                step = 0.5;
-
-            if (!std::isfinite(step)) step = 0;
-
-            u_old = u_best;
-            v_old = v_best;
-            stepBack = step;
-
-            u_best += step * direction(0);
-            v_best += step * direction(1);
-            energy_best = energy;
-        }
-
-        if (fabsf(stepBack) < 0.1) break;
-    }
-    return energy_best;
-}
-
-std::pair<Eigen::Vector2f, Eigen::Vector2f> CandidateManager::get_search_range(const Candidate& can,
-                                                                               const Eigen::Vector3f& pR,
-                                                                               const Eigen::Vector3f& Kt) const {
-    pair<Vector2f, Vector2f> p_near_p_far;
-
-    if (can.status == CandidateStatus::NOT_INITIALIZED) {
-        if (!isfinite(can.d_inv_synetic_im)) {
-            p_near_p_far.second = pR.hnormalized();
-            // p_near
-            Vector3f p_near = pR + Kt * 0.01f;
-            Vector2f direction = (p_near.hnormalized() - p_near_p_far.second).normalized();
-            p_near_p_far.first = p_near_p_far.second + 40 * direction;
-        } else {
-            p_near_p_far.second = (pR + Kt * (0.3f * can.d_inv_synetic_im)).hnormalized();
-            p_near_p_far.first = (pR + Kt * (1.7f * can.d_inv_synetic_im)).hnormalized();
-
-            /*             std::cout << " range : "
-                                  << (p_near_p_far.first -
-               p_near_p_far.second).norm()
-                                  << '\n' */
-            ;
-        }
-    } else {
-        // std::cout << " d_inv " << can.d_inv << "  var : " << can.var << '\n';
-        p_near_p_far.second = (pR + Kt * can.get_d_inv_min()).hnormalized();
-        p_near_p_far.first = (pR + Kt * can.get_d_inv_max()).hnormalized();
-    }
-    return p_near_p_far;
-}
-
-float CandidateManager::line_search(float& u_best, float& v_best, const Candidate& can, const Frame::ptr frame,
-                                    const Eigen::Vector2f& p_near, const Eigen::Vector2f& p_far,
-                                    const vector<Vector2f>& rotatetPattern, const AffineLight& aff) const {
-    Vector2f vec_far_to_near = p_near - p_far;
-    Vector2f direction = vec_far_to_near.normalized();
-
-    float max_range_in_pixel = std::max(std::min(vec_far_to_near.norm(), 80.0f), 2.0f);
-    float ptx = p_far(0), pty = p_far(1);
-
-    float best_energy = std::numeric_limits<float>::max();
-    CamData& cam = CamData::getInstance();
-    for (int i = 0; i < max_range_in_pixel; i++) {
-        float energy = 0;
-        if (!is_in_img(cam, Eigen::Vector2f(ptx, pty))) continue;
-        for (int idx = 0; idx < 8; idx++) {
-            float hitColor = frame->at(ptx + rotatetPattern[idx][0], pty + rotatetPattern[idx][1]);
-
-            if (!std::isfinite(hitColor)) {
-                energy += 1e5;
-                continue;
-            }
-            float residual = calc_light_diff(can.synetic_color[idx], hitColor, aff);
-
-            energy += can.weight[idx] * can.weight[idx] * residual * residual;
-        }
-
-        if (energy < best_energy) {
-            u_best = ptx;
-            v_best = pty;
-            best_energy = energy;
-        }
-
-        ptx += direction(0);
-        pty += direction(1);
-    }
-    return best_energy;
-}
-
 void CandidateManager::calc_structure_mat(Frame::ptr host_frame, Candidate& can, cv::Mat weight_mask) {
-    can.structure_mat.setZero();
     float sum = 0;
     for (int idx = 0; idx < 8; idx++) {
         int u = pattern[idx][0] + can.u;
         int v = pattern[idx][1] + can.v;
 
-        Vector2f dxdy;
-        dxdy(0) = host_frame->dx(u, v);
-        dxdy(1) = host_frame->dy(u, v);
-
-        can.color[idx] = host_frame->at(u, v);
         can.synetic_color[idx] = (float)host_frame->at_synetic(u, v);
-        can.structure_mat += dxdy * dxdy.transpose();
         float w1 = -std::abs(can.synetic_color[idx] - can.synetic_color[0]) / 16.0f;
         can.weight[idx] = exp(w1);
         sum += can.weight[idx];
@@ -552,26 +304,27 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
                 ++can.age;
             }
             // for all can in newst KF(not active yet)
-            for (auto& can : candidate_map[newst_KF]) {
-                if (dist_map.dist(can.u, can.v) < 12) continue;
-                dist_map.add(Eigen::Vector2f(can.u, can.v));
+            /*             for (auto& can : candidate_map[newst_KF]) {
+                            if (dist_map.dist(can.u, can.v) < 12) continue;
+                            dist_map.add(Eigen::Vector2f(can.u, can.v));
 
-                ++cnt;
-                for (int lvl = 0; lvl < lvls; ++lvl) {
-                    if ((lvl != 0 && cnt % lvl == 0) || lvl == 0) {
-                        Eigen::Vector3f position =
-                            newst_KF->unproject(Eigen::Vector2i(can.u, can.v), can.d_inv_synetic_im);
-                        (*pcp)[lvl].emplace_back(
-                            &can, position,
-                            newst_KF->at_synetic<float>(((can.u + 0.5f) / std::pow(2.0f, lvl)) - 0.5f,
-                                                        ((can.v + 0.5f) / std::pow(2.0f, lvl)) - 0.5f, lvl));
-                    }
-                }
-            }
+                            ++cnt;
+                            for (int lvl = 0; lvl < lvls; ++lvl) {
+                                if ((lvl != 0 && cnt % lvl == 0) || lvl == 0) {
+                                    Eigen::Vector3f position =
+                                        newst_KF->unproject(Eigen::Vector2i(can.u, can.v), can.d_inv_synetic_im);
+                                    (*pcp)[lvl].emplace_back(
+                                        &can, position,
+                                        newst_KF->at_synetic<float>(((can.u + 0.5f) / std::pow(2.0f, lvl)) - 0.5f,
+                                                                    ((can.v + 0.5f) / std::pow(2.0f, lvl)) - 0.5f,
+               lvl));
+                                }
+                            }
+                        } */
         }
     }
 
-    LOG(INFO) << "curr point cloud size :" << pcp->operator[](0).size();
+    LOG(INFO) << "curr point cloud size of lvl 0: " << pcp->operator[](0).size();
     last_pcp = pcp;
     return pcp;
 }

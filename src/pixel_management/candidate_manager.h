@@ -28,25 +28,16 @@ enum class CandidateStatus {
 };
 
 struct Candidate {
-    float color[8];
     float synetic_color[8];  // pattern color of synetic image
-    float weight[8];         // pattern weight
+    float weight[8];         // pattern weight of synetic image
     float alignment_weight = 1;
     int u;
     int v;
     float d_inv_synetic_im;  // in m, initialized with synetic depth map, = 0 if
                              // the synetic depth is not valid
 
-    // line search
-    float d_inv = 0;  // var is max, set d_inv to random value;
-    float var = 1e10;
-
-    void update(float d_inv_obs, float var_obs);
-    float get_d_inv_min() const;
-    float get_d_inv_max() const;
     const std::unique_ptr<PointParameterBlock>& get_point_block() const;
     void merge_optimization_result();
-    Eigen::Matrix2f structure_mat;
 
     bool is_active = false;      // only active will join the optimization
     bool is_depth_safe = false;  // has a small depth gradient on synetic depth image
@@ -71,7 +62,6 @@ struct Candidate {
 class CandidateManager {
    public:
     CandidateManager(std::shared_ptr<Visualizer> vis_ptr);
-    void update_depth_per_frame(const Frame::ptr frame);
 
     /**
      * @brief select candidate in key frame, and initial depth with
@@ -98,24 +88,8 @@ class CandidateManager {
                                 const Sophus::SE3f T_old_new, const AffineLight& aff_old_new,
                                 const std::vector<Eigen::Vector2f> rotated_pattern) const;
 
-    std::pair<Eigen::Vector2f, Eigen::Vector2f> get_search_range(const Candidate& can, const Eigen::Vector3f& pR,
-                                                                 const Eigen::Vector3f& Kt) const;
     // safe depth has a vuale 0 in the mask
     cv::Mat generate_depth_safe_mask(const cv::Mat synetic_depth_im) const;
-
-    // line search part
-    float line_search(float& u_best, float& v_best, const Candidate& can, const Frame::ptr frame,
-                      const Eigen::Vector2f& p_near, const Eigen::Vector2f& p_far,
-                      const std::vector<Eigen::Vector2f>& rotatetPattern, const AffineLight& aff) const;
-
-    float optimize(float& u_best, float& v_best, const Candidate& can, const Eigen::Vector2f& direction,
-                   const Frame::ptr frame, const std::vector<Eigen::Vector2f>& rotatetPattern,
-                   const AffineLight& aff) const;
-
-    void update(const float u_best, const float v_best, Candidate& can, const Eigen::Vector2f& vec_far_to_near,
-                const Eigen::Vector3f& pR, const Eigen::Vector3f& Kt);
-    void update_depth_on_old_frame(Candidate& can, const Sophus::SE3f& T_new_old, const AffineLight& aff_new_old,
-                                   Frame::ptr new_frame);
 
     void calc_structure_mat(Frame::ptr host_frame, Candidate& can, cv::Mat weight_mask);
 
@@ -136,23 +110,6 @@ class CandidateManager {
 
     PointCloudPyramid::ptr last_pcp = nullptr;
 };
-
-inline void Candidate::update(float d_inv_obs, float var_obs) {
-    d_inv = (d_inv * var_obs + d_inv_obs * var) / (var + var_obs);
-    var = var * var_obs / (var + var_obs);
-
-    /*     std::cout << " u : " << u << "  v : " << v << "    d_inv : " << d_inv
-                  << "  var: " << var << '\n' */
-    ;
-}
-inline float Candidate::get_d_inv_min() const {
-    float tmp = d_inv - sqrt(var);
-    return (tmp < 0) ? 0 : tmp;
-}
-
-inline float Candidate::get_d_inv_max() const {
-    return d_inv + sqrt(var);
-}
 
 inline const std::unique_ptr<PointParameterBlock>& Candidate::get_point_block() const {
     return point_block;
