@@ -1,5 +1,6 @@
 #include "visualizer.h"
 #include "cam_data.h"
+#include "candidate_manager.h"
 #include "frame.h"
 #include <algorithm>
 #include <chrono>

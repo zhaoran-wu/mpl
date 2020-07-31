@@ -56,7 +56,7 @@ void DistanceMap::compute(std::unordered_map<Frame::ptr, std::vector<Candidate>>
     for (auto& it : candidate_map) {
         if (it.first == frame) continue;
 
-        //! go through all candidate
+        // go through all candidate
         auto& can_vec = it.second;
         for (auto& can : can_vec) {
             const Eigen::Vector2f point_in_frame = unproject_trans_project(can, it.first, frame);
@@ -68,7 +68,7 @@ void DistanceMap::compute(std::unordered_map<Frame::ptr, std::vector<Candidate>>
             can.projection_on_newst_KF = point_in_frame;
 
             // check active point
-            if (!can.is_active || can.age > 7 || can.status == CandidateStatus::BAD) continue;
+            if (can.status != CandidateStatus::ACTIVE) continue;
 
             int x = static_cast<int>(point_in_frame[0]);
             int y = static_cast<int>(point_in_frame[1]);

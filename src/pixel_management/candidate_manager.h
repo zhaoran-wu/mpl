@@ -14,17 +14,12 @@ namespace mpl {
  *
  */
 enum class CandidateStatus {
-    NOT_INITIALIZED,       // do not have benn searched even once
-    ILL_CONDITIONED,       // epi-polar line direction almost parallel with gradient
-                           // in last search
-    IS_MAP_POINT,          // d_inv is converge and close to d_inv after
-                           // some search
-    NOT_MAP_BUT_CONVERGE,  // d_inv is converge but not close to
-                           // d_inv
-    OUTLIER,               // minimal energy larger than threshold, if occur twice --> out of
-                           // boundary
-    OOB,                   // out of boundary --> to be marginalize
-    BAD                    // can not be used
+    NOT_ACTIVE,  // never been used to generate a tracking reference point cloud
+    ACTIVE,      // used to generate a tracking referenc point cloud,(good track >= 0, bad track <=1)
+    OUTLIER,     // good track = 0 , bad track = 1;
+    OOB,         // out of boundary: good track > 0, bad track >= 1;
+                 // 1. good track > 0 but not in curr imag(bad track = 1)
+                 // 2. occlusion : good track > 0, bad track > 1
 };
 
 struct Candidate {
@@ -35,16 +30,12 @@ struct Candidate {
     int v;
     float d_inv_synetic_im;  // in m, initialized with synetic depth map, = 0 if
                              // the synetic depth is not valid
+    int good_track_cnt = 0;
+    int bad_track_cnt = 0;
 
     const std::unique_ptr<PointParameterBlock>& get_point_block() const;
     void merge_optimization_result();
-
-    bool is_active = false;      // only active will join the optimization
-    bool is_depth_safe = false;  // has a small depth gradient on synetic depth image
-    // bool is_converge = false;   // d_inv almost not changed
-    // bool is_map_point = false;  //  d_inv almost not change in the first
-    // update float delta_d; bool is_active = false;
-    CandidateStatus status = CandidateStatus::NOT_INITIALIZED;
+    CandidateStatus status = CandidateStatus::NOT_ACTIVE;
 
     // use for activate
     Eigen::Vector2f projection_on_newst_KF = Eigen::Vector2f(0, 0);

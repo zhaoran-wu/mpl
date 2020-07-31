@@ -80,7 +80,7 @@ void PhotometricBA::prepareOptimization(CandidateManager& cm, BundleAdjustment& 
         }
         if (kf == cm.get_key_frames().back()) continue;  // no point from newst kf will be observed
         for (auto& point : candidate_map[kf]) {
-            if (!point.is_active) continue;
+            //! if (!point.is_active) continue;
             // add point
             problem.addParameterBlock(point.get_point_block().get());
             // problem.setParameterBlockConstant(point.get_point_block().get());
@@ -114,9 +114,9 @@ void PhotometricBA::mergeOptimization(CandidateManager& cm, std::vector<Photomet
         for (auto& point : cm.get_candidate_map()[kf]) {
             const Sophus::SE3f& refToWorld = point.host_frame->get_pose();
 
-            if (point.is_active) {
-                point.merge_optimization_result();
-            }
+            //! if (point.is_active) {
+            //!    point.merge_optimization_result();
+            //!}
 
             // const Eigen::Vector3f pt3d =
             // point.host_frame->unproject(point);//point->pt3d();
@@ -169,7 +169,7 @@ void PhotometricBA::removeBadObservations(const std::vector<PhotometricResidual*
         Candidate* const point = obsToRemove[i]->point();
         point->observations.erase(obsToRemove[i]->targetFrame());
         if (point->observations.size() < 1) {
-            point->status = CandidateStatus::BAD;
+            //! point->status = CandidateStatus::BAD;
         }
     }
 }

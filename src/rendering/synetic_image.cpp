@@ -48,6 +48,7 @@ void SyneticImage::init() {
     // -----------------------------
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
+    glDisable(GL_LIGHTING);
 }
 
 void SyneticImage::preComputeParam() {

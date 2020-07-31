@@ -48,10 +48,10 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
 
     if (min_per_pixel_energy > thresh1) {
         std::cout << "@@@@@@@@@@@@tracking failed : no good prediction"
-                  << "    min energy:   " << min_per_pixel_energy << '\n';
+                  << "    min per pixel energy:   " << min_per_pixel_energy << '\n';
         ++this->failaure_cnt;
 
-        if (min_energy > 1e4) {
+        if (min_per_pixel_energy > 1e4) {
             std::exit(EXIT_FAILURE);
         }
         return false;

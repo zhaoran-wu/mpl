@@ -9,7 +9,6 @@ namespace mpl {
 class Candidate;
 struct Voxel {
     Voxel() = default;
-
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     Voxel(Candidate* can, const Eigen::Vector3f& position, const float intensity, const float weight = 1)
         : position(position), intensity(intensity), weight(weight), can(can) {

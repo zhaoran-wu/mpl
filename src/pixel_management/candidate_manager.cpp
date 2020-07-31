@@ -65,8 +65,6 @@ void CandidateManager::select_candidate(const Frame::ptr frame, const cv::Mat sy
         can.u = p(0);
         can.v = p(1);
 
-        can.is_depth_safe = !(mask.at<float>(can.v, can.u));
-
         float d = synetic_depth_im.at<ushort>(can.v, can.u);
 
         can.d_inv_synetic_im = 1000.f / d;
@@ -220,7 +218,7 @@ void CandidateManager::activate_candidate() {
         if (it->first == newst_KF) continue;
         for (auto& can : it->second) {
             // remove bad candidate
-            if (can.is_active == true || can.status == CandidateStatus::BAD) continue;
+            if (can.status != CandidateStatus::NOT_ACTIVE) continue;
 
             //! decide now only with distmap
             // bool can_be_activated = (can.status != CandidateStatus::BAD &&
@@ -232,7 +230,7 @@ void CandidateManager::activate_candidate() {
             float dist = dist_map.dist(can.projection_on_newst_KF(0), can.projection_on_newst_KF(1));
 
             if (dist > static_cast<float>(min_square_dist)) {
-                can.is_active = true;  // activate candidate
+                can.status = CandidateStatus::ACTIVE;
                 dist_map.add(can.projection_on_newst_KF);
                 can.point_block->setIDepth((double)can.d_inv_synetic_im);  //! optimize based on map depth
 
@@ -287,7 +285,7 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
             if (it->first == newst_KF) continue;
 
             for (auto& can : it->second) {
-                if (can.age > 7 || can.status == CandidateStatus::BAD || !can.is_active) continue;
+                if (can.age > 7 || can.status != CandidateStatus::ACTIVE) continue;
                 ++cnt;
                 for (int lvl = 0; lvl < lvls; ++lvl) {
                     Eigen::Vector3f position =

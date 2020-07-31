@@ -84,8 +84,7 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters, double* 
 
         // project using central pixel
         if (!project_to_target_frame((double)point->u, (double)point->v, iDepth, K, width, height, R, t, Xpn, hit_pixel,
-                                     newIDepth, ratio_inv_d) ||
-            !point->is_depth_safe) {
+                                     newIDepth, ratio_inv_d)) {
             // discard this residual
             this->residual_->state_ = Visibility::OOB;
             this->discardOOB(residuals, jacobians);
