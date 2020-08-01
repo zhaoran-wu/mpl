@@ -75,7 +75,6 @@ void DistanceMap::compute(std::unordered_map<Frame::ptr, std::vector<Candidate>>
             const Eigen::Vector2f point_in_frame = unproject_trans_project(can, it.first, frame);
 
             if (!is_in_img(*cam, point_in_frame)) {
-                // can.status = (can.status == CandidateStatus::BAD) ? CandidateStatus::BAD : CandidateStatus::OOB;
                 continue;
             }
             can.projection_on_newst_KF = point_in_frame;

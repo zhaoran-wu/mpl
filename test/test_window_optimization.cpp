@@ -107,7 +107,7 @@ int main() {
     std::string data_path = "/home/zhaoran/dataset/KITTI/sequences/00/image_0/";
     std::vector<cv::Mat> img_vec;
     std::vector<cv::Mat> img_draw_vec;
-    for (int i = 0; i < 600; ++i) {
+    for (int i = 0; i < 520; ++i) {
         int im_id = 80 + i;
         string im_name = (im_id < 100) ? "0000" + to_string(im_id) + ".png" : "000" + to_string(im_id) + ".png";
         cv::Mat im_tmp = cv::imread(data_path + im_name);
@@ -119,6 +119,7 @@ int main() {
         assert(im_tmp.channels() == 1);
         img_vec.push_back(im_tmp);
     }
+    // 1360.png
 
     // test :
     // build a window with 2 old KF and a new added frame

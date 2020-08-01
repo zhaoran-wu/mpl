@@ -34,24 +34,21 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
         optimizer.init(init_pose, init_aff_light, point_cloud_pyramid_, to_track_frame);
         optimizer.set_lvl(lvls - 1);
         float energy = optimizer.solve(iterations, lamda_init, lamda_min, huber_radius, false);
-        std::cout << " idx :" << i
-                  << "energy per pixel :" << std::sqrt(energy / point_cloud_pyramid_->operator[](lvls - 1).size())
-                  << '\n';
+        std::cout << " idx :" << i << "energy per pixel :" << energy << '\n';
         if (energy < min_energy && energy > 1e-10) {
             idx = i;
             min_energy = energy;
         }
     }
     // detect if tracking failed
-    float min_per_pixel_energy = sqrt(min_energy / point_cloud_pyramid_->operator[](lvls - 1).size());
     float thresh1 = (to_track_frame->get_id() < 10) ? 60 : 60;
 
-    if (min_per_pixel_energy > thresh1) {
+    if (min_energy > thresh1) {
         std::cout << "@@@@@@@@@@@@tracking failed : no good prediction"
-                  << "    min per pixel energy:   " << min_per_pixel_energy << '\n';
+                  << "    min per pixel energy:   " << min_energy << '\n';
         ++this->failaure_cnt;
 
-        if (min_per_pixel_energy > 1e4) {
+        if (min_energy > 1e4) {
             std::exit(EXIT_FAILURE);
         }
         return false;
@@ -93,14 +90,14 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
         config.DEBUG_COARSE_TO_FINE_TRACKING, config.debug_coarse_to_fine_tracking_mutex, &Tracker::draw_result, this,
         point_cloud_pyramid_, T_curr_lastKF_pyramid, to_track_frame, time_cost, energy_vec);
 
-    per_pixel_energy = sqrt(min_energy / point_cloud_pyramid_->operator[](0).size());
+    ;
     Sophus::SE3f T_curr_lastKF = optimizer.getT();
     AffineLight aff_curr_map = optimizer.getAffineLight();
 
     float thresh = (to_track_frame->get_id() < 10) ? 60 : 60;
-    if (per_pixel_energy > thresh) {
+    if (min_energy > thresh) {
         std::cout << "@@@@@@@@@@@@@@@@@@@@@@@@@ tracking failed :"
-                  << "per pixel energy :" << per_pixel_energy << "alpha : " << aff_curr_map.alpha()
+                  << "per pixel energy :" << min_energy << "alpha : " << aff_curr_map.alpha()
                   << " beta : " << aff_curr_map.beta() << "@@@@@@@" << '\n';
         ++this->failaure_cnt;
         return false;
@@ -219,8 +216,8 @@ void Tracker::draw_result(PointCloudPyramid::ptr pcp, const std::vector<Sophus::
             energy_vec.reserve(point_size);
 
             for (const auto& point : pcp->operator[](0)) {
-                if (!point.visible_for_newst_frame) continue;
-                energy_vec.push_back(point.last_tracking_energy);
+                if (!point.vis_data.visible_for_newst_frame) continue;
+                energy_vec.push_back(point.vis_data.last_tracking_energy);
             }
 
             const float lo_percent = 0.05;
@@ -233,10 +230,10 @@ void Tracker::draw_result(PointCloudPyramid::ptr pcp, const std::vector<Sophus::
             cv::Mat energy_map = cv::Mat(im_to_draw.size(), CV_8UC1, cv::Scalar(0));
 
             for (auto& point : pcp->operator[](0)) {
-                if (!point.visible_for_newst_frame) continue;
-                Eigen::Vector2f hit_pixel = point.hit_pixel_in_newst_frame;
+                if (!point.vis_data.visible_for_newst_frame) continue;
+                Eigen::Vector2f hit_pixel = point.vis_data.hit_pixel_in_newst_frame;
 
-                float energy = point.last_tracking_energy;
+                float energy = point.vis_data.last_tracking_energy;
 
                 energy = std::min(std::max(energy, lo), hi);
 

@@ -178,9 +178,9 @@ void Visualizer::publish_curr_frame_tracking_info(std::shared_ptr<PointCloudPyra
     valid_depth_vec.reserve(point_size);
 
     for (const auto& point : pcd) {
-        if (!point.visible_for_newst_frame) continue;
-        if (isfinite(point.depth_in_newst_frame) && point.depth_in_newst_frame > 1e-10) {
-            valid_depth_vec.push_back(point.depth_in_newst_frame);
+        if (!point.vis_data.visible_for_newst_frame) continue;
+        if (isfinite(point.vis_data.depth_in_newst_frame) && point.vis_data.depth_in_newst_frame > 1e-10) {
+            valid_depth_vec.push_back(point.vis_data.depth_in_newst_frame);
         }
     }
 
@@ -196,10 +196,10 @@ void Visualizer::publish_curr_frame_tracking_info(std::shared_ptr<PointCloudPyra
     cv::Mat depth_map = cv::Mat(result.size(), CV_8UC1, cv::Scalar(0));
 
     for (const auto& point : pcd) {
-        if (!point.visible_for_newst_frame) continue;
-        Eigen::Vector2f hit_pixel = point.hit_pixel_in_newst_frame;
+        if (!point.vis_data.visible_for_newst_frame) continue;
+        Eigen::Vector2f hit_pixel = point.vis_data.hit_pixel_in_newst_frame;
 
-        float depth = point.depth_in_newst_frame;
+        float depth = point.vis_data.depth_in_newst_frame;
         if (!isfinite(depth) || depth < 1e-10) {
             continue;
         } else {
@@ -216,9 +216,9 @@ void Visualizer::publish_curr_frame_tracking_info(std::shared_ptr<PointCloudPyra
 
     // draw outlier
     for (const auto& point : pcd) {
-        if (!point.visible_for_newst_frame) continue;
-        Eigen::Vector2f hit_pixel = point.hit_pixel_in_newst_frame;
-        if (point.is_outlier) {
+        if (!point.vis_data.visible_for_newst_frame) continue;
+        Eigen::Vector2f hit_pixel = point.vis_data.hit_pixel_in_newst_frame;
+        if (point.vis_data.is_outlier) {
             cv::circle(result, cv::Point2f(hit_pixel(0), hit_pixel(1)), 1, cv::Scalar(255, 255, 255), 2);
         }
     }
@@ -239,7 +239,7 @@ void Visualizer::draw_tracking_point_cloud() {
 
     glColor4f(0.0f, 1.0f, 0.0f, 1.0f);
     for (auto& point : pcd) {
-        if (!point.visible_for_newst_frame) continue;
+        if (!point.vis_data.visible_for_newst_frame) continue;
         Eigen::Vector3f P_w = T_w_kf * point.position;
         glVertex3f(P_w(0), P_w(1), P_w(2));
     }

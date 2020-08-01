@@ -27,13 +27,16 @@ class TrackingOptimizer {
     // accumulate to H and b
     void update(const Vec8 delta_x);
     void build_problem();
-    void assign_final_tracking_result_to_voxel(const bool remove_outlier) const;
+    void remove_outlier(const bool remove_outlier);
     void accumulate_H_b(float roboust_weight);
     Mat88 get_damped_hessian();
     void scaling_H_b();
     void scaling_delta_x(Vec8& delta_x);
     float calc_residual(const float curr_intensity, const float point_cloud_intensity) const;
-    float calc_sum_weighted_squared_residual(bool use_weight) const;
+    float calc_sum_weighted_squared_residual(bool return_average_residual) const;
+
+    void assign_result_for_visualization();
+    void remove_outlier();
 
     float calc_huber_weight(const float residual) const;
     float calc_huber_weigted_redidual(const float huber_weight, const float residual) const;

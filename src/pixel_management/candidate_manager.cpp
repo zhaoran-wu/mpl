@@ -267,7 +267,9 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
     if (!is_initialized) {  // initialized means,we have enough activated candidate
         const int lvls = pcp->lvls();
         int cnt = 0;
+
         for (auto& can : candidate_map[newst_KF]) {
+            can.status = CandidateStatus::ACTIVE;
             ++cnt;
             for (int lvl = 0; lvl < lvls; ++lvl) {
                 if ((lvl != 0 && cnt % (lvl + 1) == 0) || lvl == 0) {
@@ -308,6 +310,8 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
             // for all can in newst KF(not active yet)
             for (auto& can : candidate_map[newst_KF]) {
                 if (dist_map.dist(can.u, can.v) < 12) continue;
+
+                can.status = CandidateStatus::ACTIVE;
                 dist_map.add(Eigen::Vector2f(can.u, can.v));
 
                 ++cnt;

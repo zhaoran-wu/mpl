@@ -15,8 +15,8 @@ namespace mpl {
  */
 enum class CandidateStatus {
     NOT_ACTIVE,  // never been used to generate a tracking reference point cloud
-    ACTIVE,      // used to generate a tracking referenc point cloud,(good track = 0, bad track = 0 or 1)
-    OUTLIER,     // good track = 0 , bad track = 2;
+    ACTIVE,      // used to generate a tracking referenc point cloud,(good track >= 0, bad track = 0 )
+    OUTLIER,     // good track = 0 , bad track = 1;
     OOB,         // out of boundary: good track > 0, bad track >= 1;
                  // 1. good track > 0 but not in curr imag(bad track = 1)
                  // 2. occlusion : good track > 0, bad track > 1

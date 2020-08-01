@@ -8,7 +8,7 @@ void main()
 {
 	FragColor =texture(texture1, TexCoord);
 	float expousre_t = 1.0;//3;
-	float gamma = 1/1.4;//1.167f;
+	float gamma = 1/1.5;//1.167f;
 	FragColor.r = FragColor.r*expousre_t ;
 	FragColor.g = FragColor.g*expousre_t ;
 	FragColor.b = FragColor.b*expousre_t;

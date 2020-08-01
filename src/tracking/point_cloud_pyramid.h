@@ -16,13 +16,17 @@ struct Voxel {
 
     Eigen::Vector3f position;
     float intensity;
-    bool visible_for_newst_frame;
-    Eigen::Vector2f hit_pixel_in_newst_frame;
-    float depth_in_newst_frame;
-    float last_tracking_energy;  // final energy in last tracking
     float weight;
-    bool is_outlier = false;
     Candidate* can;  // correspond candidate;
+
+    // data used only for visualization
+    struct VisualizationData {
+        bool is_outlier = false;
+        float last_tracking_energy;  // final energy in last tracking
+        Eigen::Vector2f hit_pixel_in_newst_frame;
+        float depth_in_newst_frame;
+        bool visible_for_newst_frame = true;  // decide after tracking
+    } vis_data;
 };
 
 typedef std::vector<Voxel> PointCloud;
