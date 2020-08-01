@@ -143,10 +143,10 @@ void TrackingOptimizer::remove_outlier() {
 
         // remove outlier according to tracking result
         float mag2 = to_track_frame->mag_squared(hit_pixel, curr_lvl);
-        if (r * r * mag2 > 3000 || mag2 == 0) {
-            std::cout << "last tracking energy " << r * r << " mag 2 "
-                      << to_track_frame->mag_squared(hit_pixel, curr_lvl)
-                      << "r*r*mag2 = " << r * r * to_track_frame->mag_squared(hit_pixel, curr_lvl) << '\n';
+        if ((r * r > 10 && r * r * std::sqrt(mag2) > 1000) || mag2 == 0) {
+            std::cout << "last tracking energy " << r * r << " mag"
+                      << std::sqrt(to_track_frame->mag_squared(hit_pixel, curr_lvl))
+                      << "r*r*mag = " << r * r * std::sqrt(to_track_frame->mag_squared(hit_pixel, curr_lvl)) << '\n';
             voxel.can->bad_track_cnt++;
             if (voxel.can->good_track_cnt == 0) {
                 voxel.can->status = CandidateStatus::OUTLIER;
@@ -223,9 +223,11 @@ void TrackingOptimizer::build_problem() {
         J_tmp(6) = -voxel.intensity * exp(affine_light.alpha());
         J_tmp(7) = -1.0;
 
-        J_tmp *= voxel.weight;
+        float total_weight = voxel.gradient_weight * voxel.aligenment_weight;
 
-        sum_weighted_squared_residual += voxel.weight * voxel.weight * calc_huber_weigted_redidual(huber_weight, r_tmp);
+        J_tmp *= total_weight;
+
+        sum_weighted_squared_residual += std::pow(total_weight, 2) * calc_huber_weigted_redidual(huber_weight, r_tmp);
         cnt++;
         // LOG(INFO) << "J :" << '\n' << J_tmp;
         // LOG(INFO) << "r :" << sum_weighted_squared_residual;
@@ -308,7 +310,8 @@ float TrackingOptimizer::calc_sum_weighted_squared_residual(bool return_average_
         float intensity_on_image = to_track_frame->at(hit_pixel, curr_lvl);
         float r = calc_residual(intensity_on_image, voxel.intensity);
         cnt++;
-        sum += std::pow(voxel.weight, 2) * calc_huber_weigted_redidual(calc_huber_weight(r), r);
+        sum += std::pow(voxel.aligenment_weight * voxel.gradient_weight, 2) *
+               calc_huber_weigted_redidual(calc_huber_weight(r), r);
     }
 
     std::cout << "@@@@@@@@@@@@@@@@@@@@@@@@ finial used pcp cnt :   " << cnt

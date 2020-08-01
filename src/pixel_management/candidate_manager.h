@@ -25,6 +25,7 @@ enum class CandidateStatus {
 struct Candidate {
     float synetic_color[8];  // pattern color of synetic image
     float weight[8];         // pattern weight of synetic image
+    float gradient_weight[8];
     float alignment_weight = 1;
     int u;
     int v;

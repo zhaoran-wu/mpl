@@ -166,7 +166,8 @@ void Visualizer::set_key_frame_depth(cv::Mat img) {
 }
 
 void Visualizer::publish_curr_frame_tracking_info(std::shared_ptr<PointCloudPyramid> pcp, cv::Mat img,
-                                                  const Sophus::SE3f& T_w_c_, const Sophus::SE3f& T_c_kf) {
+                                                  const Sophus::SE3f& T_w_c_, const Sophus::SE3f& T_c_kf,
+                                                  const bool draw_outlier) {
     // compute statistic
     curr_frame_mutex.lock();
     this->pcd.resize(pcp->operator[](0).size());
@@ -196,7 +197,7 @@ void Visualizer::publish_curr_frame_tracking_info(std::shared_ptr<PointCloudPyra
     cv::Mat depth_map = cv::Mat(result.size(), CV_8UC1, cv::Scalar(0));
 
     for (const auto& point : pcd) {
-        if (!point.vis_data.visible_for_newst_frame) continue;
+        if (!point.vis_data.visible_for_newst_frame || point.vis_data.is_outlier) continue;
         Eigen::Vector2f hit_pixel = point.vis_data.hit_pixel_in_newst_frame;
 
         float depth = point.vis_data.depth_in_newst_frame;
@@ -215,11 +216,13 @@ void Visualizer::publish_curr_frame_tracking_info(std::shared_ptr<PointCloudPyra
     depth_map.copyTo(result, mask);
 
     // draw outlier
-    for (const auto& point : pcd) {
-        if (!point.vis_data.visible_for_newst_frame) continue;
-        Eigen::Vector2f hit_pixel = point.vis_data.hit_pixel_in_newst_frame;
-        if (point.vis_data.is_outlier) {
-            cv::circle(result, cv::Point2f(hit_pixel(0), hit_pixel(1)), 1, cv::Scalar(255, 255, 255), 2);
+    if (draw_outlier) {
+        for (const auto& point : pcd) {
+            if (!point.vis_data.visible_for_newst_frame) continue;
+            Eigen::Vector2f hit_pixel = point.vis_data.hit_pixel_in_newst_frame;
+            if (point.vis_data.is_outlier) {
+                cv::circle(result, cv::Point2f(hit_pixel(0), hit_pixel(1)), 1, cv::Scalar(255, 255, 255), 2);
+            }
         }
     }
 

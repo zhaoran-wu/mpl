@@ -159,7 +159,7 @@ int main() {
     //    config.DEBUG_KEY_FRAME_SYNETIC_IMAGE_ALIGNMENT, config.debug_key_frame_synetci_img_alignment_mutex,
     //    show_debug_key_frame_synetic_img_alignment, img_draw_vec[0], syn_im_vec_curr[0], key_frame->get_aff_light());
     std::thread th_draw(&Visualizer::publish_curr_frame_tracking_info, std::ref(*vis), pcp, img_draw_vec[off_set],
-                        key_frame->get_pose(), key_frame->get_pose().inverse());
+                        key_frame->get_pose(), key_frame->get_pose().inverse(), false);
     th_draw.detach();
 
     // draw candidates before and after tracking
@@ -185,7 +185,7 @@ int main() {
         Sophus::SE3f T_curr_KF = get_src_to_dst_transform(curr_frame->get_ref_frame(), curr_frame);
         // visualize tracking result
         std::thread th_draw(&Visualizer::publish_curr_frame_tracking_info, std::ref(*vis), pcp, img_draw_vec[i],
-                            curr_frame->get_pose(), T_curr_KF);
+                            curr_frame->get_pose(), T_curr_KF, false);
         th_draw.detach();
 
         // todo : a best way to choose KF

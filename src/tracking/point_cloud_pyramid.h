@@ -10,13 +10,19 @@ class Candidate;
 struct Voxel {
     Voxel() = default;
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    Voxel(Candidate* can, const Eigen::Vector3f& position, const float intensity, const float weight = 1)
-        : position(position), intensity(intensity), weight(weight), can(can) {
+    Voxel(Candidate* can, const Eigen::Vector3f& position, const float intensity, const float alignment_weight = 1.0f,
+          const float gradient_weight_ = 1.0f)
+        : position(position),
+          intensity(intensity),
+          aligenment_weight(alignment_weight),
+          gradient_weight(gradient_weight_),
+          can(can) {
     }
 
     Eigen::Vector3f position;
     float intensity;
-    float weight;
+    float aligenment_weight;
+    float gradient_weight;
     Candidate* can;  // correspond candidate;
 
     // data used only for visualization

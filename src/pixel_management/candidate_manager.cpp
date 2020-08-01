@@ -177,6 +177,13 @@ void CandidateManager::calc_structure_mat(Frame::ptr host_frame, Candidate& can,
         can.alignment_weight = std::sqrt(std::exp(-((int)weight_mask.at<uchar>(can.v, can.u) / 32.0f)));
         // std::cout << "diff : " << (int)weight_mask.at<uchar>(can.v, can.u) << "   weight :" << can.alignment_weight
         //          << '\n';
+        float mag2 = host_frame->mag_squared_synetic<float>(u, v);
+        const float heuristic_const = 8000;
+        can.gradient_weight[idx] = heuristic_const / (heuristic_const + mag2);
+        // if (idx == 0) {
+        //    std::cout << "idx :" << idx << " gradient 2 : " << mag2 << " weight :" << can.gradient_weight[idx] <<
+        //    '\n';
+        //}
     }
 
     for (int i = 0; i < 8; ++i) {
@@ -209,7 +216,7 @@ void CandidateManager::activate_candidate() {
     else if (ratio < 0.9f)
         min_dist_to_active -= 1;
 
-    min_dist_to_active = std::min(max(4, min_dist_to_active), 12);
+    min_dist_to_active = std::min(max(3, min_dist_to_active), 12);
 
     int min_square_dist = pow(min_dist_to_active, 2);
 
@@ -279,7 +286,7 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
                         &can, position,
                         newst_KF->at_synetic<float>(((can.u + 0.5f) / std::pow(2.0f, lvl)) - 0.5f,
                                                     ((can.v + 0.5f) / std::pow(2.0f, lvl)) - 0.5f, lvl),
-                        can.alignment_weight);
+                        can.alignment_weight, can.gradient_weight[0]);
                 }
             }
         }
@@ -302,14 +309,14 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
                         float color = it->first->at_synetic<float>(((can.u + 0.5f) / std::pow(2.0f, lvl)) - 0.5f,
                                                                    ((can.v + 0.5f) / std::pow(2.0f, lvl)) - 0.5f, lvl);
 
-                        (*pcp)[lvl].emplace_back(&can, position, color, can.alignment_weight);
+                        (*pcp)[lvl].emplace_back(&can, position, color, can.alignment_weight, can.gradient_weight[0]);
                     }
                 }
                 ++can.age;
             }
             // for all can in newst KF(not active yet)
             for (auto& can : candidate_map[newst_KF]) {
-                if (dist_map.dist(can.u, can.v) < 12) continue;
+                if (dist_map.dist(can.u, can.v) < 20) continue;
 
                 can.status = CandidateStatus::ACTIVE;
                 dist_map.add(Eigen::Vector2f(can.u, can.v));
@@ -323,7 +330,7 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
                             &can, position,
                             newst_KF->at_synetic<float>(((can.u + 0.5f) / std::pow(2.0f, lvl)) - 0.5f,
                                                         ((can.v + 0.5f) / std::pow(2.0f, lvl)) - 0.5f, lvl),
-                            can.alignment_weight);
+                            can.alignment_weight, can.gradient_weight[0]);
                     }
                 }
             }

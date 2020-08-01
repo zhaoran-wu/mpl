@@ -63,6 +63,9 @@ class Frame {
     template <typename T>
     float at_synetic(const Eigen::Matrix<T, 2, 1>& pixel, const int lvl = 0) const;
 
+    template <typename T>
+    float mag_squared_synetic(const T u, const T v, const int lvl = 0) const;
+
     // unproject a pixel(in pixel coordinate system) in to p3d in current frame coordinate system
     Eigen::Vector3f unproject(const Eigen::Vector2i& pixel, const float inv_d, const int lvl = 0) const;
     // poject a p3d in current frame coordinate system to pixel coordinate systems
@@ -221,6 +224,12 @@ template <typename T>
 float Frame::at_synetic(const T u, const T v, const int lvl) const {
     return this->synetic_photometirc_pyramid->at(u, v, lvl);
 }
+
+template <typename T>
+float Frame::mag_squared_synetic(const T u, const T v, const int lvl) const {
+    return this->synetic_photometirc_pyramid->mag_squared(u, v, lvl);
+}
+
 template <typename T>
 float Frame::at_synetic(const Eigen::Matrix<T, 2, 1>& pixel, const int lvl) const {
     return this->synetic_photometirc_pyramid->at(pixel(0), pixel(1), lvl);

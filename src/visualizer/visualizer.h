@@ -25,7 +25,8 @@ class Visualizer {
 
     // called in main thread
     void publish_curr_frame_tracking_info(std::shared_ptr<PointCloudPyramid> pcp, cv::Mat img,
-                                          const Sophus::SE3f& T_w_c, const Sophus::SE3f& T_c_kf);
+                                          const Sophus::SE3f& T_w_c, const Sophus::SE3f& T_c_kf,
+                                          const bool draw_outlier);
 
     // called in main thread
     void draw_and_publish_key_frame_depth(cv::Mat depth_im);
