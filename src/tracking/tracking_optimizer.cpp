@@ -142,11 +142,11 @@ void TrackingOptimizer::remove_outlier() {
         float r = calc_residual(intensity_on_image, voxel.intensity);
 
         // remove outlier according to tracking result
-        float factor = std::pow(curr_lvl, 0.4) + 1;
-
-        if (r * r > 5000 * factor || ((curr_lvl == 0) && (to_track_frame->mag_squared(hit_pixel) < 2.0f))) {
+        float mag2 = to_track_frame->mag_squared(hit_pixel, curr_lvl);
+        if (r * r * mag2 > 4000 || mag2 == 0) {
             std::cout << "last tracking energy " << r * r << " mag 2 "
-                      << to_track_frame->mag_squared(hit_pixel, curr_lvl) << '\n';
+                      << to_track_frame->mag_squared(hit_pixel, curr_lvl)
+                      << "r*r*mag2 = " << r * r * to_track_frame->mag_squared(hit_pixel, curr_lvl) << '\n';
             voxel.can->bad_track_cnt++;
             if (voxel.can->good_track_cnt == 0) {
                 voxel.can->status = CandidateStatus::OUTLIER;

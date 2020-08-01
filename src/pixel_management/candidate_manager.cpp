@@ -194,7 +194,7 @@ void CandidateManager::activate_candidate() {
     Config& config = Config::getInstance();
 
     int num_active = dist_map.get_num_obstacles();
-    float ratio = (float)num_active / (0.7f * config.PIXEL_SELECTION_NUM);
+    float ratio = (float)num_active / config.PIXEL_SELECTION_NUM;
 
     if (ratio > 1.7f)
         min_dist_to_active += 3;

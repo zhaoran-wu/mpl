@@ -257,8 +257,7 @@ void Tracker::draw_result(PointCloudPyramid::ptr pcp, const std::vector<Sophus::
         }
         LOG(INFO) << '\n'
                   << "lvl : " << lvl << " point cloud size : " << point_cloud_pyramid_->operator[](lvl).size()
-                  << "  final energy per pixel :"
-                  << std::sqrt(energy_vec[energy_vec.size() - lvl - 1] / point_cloud_pyramid_->operator[](lvl).size());
+                  << "  final energy per pixel :" << energy_vec[energy_vec.size() - lvl - 1];
     }
 
     LOG(INFO) << "tracking use time : " << time_cost / 1000.f << "ms";
