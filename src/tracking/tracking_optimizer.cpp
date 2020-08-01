@@ -143,7 +143,7 @@ void TrackingOptimizer::remove_outlier() {
 
         // remove outlier according to tracking result
         float mag2 = to_track_frame->mag_squared(hit_pixel, curr_lvl);
-        if (r * r * mag2 > 4000 || mag2 == 0) {
+        if (r * r * mag2 > 3000 || mag2 == 0) {
             std::cout << "last tracking energy " << r * r << " mag 2 "
                       << to_track_frame->mag_squared(hit_pixel, curr_lvl)
                       << "r*r*mag2 = " << r * r * to_track_frame->mag_squared(hit_pixel, curr_lvl) << '\n';
