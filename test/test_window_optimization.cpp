@@ -73,16 +73,20 @@ cv::Mat make_alignment_weight_mask(cv::Mat frame_img, cv::Mat synetic_img, const
     cv::threshold(mask, mask, 1, 1, cv::THRESH_BINARY);
 
     cv::Mat result(mask.size(), CV_8UC1, cv::Scalar(255));
+    cv::Mat gauss_blured_result = result.clone();
     cv::Mat abs_8U;
     cv::normalize(abs_diff_img, abs_8U, 0, 255, cv::NORM_MINMAX);
     abs_8U.convertTo(abs_8U, CV_8UC1);
     abs_8U.copyTo(result, mask);
 
-    debug::execute_func_according_to_config(
-        config.DEBUG_KEY_FRAME_SYNETIC_IMAGE_ALIGNMENT, config.debug_key_frame_synetci_img_alignment_mutex,
-        show_debug_key_frame_synetic_img_alignment, frame_img_single_channel, synetic_img_single_channel, mask, result);
+    cv::GaussianBlur(result, gauss_blured_result, cv::Size(3, 3), 0);
 
-    return result;
+    debug::execute_func_according_to_config(config.DEBUG_KEY_FRAME_SYNETIC_IMAGE_ALIGNMENT,
+                                            config.debug_key_frame_synetci_img_alignment_mutex,
+                                            show_debug_key_frame_synetic_img_alignment, frame_img_single_channel,
+                                            synetic_img_single_channel, mask, gauss_blured_result);
+
+    return gauss_blured_result;
 }
 
 int main() {
