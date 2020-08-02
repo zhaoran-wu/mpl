@@ -143,7 +143,8 @@ void TrackingOptimizer::remove_outlier() {
 
         // remove outlier according to tracking result
         float mag2 = to_track_frame->mag_squared(hit_pixel, curr_lvl);
-        if ((r * r > 10 && r * r * std::sqrt(mag2) > 800) || mag2 == 0) {
+        if ((r * r > 10 && r * r * std::sqrt(mag2) > 6000) ||
+            (curr_lvl == 0 && mag2 < config->PIXEL_SELECTION_HERURISTIC_CONST)) {
             // std::cout << "last tracking energy " << r * r << " mag"
             //          << std::sqrt(to_track_frame->mag_squared(hit_pixel, curr_lvl))
             //          << "r*r*mag = " << r * r * std::sqrt(to_track_frame->mag_squared(hit_pixel, curr_lvl)) << '\n';
@@ -199,6 +200,10 @@ void TrackingOptimizer::build_problem() {
         const float inv_zz = inv_z * inv_z;
         const float dx = to_track_frame->dx(hit_pixel, curr_lvl);
         const float dy = to_track_frame->dy(hit_pixel, curr_lvl);
+        const float mag2 = to_track_frame->mag_squared(hit_pixel, curr_lvl);
+
+        const float heuristic_const = 2500.0f;
+        const float gradient_weight = sqrt(heuristic_const / (heuristic_const + mag2));
 
         // if (std::abs(dx + dy) < 1e-2) {
         //    // std::cout << "dx + dy: " << dx + dy << std::endl;
@@ -223,7 +228,7 @@ void TrackingOptimizer::build_problem() {
         J_tmp(6) = -voxel.intensity * exp(affine_light.alpha());
         J_tmp(7) = -1.0;
 
-        float total_weight = voxel.gradient_weight * voxel.aligenment_weight;
+        float total_weight = gradient_weight * voxel.aligenment_weight;
 
         J_tmp *= total_weight;
 
@@ -310,7 +315,12 @@ float TrackingOptimizer::calc_sum_weighted_squared_residual(bool return_average_
         float intensity_on_image = to_track_frame->at(hit_pixel, curr_lvl);
         float r = calc_residual(intensity_on_image, voxel.intensity);
         cnt++;
-        sum += std::pow(voxel.aligenment_weight * voxel.gradient_weight, 2) *
+        const float mag2 = to_track_frame->mag_squared(hit_pixel, curr_lvl);
+
+        const float heuristic_const = 2500.0f;
+        const float gradient_weight = sqrt(heuristic_const / (heuristic_const + mag2));
+
+        sum += std::pow(voxel.aligenment_weight * gradient_weight, 2) *
                calc_huber_weigted_redidual(calc_huber_weight(r), r);
     }
 

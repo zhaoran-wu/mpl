@@ -10,27 +10,21 @@ class Candidate;
 struct Voxel {
     Voxel() = default;
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    Voxel(Candidate* can, const Eigen::Vector3f& position, const float intensity, const float alignment_weight = 1.0f,
-          const float gradient_weight_ = 1.0f)
-        : position(position),
-          intensity(intensity),
-          aligenment_weight(alignment_weight),
-          gradient_weight(gradient_weight_),
-          can(can) {
+    Voxel(Candidate* can, const Eigen::Vector3f& position, const float intensity, const float alignment_weight = 1.0f)
+        : position(position), intensity(intensity), aligenment_weight(alignment_weight), can(can) {
     }
 
     Eigen::Vector3f position;
     float intensity;
     float aligenment_weight;
-    float gradient_weight;
-    Candidate* can;  // correspond candidate;
+    Candidate* can;  // correspond candidate ptr;
 
     // data used only for visualization
     struct VisualizationData {
         bool is_outlier = false;
-        float last_tracking_energy;  // final energy in last tracking
-        Eigen::Vector2f hit_pixel_in_newst_frame;
-        float depth_in_newst_frame;
+        float last_tracking_energy = 0.0f;  // final energy in last tracking
+        Eigen::Vector2f hit_pixel_in_newst_frame = Eigen::Vector2f(-1.0f, -1.0f);
+        float depth_in_newst_frame = 0.0f;
         bool visible_for_newst_frame = true;  // decide after tracking
     } vis_data;
 };

@@ -178,8 +178,6 @@ void CandidateManager::calc_structure_mat(Frame::ptr host_frame, Candidate& can,
         // std::cout << "diff : " << (int)weight_mask.at<uchar>(can.v, can.u) << "   weight :" << can.alignment_weight
         //          << '\n';
         float mag2 = host_frame->mag_squared_synetic<float>(u, v);
-        const float heuristic_const = 8000;
-        can.gradient_weight[idx] = heuristic_const / (heuristic_const + mag2);
         // if (idx == 0) {
         //    std::cout << "idx :" << idx << " gradient 2 : " << mag2 << " weight :" << can.gradient_weight[idx] <<
         //    '\n';
@@ -286,7 +284,7 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
                         &can, position,
                         newst_KF->at_synetic<float>(((can.u + 0.5f) / std::pow(2.0f, lvl)) - 0.5f,
                                                     ((can.v + 0.5f) / std::pow(2.0f, lvl)) - 0.5f, lvl),
-                        can.alignment_weight, can.gradient_weight[0]);
+                        can.alignment_weight);
                 }
             }
         }
@@ -309,7 +307,7 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
                         float color = it->first->at_synetic<float>(((can.u + 0.5f) / std::pow(2.0f, lvl)) - 0.5f,
                                                                    ((can.v + 0.5f) / std::pow(2.0f, lvl)) - 0.5f, lvl);
 
-                        (*pcp)[lvl].emplace_back(&can, position, color, can.alignment_weight, can.gradient_weight[0]);
+                        (*pcp)[lvl].emplace_back(&can, position, color, can.alignment_weight);
                     }
                 }
                 ++can.age;
@@ -330,7 +328,7 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
                             &can, position,
                             newst_KF->at_synetic<float>(((can.u + 0.5f) / std::pow(2.0f, lvl)) - 0.5f,
                                                         ((can.v + 0.5f) / std::pow(2.0f, lvl)) - 0.5f, lvl),
-                            can.alignment_weight, can.gradient_weight[0]);
+                            can.alignment_weight);
                     }
                 }
             }
