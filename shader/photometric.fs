@@ -7,7 +7,7 @@ uniform sampler2D texture1;
 void main()
 {
 	FragColor =texture(texture1, TexCoord);
-	float expousre_t = 1.0;//3;
+	float expousre_t = 1;
 	float gamma = 1/1.5;//1.167f;
 	FragColor.r = FragColor.r*expousre_t ;
 	FragColor.g = FragColor.g*expousre_t ;

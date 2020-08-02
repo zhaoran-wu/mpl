@@ -143,10 +143,10 @@ void TrackingOptimizer::remove_outlier() {
 
         // remove outlier according to tracking result
         float mag2 = to_track_frame->mag_squared(hit_pixel, curr_lvl);
-        if ((r * r > 10 && r * r * std::sqrt(mag2) > 1000) || mag2 == 0) {
-            std::cout << "last tracking energy " << r * r << " mag"
-                      << std::sqrt(to_track_frame->mag_squared(hit_pixel, curr_lvl))
-                      << "r*r*mag = " << r * r * std::sqrt(to_track_frame->mag_squared(hit_pixel, curr_lvl)) << '\n';
+        if ((r * r > 10 && r * r * std::sqrt(mag2) > 800) || mag2 == 0) {
+            // std::cout << "last tracking energy " << r * r << " mag"
+            //          << std::sqrt(to_track_frame->mag_squared(hit_pixel, curr_lvl))
+            //          << "r*r*mag = " << r * r * std::sqrt(to_track_frame->mag_squared(hit_pixel, curr_lvl)) << '\n';
             voxel.can->bad_track_cnt++;
             if (voxel.can->good_track_cnt == 0) {
                 voxel.can->status = CandidateStatus::OUTLIER;
@@ -234,8 +234,8 @@ void TrackingOptimizer::build_problem() {
 
         accumulate_H_b(huber_weight);
     }
-    std::cout << "@@@@@@@@@@@@@@@@@@@@@@@@ finial used pcp cnt !!!!!!!!!!(in build problem): " << cnt
-              << "average energy : " << std::sqrt(sum_weighted_squared_residual / cnt) << '\n';
+    // std::cout << "@@@@@@@@@@@@@@@@@@@@@@@@ finial used pcp cnt !!!!!!!!!!(in build problem): " << cnt
+    //          << "average energy : " << std::sqrt(sum_weighted_squared_residual / cnt) << '\n';
     // std::cerr << " huber radius :" << huber_radius << " num outlier :" << num_outlier << '\n';
     // LOG(INFO) << " H : " << '\n' << H;
     scaling_H_b();
@@ -314,9 +314,9 @@ float TrackingOptimizer::calc_sum_weighted_squared_residual(bool return_average_
                calc_huber_weigted_redidual(calc_huber_weight(r), r);
     }
 
-    std::cout << "@@@@@@@@@@@@@@@@@@@@@@@@ finial used pcp cnt :   " << cnt
-              << "   average energy :" << std::sqrt(sum / cnt)
-              << " total pcp size : " << (*point_cloud_pyramid)[curr_lvl].size() << '\n';
+    // std::cout << "@@@@@@@@@@@@@@@@@@@@@@@@ finial used pcp cnt :   " << cnt
+    //          << "   average energy :" << std::sqrt(sum / cnt)
+    //          << " total pcp size : " << (*point_cloud_pyramid)[curr_lvl].size() << '\n';
 
     float result = sum;
     if (return_average_residual) {
