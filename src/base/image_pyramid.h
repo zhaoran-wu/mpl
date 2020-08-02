@@ -7,7 +7,6 @@
 #include <opencv2/imgproc.hpp>
 #include <vector>
 namespace mpl {
-typedef unsigned char uchar;
 
 /**
  * @brief accept 2D coordinate and step(e.g image width )to calc 1D idx

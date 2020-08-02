@@ -28,7 +28,8 @@ class PixelSelector {
      * @param mask : candidate will not select if has a value of 0 in mask
      * @return int
      */
-    int select(ImagePyramid::ptr pyramid_ptr, std::vector<Eigen::Vector3i>& candidates_out, cv::Mat depth_safe_mask);
+    int select(ImagePyramid::ptr pyramid_ptr, std::vector<Eigen::Vector3i>& candidates_out, cv::Mat depth_safe_mask,
+               cv::Mat alignment_mask);
 
    private:
     // reset when new image to be selected
@@ -98,7 +99,8 @@ class PixelSelector {
     void draw_result(const std::vector<Eigen::Vector3i>& candidates, ImagePyramid::ptr pyramid_ptr,
                      const float time_cost) const;
 
-    cv::Mat mask;
+    cv::Mat depth_safe_mask;
+    cv::Mat alignment_mask;
 };
 
 //########################################################//

@@ -22,8 +22,10 @@ PixelSelector::PixelSelector() {
     candidates.reserve(2 * config->PIXEL_SELECTION_NUM);  // todo experiment check this num
 }
 
-int PixelSelector::select(ImagePyramid::ptr pyramid_ptr, std::vector<Eigen::Vector3i>& candidates_out, cv::Mat mask_) {
-    this->mask = mask_;
+int PixelSelector::select(ImagePyramid::ptr pyramid_ptr, std::vector<Eigen::Vector3i>& candidates_out,
+                          cv::Mat depth_safe_mask_, cv::Mat alignment_mask_) {
+    this->depth_safe_mask = depth_safe_mask_;
+    this->alignment_mask = alignment_mask_;
 
     if (this->candidates.size()) {
         reset();
@@ -92,7 +94,6 @@ void PixelSelector::fill_thresh_map() {
                     mag2_each_block.push_back(std::move(mag2_curr_pixel));
                 }
             }
-            // todo extract as mpl::median
             std::nth_element(mag2_each_block.begin(), mag2_each_block.begin() + mag2_each_block.size() / 2,
                              mag2_each_block.end());
             float median = mag2_each_block[mag2_each_block.size() / 2];
@@ -193,6 +194,7 @@ void PixelSelector::select_in_one_grid(const int grid_x, const int grid_y) {
                     if (mag2_max > thresh_map[thresh_idx(candidate)]) {
                         candidates.push_back(candidate);
                         is_one_pot_success = true;
+                        is_one_block_success = true;
                     }
                 }
             }
@@ -245,7 +247,9 @@ float PixelSelector::find_max_mag2(Eigen::Vector3i& candidate, const int grid_x,
             candidate(0) = grid_x * grid_dim + block_x * block_dim + pot_x * pot_dim + distance % pot_dim;
             candidate(1) = grid_y * grid_dim + block_y * block_dim + pot_y * pot_dim + distance / pot_dim;
             candidate(2) = 0;
-            if (distance < 0 || this->mask.at<float>(candidate(1), candidate(0)) > 1e-10) return 0;
+            if (distance < 0 || this->depth_safe_mask.at<float>(candidate(1), candidate(0)) > 1e-10 ||
+                (int)this->alignment_mask.at<uchar>(candidate(1), candidate(0)) > 15)
+                return 0;
 
             return *max_iter;
         } break;
@@ -266,7 +270,9 @@ float PixelSelector::find_max_mag2(Eigen::Vector3i& candidate, const int grid_x,
             candidate(1) = grid_y * grid_dim + block_y * block_dim + distance / block_dim;
             candidate(2) = 1;
 
-            if (distance < 0 || this->mask.at<float>(candidate(1), candidate(0)) > 1e-10) return 0;
+            if (distance < 0 || this->depth_safe_mask.at<float>(candidate(1), candidate(0)) > 1e-10 ||
+                (int)this->alignment_mask.at<uchar>(candidate(1), candidate(0)) > 15)
+                return 0;
 
             return *max_iter;
         } break;
@@ -291,7 +297,9 @@ float PixelSelector::find_max_mag2(Eigen::Vector3i& candidate, const int grid_x,
             candidate(1) = grid_y * grid_dim + distance / grid_dim;
             candidate(2) = 2;
 
-            if (distance < 0 || this->mask.at<float>(candidate(1), candidate(0)) > 1e-10) return 0;
+            if (distance < 0 || this->depth_safe_mask.at<float>(candidate(1), candidate(0)) > 1e-10 ||
+                (int)this->alignment_mask.at<uchar>(candidate(1), candidate(0)) > 15)
+                return 0;
 
             return *max_iter;
         } break;

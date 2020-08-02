@@ -40,7 +40,7 @@ void CandidateManager::select_candidate(const Frame::ptr frame, const cv::Mat sy
     safe_mask = generate_depth_safe_mask(synetic_depth_im);
 
     std::vector<Eigen::Vector3i> pixel_selected;
-    pixel_selector.select(frame->get_synetic_photometric_pyramid(), pixel_selected, safe_mask);
+    pixel_selector.select(frame->get_synetic_photometric_pyramid(), pixel_selected, safe_mask, alignment_mask);
 
     std::vector<Candidate> candidate_vec;
     // todo reserve candidate
@@ -70,46 +70,12 @@ void CandidateManager::select_candidate(const Frame::ptr frame, const cv::Mat sy
         can.d_inv_synetic_im = 1000.f / d;
         calc_structure_mat(frame, can, alignment_mask);
 
-        if (!is_synetic_depth_valid(can, frame, newst_KF, T_old_new, aff_old_new, rotated_pattern) ||
-            (int)alignment_mask.at<uchar>(can.v, can.u) > 20) {
-            continue;
-        }
         candidate_vec.push_back(std::move(can));
     }
     // set newst_KF to new add key frame
     key_frames.push_back(frame);
     newst_KF = frame;
     candidate_map[frame] = std::move(candidate_vec);
-}
-
-bool CandidateManager::is_synetic_depth_valid(const Candidate& can, const Frame::ptr host_frame,
-                                              const Frame::ptr target_frame, const SE3f T_old_new,
-                                              const AffineLight& aff_old_new,
-                                              const vector<Vector2f> rotated_pattern) const {
-    if (target_frame == nullptr) return true;
-
-    // project on last keyframe to validate
-    const Vector2f& point_on_lastKF =
-        target_frame->project(T_old_new * host_frame->unproject(Vector2i(can.u, can.v), can.d_inv_synetic_im));
-
-    if (!target_frame->is_in_image(point_on_lastKF(0), point_on_lastKF(1))) return true;
-
-    // valid
-
-    float energy = 0;
-    for (int i = 0; i < 8; ++i) {
-        float u = point_on_lastKF(0) + rotated_pattern[i][0];
-        float v = point_on_lastKF(1) + rotated_pattern[i][1];
-
-        energy +=
-            can.weight[i] * abs(calc_light_diff(can.synetic_color[i], target_frame->at_synetic(u, v), aff_old_new));
-    }
-    static int cnt = 0;
-
-    // std::cout << " curr energy : " << energy << " outlier num: " << cnt << '\n';
-
-    if (energy >= 30.f) ++cnt;  //!
-    return (energy < 30.0f);
 }
 
 cv::Mat CandidateManager::generate_depth_safe_mask(const cv::Mat synetic_depth_im) {
@@ -177,11 +143,6 @@ void CandidateManager::calc_structure_mat(Frame::ptr host_frame, Candidate& can,
         can.alignment_weight = std::sqrt(std::exp(-((int)weight_mask.at<uchar>(can.v, can.u) / 32.0f)));
         // std::cout << "diff : " << (int)weight_mask.at<uchar>(can.v, can.u) << "   weight :" << can.alignment_weight
         //          << '\n';
-        float mag2 = host_frame->mag_squared_synetic<float>(u, v);
-        // if (idx == 0) {
-        //    std::cout << "idx :" << idx << " gradient 2 : " << mag2 << " weight :" << can.gradient_weight[idx] <<
-        //    '\n';
-        //}
     }
 
     for (int i = 0; i < 8; ++i) {
