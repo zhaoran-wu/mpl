@@ -143,8 +143,7 @@ void TrackingOptimizer::remove_outlier() {
 
         // remove outlier according to tracking result
         float mag2 = to_track_frame->mag_squared(hit_pixel, curr_lvl);
-        if ((r * r > 10 && r * r * std::sqrt(mag2) > 6000) ||
-            (curr_lvl == 0 && mag2 < config->PIXEL_SELECTION_HERURISTIC_CONST)) {
+        if ((r * r > 5 && r * r * std::sqrt(mag2) > 1000) || (mag2 == 0)) {
             // std::cout << "last tracking energy " << r * r << " mag"
             //          << std::sqrt(to_track_frame->mag_squared(hit_pixel, curr_lvl))
             //          << "r*r*mag = " << r * r * std::sqrt(to_track_frame->mag_squared(hit_pixel, curr_lvl)) << '\n';

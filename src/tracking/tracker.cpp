@@ -38,6 +38,7 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
         if (energy < min_energy && energy > 1e-10) {
             idx = i;
             min_energy = energy;
+            if (energy < 9.0f) break;
         }
     }
     // detect if tracking failed
@@ -105,6 +106,7 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
         failaure_cnt = 0;
     }
 
+    per_pixel_energy = min_energy;
     to_track_frame->set_tracking_result(T_curr_lastKF, aff_curr_map);
 
     T_last_lastKF = T_curr_lastKF;

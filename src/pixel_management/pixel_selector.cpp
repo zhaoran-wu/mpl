@@ -22,8 +22,8 @@ PixelSelector::PixelSelector() {
     candidates.reserve(2 * config->PIXEL_SELECTION_NUM);  // todo experiment check this num
 }
 
-int PixelSelector::select(ImagePyramid::ptr pyramid_ptr, std::vector<Eigen::Vector3i>& candidates_out,
-                          cv::Mat depth_safe_mask_, cv::Mat alignment_mask_) {
+int PixelSelector::select(Frame::ptr frame_, std::vector<Eigen::Vector3i>& candidates_out, cv::Mat depth_safe_mask_,
+                          cv::Mat alignment_mask_) {
     this->depth_safe_mask = depth_safe_mask_;
     this->alignment_mask = alignment_mask_;
 
@@ -32,8 +32,8 @@ int PixelSelector::select(ImagePyramid::ptr pyramid_ptr, std::vector<Eigen::Vect
     }
 
     tictoc::tic();
-    this->mag2_ptr = pyramid_ptr->mag_squared(0);
 
+    this->frame = frame_;
     fill_thresh_map();
     filtering_thresh_map();
 
@@ -44,8 +44,8 @@ int PixelSelector::select(ImagePyramid::ptr pyramid_ptr, std::vector<Eigen::Vect
         std::move(candidates.begin(), candidates.end(), std::back_inserter(candidates_out));
 
         debug::execute_mem_according_to_config(config->DEBUG_PIXEL_SELECTION, config->debug_pixel_selection_mutex,
-                                               &PixelSelector::draw_result, this, candidates_out, pyramid_ptr,
-                                               time_cost);
+                                               &PixelSelector::draw_result, this, candidates_out,
+                                               frame->get_synetic_photometric_pyramid(), time_cost);
 
         return this->candidates.size();
     }
@@ -78,8 +78,6 @@ void PixelSelector::draw_result(const std::vector<Eigen::Vector3i>& candidates, 
 }
 
 void PixelSelector::fill_thresh_map() {
-    float* mag2_map = mag2_ptr.get();
-
     for (int block_x = 0; block_x < thresh_block_num_x; ++block_x) {
         for (int block_y = 0; block_y < thresh_block_num_y; ++block_y) {
             // we sum each block the gradient magitude information
@@ -90,7 +88,7 @@ void PixelSelector::fill_thresh_map() {
 
             for (int x = block_x * thresh_block_dim; x < x_max; ++x) {
                 for (int y = block_y * thresh_block_dim; y < y_max; ++y) {
-                    float mag2_curr_pixel = mag2_map[idx(cam->width[0], x, y)];
+                    float mag2_curr_pixel = frame->mag_squared_synetic(x, y);
                     mag2_each_block.push_back(std::move(mag2_curr_pixel));
                 }
             }
@@ -139,7 +137,6 @@ void PixelSelector::set_pot_dim(const int pot_dim_want) {
     grid_dim = block_dim * 2;
     grid_num_x = ceil((float)cam->width[0] / grid_dim);
     grid_num_y = ceil((float)cam->height[0] / grid_dim);
-    resize_mag2_vec();
 }
 
 // recursive selection
@@ -178,6 +175,26 @@ void PixelSelector::select_in_image() {
             select_in_one_grid(grid_x, grid_y);
         }
     }
+}
+
+inline bool PixelSelector::is_valid(const int u, const int v) const {
+    if (!(this->depth_safe_mask.at<float>(v, u) < 1e-10 && ((int)this->alignment_mask.at<uchar>(v, u) < 35))) {
+        return false;
+    }
+
+    const float dx = frame->dx(u, v);
+    const float dy = frame->dy(u, v);
+    const float mag2 = frame->mag_squared(u, v);
+
+    const float syn_dx = frame->get_synetic_photometric_pyramid()->dx(u, v);
+    const float syn_dy = frame->get_synetic_photometric_pyramid()->dy(u, v);
+    const float syn_mag2 = frame->mag_squared_synetic(u, v);
+    const float angle = std::acos((dx * syn_dx + dy * syn_dy) / (std::sqrt(mag2) * std::sqrt(syn_mag2)));
+    /*     if (angle > 0.174f) {
+            std::cout << "angle : " << angle << '\n';
+        } */
+
+    return angle < 0.15f;  // rad
 }
 
 void PixelSelector::select_in_one_grid(const int grid_x, const int grid_y) {
@@ -231,77 +248,101 @@ float PixelSelector::find_max_mag2(Eigen::Vector3i& candidate, const int grid_x,
 
     switch (search_region) {
         case SearchRegion::POT_LVL: {
-            int pot_right_bound = grid_x * grid_dim + block_x * block_dim + (pot_x + 1) * pot_dim;
-            int pot_lower_bound = grid_y * grid_dim + block_y * block_dim + (pot_y + 1) * pot_dim;
+            const int tl_x = grid_x * grid_dim + block_x * block_dim + pot_x * pot_dim;
+            const int tl_y = grid_y * grid_dim + block_y * block_dim + pot_y * pot_dim;
+
+            const int pot_right_bound = tl_x + pot_dim;
+            const int pot_lower_bound = tl_y + pot_dim;
             if (!(pot_right_bound < cam->width[0]) || !(pot_lower_bound < cam->height[0])) {
                 return 0;
             }
-            float* pot_head_ptr = get_pot_head(grid_x, grid_y, block_x, block_y, pot_x, pot_y);
-            // copy to a vector to use max_element
+
+            int max_x = -1, max_y = -1;
+            float max_mag2 = 0.0f;
             for (int y = 0; y < pot_dim; ++y) {
-                memcpy(&pot_mag2_vec[y * pot_dim], &pot_head_ptr[y * cam->width[0]], pot_dim * sizeof(float));
+                for (int x = 0; x < pot_dim; ++x) {
+                    const int global_x = tl_x + x;
+                    const int global_y = tl_y + y;
+                    const float curr_mag2 = frame->mag_squared_synetic(global_x, global_y);
+                    if (curr_mag2 > max_mag2 && is_valid(global_x, global_y)) {
+                        max_x = global_x;
+                        max_y = global_y;
+                        max_mag2 = curr_mag2;
+                    }
+                }
             }
-            auto max_iter = std::max_element(pot_mag2_vec.begin(), pot_mag2_vec.end());
-            int distance = std::distance(pot_mag2_vec.begin(), max_iter);
 
-            candidate(0) = grid_x * grid_dim + block_x * block_dim + pot_x * pot_dim + distance % pot_dim;
-            candidate(1) = grid_y * grid_dim + block_y * block_dim + pot_y * pot_dim + distance / pot_dim;
+            candidate(0) = max_x;
+            candidate(1) = max_y;
             candidate(2) = 0;
-            if (distance < 0 || this->depth_safe_mask.at<float>(candidate(1), candidate(0)) > 1e-10 ||
-                (int)this->alignment_mask.at<uchar>(candidate(1), candidate(0)) > 15)
-                return 0;
 
-            return *max_iter;
+            return max_mag2;
         } break;
         case SearchRegion::BLOCK_LVL: {
-            int block_right_bound = grid_x * grid_dim + (block_x + 1) * block_dim;
-            int block_lower_bound = grid_y * grid_dim + (block_y + 1) * block_dim;
+            const int tl_x = grid_x * grid_dim + block_x * block_dim;
+            const int tl_y = grid_y * grid_dim + block_y * block_dim;
+
+            const int block_right_bound = tl_x + block_dim;
+            const int block_lower_bound = tl_y + block_dim;
             if (!(block_right_bound < cam->width[0]) || !(block_lower_bound < cam->height[0])) {
                 return 0;
             }
-            float* block_head_ptr = get_block_head(grid_x, grid_y, block_x, block_y);
-            // copy to a vector to use max_element
+
+            int max_x = -1, max_y = -1;
+            float max_mag2 = 0;
             for (int y = 0; y < block_dim; ++y) {
-                memcpy(&block_mag2_vec[y * block_dim], &block_head_ptr[y * cam->width[0]], block_dim * sizeof(float));
+                for (int x = 0; x < block_dim; ++x) {
+                    const int global_x = tl_x + x;
+                    const int global_y = tl_y + y;
+                    const float curr_mag2 = frame->mag_squared_synetic(global_x, global_y);
+                    if (curr_mag2 > max_mag2 && is_valid(global_x, global_y)) {
+                        max_x = global_x;
+                        max_y = global_y;
+                        max_mag2 = curr_mag2;
+                    }
+                }
             }
-            auto max_iter = std::max_element(block_mag2_vec.begin(), block_mag2_vec.end());
-            int distance = std::distance(block_mag2_vec.begin(), max_iter);
-            candidate(0) = grid_x * grid_dim + block_x * block_dim + distance % block_dim;
-            candidate(1) = grid_y * grid_dim + block_y * block_dim + distance / block_dim;
+
+            candidate(0) = max_x;
+            candidate(1) = max_y;
             candidate(2) = 1;
 
-            if (distance < 0 || this->depth_safe_mask.at<float>(candidate(1), candidate(0)) > 1e-10 ||
-                (int)this->alignment_mask.at<uchar>(candidate(1), candidate(0)) > 15)
-                return 0;
+            return max_mag2;
 
-            return *max_iter;
         } break;
         case SearchRegion::GRID_LVL: {
             // if there homogenous area in image bound, igonore it will be also
             // rational
-            int grid_right_bound = (grid_x + 1) * grid_dim;
-            int grid_lower_bound = (grid_y + 1) * grid_dim;
+            const int tl_x = grid_x * grid_dim;
+            const int tl_y = grid_y * grid_dim;
+
+            int grid_right_bound = tl_x + grid_dim;
+            int grid_lower_bound = tl_y + grid_dim;
+
             if (!(grid_right_bound < cam->width[0]) || !(grid_lower_bound < cam->height[0])) {
                 return 0;
             }
 
-            float* grid_head_ptr = get_grid_head(grid_x, grid_y);
+            int max_x = -1, max_y = -1;
+            float max_mag2 = 0.0f;
             // copy to a vector to use max_element
             for (int y = 0; y < grid_dim; ++y) {
-                memcpy(&grid_mag2_vec[y * grid_dim], &grid_head_ptr[y * cam->width[0]], grid_dim * sizeof(float));
+                for (int x = 0; x < grid_dim; ++x) {
+                    const int global_x = tl_x + x;
+                    const int global_y = tl_y + y;
+                    const float curr_mag2 = frame->mag_squared_synetic(global_x, global_y);
+                    if (curr_mag2 > max_mag2 && is_valid(global_x, global_y)) {
+                        max_x = global_x;
+                        max_y = global_y;
+                        max_mag2 = curr_mag2;
+                    }
+                }
             }
-            auto max_iter = std::max_element(grid_mag2_vec.begin(), grid_mag2_vec.end());
-            int distance = std::distance(grid_mag2_vec.begin(), max_iter);
-
-            candidate(0) = grid_x * grid_dim + distance % grid_dim;
-            candidate(1) = grid_y * grid_dim + distance / grid_dim;
+            candidate(0) = max_x;
+            candidate(1) = max_y;
             candidate(2) = 2;
 
-            if (distance < 0 || this->depth_safe_mask.at<float>(candidate(1), candidate(0)) > 1e-10 ||
-                (int)this->alignment_mask.at<uchar>(candidate(1), candidate(0)) > 15)
-                return 0;
-
-            return *max_iter;
+            return max_mag2;
         } break;
 
         default:
@@ -309,11 +350,4 @@ float PixelSelector::find_max_mag2(Eigen::Vector3i& candidate, const int grid_x,
     }
     return 0;
 }
-
-void PixelSelector::resize_mag2_vec() {
-    pot_mag2_vec.resize(pot_dim * pot_dim, 0);
-    block_mag2_vec.resize(4 * pot_dim * pot_dim, 0);
-    grid_mag2_vec.resize(16 * pot_dim * pot_dim, 0);
-}
-
 }  // namespace mpl

@@ -16,9 +16,12 @@ using namespace std;
 using namespace mpl;
 
 bool is_newframe_KF(PointCloudPyramid::ptr pcp, const Sophus::SE3f& T_KF_curr, float energy) {
-    // std::cout << "@@@@@@@@ log norm: " << T_KF_curr.log().norm() << "  angle Y : " << abs(T_KF_curr.angleY())
-    //          << "   energy :" << energy << '\n';
-    if (abs(T_KF_curr.angleY()) > 0.06 || T_KF_curr.log().norm() > 1.3 || energy > 350.f) return true;
+    std::cout << "@@@@@@@@ log norm: " << T_KF_curr.log().norm() << "  angle Y : " << abs(T_KF_curr.angleY())
+              << "   energy :" << energy << '\n';
+
+    // should use depth/movement ratio and candidate num cnt
+    return (abs(T_KF_curr.angleY()) > 0.02 || T_KF_curr.log().norm() > 0.9 || energy > 7.f ||
+            T_KF_curr.log().tail(3).norm() > 0.01);
 }
 
 void show_debug_key_frame_synetic_img_alignment(cv::Mat frame_img, cv::Mat synetic_img, cv::Mat mask,
@@ -139,6 +142,7 @@ int main() {
     int off_set = start_idx * 4;  // 80
     Frame::ptr key_frame = Frame::create(img_vec[off_set]);
     std::vector<cv::Mat> syn_im_vec_curr = synetic_image.renderingAt(render_pose);
+
     std::shared_ptr<Visualizer> vis(new Visualizer);
     vis->stop_or_start_according_to_pangolin_menu();
     CandidateManager cm(vis);
@@ -163,7 +167,7 @@ int main() {
     //    config.DEBUG_KEY_FRAME_SYNETIC_IMAGE_ALIGNMENT, config.debug_key_frame_synetci_img_alignment_mutex,
     //    show_debug_key_frame_synetic_img_alignment, img_draw_vec[0], syn_im_vec_curr[0], key_frame->get_aff_light());
     std::thread th_draw(&Visualizer::publish_curr_frame_tracking_info, std::ref(*vis), pcp, img_draw_vec[off_set],
-                        key_frame->get_pose(), key_frame->get_pose().inverse(), false);
+                        key_frame->get_pose(), key_frame->get_pose().inverse(), true);
     th_draw.detach();
 
     // draw candidates before and after tracking
@@ -189,11 +193,11 @@ int main() {
         Sophus::SE3f T_curr_KF = get_src_to_dst_transform(curr_frame->get_ref_frame(), curr_frame);
         // visualize tracking result
         std::thread th_draw(&Visualizer::publish_curr_frame_tracking_info, std::ref(*vis), pcp, img_draw_vec[i],
-                            curr_frame->get_pose(), T_curr_KF, false);
+                            curr_frame->get_pose(), T_curr_KF, true);
         th_draw.detach();
 
         // todo : a best way to choose KF
-        bool is_KF = is_newframe_KF(pcp, T_curr_KF, tracker.get_per_pixel_energy());
+        bool is_KF = true;  // is_newframe_KF(pcp, T_curr_KF, tracker.get_per_pixel_energy());
         if (is_KF) {
             key_frame = curr_frame;
             key_frame_vis = img_draw_vec[i];

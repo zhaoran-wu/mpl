@@ -40,7 +40,7 @@ void CandidateManager::select_candidate(const Frame::ptr frame, const cv::Mat sy
     safe_mask = generate_depth_safe_mask(synetic_depth_im);
 
     std::vector<Eigen::Vector3i> pixel_selected;
-    pixel_selector.select(frame->get_synetic_photometric_pyramid(), pixel_selected, safe_mask, alignment_mask);
+    pixel_selector.select(frame, pixel_selected, safe_mask, alignment_mask);
 
     std::vector<Candidate> candidate_vec;
     // todo reserve candidate
@@ -168,14 +168,14 @@ void CandidateManager::activate_candidate() {
         min_dist_to_active += 2;
     else if (ratio > 1.1f)
         min_dist_to_active += 1;
-    else if (ratio < 0.3f)
+    else if (ratio < 0.4f)  // less point is more dangerous than more point
+        min_dist_to_active -= 4;
+    else if (ratio < 0.7f)
         min_dist_to_active -= 3;
-    else if (ratio < 0.6f)
-        min_dist_to_active -= 2;
     else if (ratio < 0.9f)
-        min_dist_to_active -= 1;
+        min_dist_to_active -= 2;
 
-    min_dist_to_active = std::min(max(3, min_dist_to_active), 12);
+    min_dist_to_active = std::min(max(4, min_dist_to_active), 12);
 
     int min_square_dist = pow(min_dist_to_active, 2);
 
