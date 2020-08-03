@@ -26,9 +26,9 @@ class TrackingOptimizer {
    private:
     // accumulate to H and b
     void update(const Vec8 delta_x);
-    int build_problem();  // return the number of the residual
+    void build_problem();
     void remove_outlier(const bool remove_outlier);
-    void accumulate_H_b(const float roboust_weight, const float total_weight);
+    void accumulate_H_b(RowVec8& J_tmp, double r_tmp, const float roboust_weight, const float total_weight);
     Mat88 get_damped_hessian();
     void scaling_H_b();
     void scaling_delta_x(Vec8& delta_x);
@@ -45,6 +45,9 @@ class TrackingOptimizer {
     Eigen::Vector3f map(Sophus::SE3d pose,
                         Eigen::Vector3f point) const;  // map point to curr coordinate system
 
+    void add_edge(const Voxel& voxel);  // thread function;
+    void add_edges(const int start_idx, const int end_idx);
+
     int curr_lvl;
 
     Sophus::SE3d pose;         // T_curr_ref   pose from reference to curr frame
@@ -55,13 +58,12 @@ class TrackingOptimizer {
     CamData* cam;
     Config* config;
 
+    std::mutex H_b_mutex;
     Mat88 H = Mat88::Zero();  // H = J.trans()*J
     Vec8 b = Vec8::Zero();    // b = - J.trans()*r_vec
 
+    std::mutex sum_residual_mutex;
     float sum_weighted_squared_residual = 0.0f;
-
-    double r_tmp;                     // r for every measurement
-    RowVec8 J_tmp = RowVec8::Zero();  // J for every measurement
 
     float lamda;
     float huber_radius;

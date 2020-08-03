@@ -1,7 +1,9 @@
 #include "tracking_optimizer.h"
+#include "../util/tictoc.h"
 #include "candidate_manager.h"
 #include <cmath>
 #include <glog/logging.h>
+#include <thread>
 
 namespace mpl {
 void TrackingOptimizer::init(const Sophus::SE3f init_pose, const AffineLight init_rel_affL,
@@ -169,91 +171,179 @@ inline float TrackingOptimizer::calc_huber_weighted_redidual(const float huber_w
     return huber_weight * (2.0f - huber_weight) * residual * residual;
 }
 
-// todo only update b
-int TrackingOptimizer::build_problem() {
-    H.setZero();
-    b.setZero();
-    sum_weighted_squared_residual = 0.0f;
-    int num_outlier = 0;
-    int cnt = 0;
-    for (auto& voxel : (*point_cloud_pyramid)[curr_lvl]) {
-        if (voxel.can->status != CandidateStatus::ACTIVE) continue;
+void TrackingOptimizer::add_edge(const Voxel& voxel) {
+    if (voxel.can->status != CandidateStatus::ACTIVE) return;
 
-        const Eigen::Vector3f P = map(pose, voxel.position);  // point in curr frame
-        const Eigen::Vector2f hit_pixel = to_track_frame->project(P, curr_lvl);
+    const Eigen::Vector3f P = map(pose, voxel.position);  // point in curr frame
+    const Eigen::Vector2f hit_pixel = to_track_frame->project(P, curr_lvl);
 
-        if (!to_track_frame->is_in_image(hit_pixel, curr_lvl)) {
-            continue;
-        }
-
-        const float intensity_on_image = to_track_frame->at(hit_pixel, curr_lvl);
-
-        // compute residual
-        r_tmp = calc_residual(intensity_on_image, voxel.intensity);
-        const float huber_weight = calc_huber_weight(r_tmp);
-        if (std::abs(r_tmp) > huber_radius) {
-            ++num_outlier;
-        }
-
-        // compute jacobian
-        const float inv_z = (1.0f / P(2));
-        const float inv_zz = inv_z * inv_z;
-        const float dx = to_track_frame->dx(hit_pixel, curr_lvl);
-        const float dy = to_track_frame->dy(hit_pixel, curr_lvl);
-        const float mag2 = to_track_frame->mag_squared(hit_pixel, curr_lvl);
-
-        const float heuristic_const = 2500.0f;
-        const float gradient_weight = sqrt(heuristic_const / (heuristic_const + mag2));
-
-        // if (std::abs(dx + dy) < 1e-2) {
-        //    // std::cout << "dx + dy: " << dx + dy << std::endl;
-        //    continue;  // igonore point with very weak gradient,that can not contribute to the result
-        //}
-
-        const float fx_dx = cam->fx[curr_lvl] * dx;
-        const float fy_dy = cam->fy[curr_lvl] * dy;
-        const float p1_inv_zz = P(1) * inv_zz;
-
-        // dIdp
-        // todo overloader image_pyramid and do subprecision
-
-        J_tmp(0) = fx_dx * inv_z;
-        J_tmp(1) = fy_dy * inv_z;
-        J_tmp(2) = -(fx_dx * P(0) + fy_dy * P(1)) * inv_zz;
-
-        J_tmp(3) = -(fx_dx * P(0) * p1_inv_zz + fy_dy * (1.0f + P(1) * p1_inv_zz));
-        J_tmp(4) = fx_dx * (1.0f + P(0) * P(0) * inv_zz) + fy_dy * P(0) * p1_inv_zz;
-        J_tmp(5) = -fx_dx * P(1) * inv_z + fy_dy * P(0) * inv_z;
-
-        J_tmp(6) = -voxel.intensity * exp(affine_light.alpha());
-        J_tmp(7) = -1.0;
-
-        const float total_weight = gradient_weight * voxel.aligenment_weight;
-
-        sum_weighted_squared_residual += std::pow(total_weight, 2) * calc_huber_weighted_redidual(huber_weight, r_tmp);
-        cnt++;
-        // LOG(INFO) << "J :" << '\n' << J_tmp;
-        // LOG(INFO) << "r :" << sum_weighted_squared_residual;
-
-        accumulate_H_b(huber_weight, total_weight);
+    if (!to_track_frame->is_in_image(hit_pixel, curr_lvl)) {
+        return;
     }
-    // std::cout << "@@@@@@@@@@@@@@@@@@@@@@@@ finial used pcp cnt !!!!!!!!!!(in build problem): " << cnt
-    //          << "average energy : " << std::sqrt(sum_weighted_squared_residual / cnt) << '\n';
-    // std::cerr << " huber radius :" << huber_radius << " num outlier :" << num_outlier << '\n';
-    // LOG(INFO) << " H : " << '\n' << H;
-    scaling_H_b();
 
-    // LOG(INFO) << "!!!!new  H : " << '\n' << H;
-    return cnt;
+    const float intensity_on_image = to_track_frame->at(hit_pixel, curr_lvl);
+
+    // compute residual
+    double r_tmp = calc_residual(intensity_on_image, voxel.intensity);
+    const float huber_weight = calc_huber_weight(r_tmp);
+
+    // compute jacobian
+    const float inv_z = (1.0f / P(2));
+    const float inv_zz = inv_z * inv_z;
+    const float dx = to_track_frame->dx(hit_pixel, curr_lvl);
+    const float dy = to_track_frame->dy(hit_pixel, curr_lvl);
+    const float mag2 = to_track_frame->mag_squared(hit_pixel, curr_lvl);
+
+    const float heuristic_const = 2500.0f;
+    const float gradient_weight = sqrt(heuristic_const / (heuristic_const + mag2));
+
+    // if (std::abs(dx + dy) < 1e-2) {
+    //    // std::cout << "dx + dy: " << dx + dy << std::endl;
+    //    continue;  // igonore point with very weak gradient,that can not contribute to the result
+    //}
+
+    const float fx_dx = cam->fx[curr_lvl] * dx;
+    const float fy_dy = cam->fy[curr_lvl] * dy;
+    const float p1_inv_zz = P(1) * inv_zz;
+
+    // dIdp
+    // todo overloader image_pyramid and do subprecision
+    RowVec8 J_tmp;
+
+    J_tmp(0) = fx_dx * inv_z;
+    J_tmp(1) = fy_dy * inv_z;
+    J_tmp(2) = -(fx_dx * P(0) + fy_dy * P(1)) * inv_zz;
+
+    J_tmp(3) = -(fx_dx * P(0) * p1_inv_zz + fy_dy * (1.0f + P(1) * p1_inv_zz));
+    J_tmp(4) = fx_dx * (1.0f + P(0) * P(0) * inv_zz) + fy_dy * P(0) * p1_inv_zz;
+    J_tmp(5) = -fx_dx * P(1) * inv_z + fy_dy * P(0) * inv_z;
+
+    J_tmp(6) = -voxel.intensity * exp(affine_light.alpha());
+    J_tmp(7) = -1.0;
+
+    const float total_weight = gradient_weight * voxel.aligenment_weight;
+
+    sum_residual_mutex.lock();
+    sum_weighted_squared_residual += std::pow(total_weight, 2) * calc_huber_weighted_redidual(huber_weight, r_tmp);
+    sum_residual_mutex.unlock();
+    // LOG(INFO) << "J :" << '\n' << J_tmp;
+    // LOG(INFO) << "r :" << sum_weighted_squared_residual;
+
+    accumulate_H_b(J_tmp, r_tmp, huber_weight, total_weight);
 }
 
-void TrackingOptimizer::accumulate_H_b(const float robust_weight, const float total_weight) {
+inline void TrackingOptimizer::add_edges(const int start_idx, const int end_idx) {
+    for (int i = start_idx; i < end_idx; ++i) {
+        add_edge(point_cloud_pyramid->operator[](curr_lvl)[i]);
+    }
+}
+
+void TrackingOptimizer::build_problem() {
+    H.setZero();
+    b.setZero();
+
+    sum_weighted_squared_residual = 0.0f;
+
+    bool multi_threads = true;
+    if (multi_threads) {
+        const int thread_num = 8;
+        const int point_cloud_size = point_cloud_pyramid->operator[](curr_lvl).size();
+        const int group_size = point_cloud_size / thread_num;
+
+        tictoc::tic();
+        std::vector<std::thread> th_vec;
+        for (int thread_id = 0; thread_id < thread_num; ++thread_id) {
+            th_vec.emplace_back(&TrackingOptimizer::add_edges, std::ref(*this), thread_id * group_size,
+                                (thread_id + 1) * group_size);
+        }
+        // remain point, total 9 thread
+        th_vec.emplace_back(&TrackingOptimizer::add_edges, std::ref(*this), thread_num * group_size, point_cloud_size);
+
+        for (auto& th : th_vec) {
+            th.join();
+        }
+
+    } else {
+        for (auto& voxel : (*point_cloud_pyramid)[curr_lvl]) {
+            if (voxel.can->status != CandidateStatus::ACTIVE) continue;
+
+            const Eigen::Vector3f P = map(pose, voxel.position);  // point in curr frame
+            const Eigen::Vector2f hit_pixel = to_track_frame->project(P, curr_lvl);
+
+            if (!to_track_frame->is_in_image(hit_pixel, curr_lvl)) {
+                continue;
+            }
+
+            const float intensity_on_image = to_track_frame->at(hit_pixel, curr_lvl);
+
+            // compute residual
+            double r_tmp = calc_residual(intensity_on_image, voxel.intensity);
+            const float huber_weight = calc_huber_weight(r_tmp);
+            // compute jacobian
+            const float inv_z = (1.0f / P(2));
+            const float inv_zz = inv_z * inv_z;
+            const float dx = to_track_frame->dx(hit_pixel, curr_lvl);
+            const float dy = to_track_frame->dy(hit_pixel, curr_lvl);
+            const float mag2 = to_track_frame->mag_squared(hit_pixel, curr_lvl);
+
+            const float heuristic_const = 2500.0f;
+            const float gradient_weight = sqrt(heuristic_const / (heuristic_const + mag2));
+
+            // if (std::abs(dx + dy) < 1e-2) {
+            //    // std::cout << "dx + dy: " << dx + dy << std::endl;
+            //    continue;  // igonore point with very weak gradient,that can not contribute to the result
+            //}
+
+            const float fx_dx = cam->fx[curr_lvl] * dx;
+            const float fy_dy = cam->fy[curr_lvl] * dy;
+            const float p1_inv_zz = P(1) * inv_zz;
+
+            // dIdp
+            // todo overloader image_pyramid and do subprecision
+            RowVec8 J_tmp;
+
+            J_tmp(0) = fx_dx * inv_z;
+            J_tmp(1) = fy_dy * inv_z;
+            J_tmp(2) = -(fx_dx * P(0) + fy_dy * P(1)) * inv_zz;
+
+            J_tmp(3) = -(fx_dx * P(0) * p1_inv_zz + fy_dy * (1.0f + P(1) * p1_inv_zz));
+            J_tmp(4) = fx_dx * (1.0f + P(0) * P(0) * inv_zz) + fy_dy * P(0) * p1_inv_zz;
+            J_tmp(5) = -fx_dx * P(1) * inv_z + fy_dy * P(0) * inv_z;
+
+            J_tmp(6) = -voxel.intensity * exp(affine_light.alpha());
+            J_tmp(7) = -1.0;
+
+            const float total_weight = gradient_weight * voxel.aligenment_weight;
+
+            sum_weighted_squared_residual +=
+                std::pow(total_weight, 2) * calc_huber_weighted_redidual(huber_weight, r_tmp);
+            // LOG(INFO) << "J :" << '\n' << J_tmp;
+            // LOG(INFO) << "r :" << sum_weighted_squared_residual;
+
+            accumulate_H_b(J_tmp, r_tmp, huber_weight, total_weight);
+        }
+        // std::cout << "@@@@@@@@@@@@@@@@@@@@@@@@ finial used pcp cnt !!!!!!!!!!(in build problem): " << cnt
+        //          << "average energy : " << std::sqrt(sum_weighted_squared_residual / cnt) << '\n';
+        // std::cerr << " huber radius :" << huber_radius << " num outlier :" << num_outlier << '\n';
+        // LOG(INFO) << " H : " << '\n' << H;
+    }
+    scaling_H_b();
+
+    // LOG(INFO) << "build problem Hx=b , using time " << tictoc::toc() / 1000.0f << " ms";
+
+    // LOG(INFO) << "!!!!new  H : " << '\n' << H;
+}
+
+void TrackingOptimizer::accumulate_H_b(RowVec8& J_tmp, double r_tmp, const float robust_weight,
+                                       const float total_weight) {
     const float w = robust_weight * total_weight;
     J_tmp *= w;
     r_tmp *= w;
 
+    H_b_mutex.lock();
     H.noalias() += J_tmp.transpose() * J_tmp;
     b += -J_tmp.transpose() * r_tmp;
+    H_b_mutex.unlock();
 }
 
 Mat88 TrackingOptimizer::get_damped_hessian() {
