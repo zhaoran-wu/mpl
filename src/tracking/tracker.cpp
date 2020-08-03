@@ -29,11 +29,11 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
     int huber_radius = config.huber_residual_each_lvl[lvls - 1];
     float lamda_min = config.lamda_min_eahc_lvl[lvls - 1];
     //
-    for (int i = 0; i < 13; ++i) {
+    for (int i = 0; i < 19; ++i) {
         init_pose = movement_prediction[i] * T_last_lastKF;
         optimizer.init(init_pose, init_aff_light, point_cloud_pyramid_, to_track_frame);
         optimizer.set_lvl(lvls - 1);
-        float energy = optimizer.solve(iterations, lamda_init, lamda_min, huber_radius, false);
+        float energy = optimizer.solve(iterations, lamda_init, lamda_min, huber_radius, true);
         std::cout << " idx :" << i << "energy per pixel :" << energy << '\n';
         if (energy < min_energy && energy > 1e-10) {
             idx = i;
@@ -42,7 +42,7 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
         }
     }
     // detect if tracking failed
-    float thresh1 = (to_track_frame->get_id() < 10) ? 60 : 60;
+    float thresh1 = (to_track_frame->get_id() < 10) ? 30 : 20;
 
     if (min_energy > thresh1) {
         std::cout << "@@@@@@@@@@@@tracking failed : no good prediction"
@@ -81,7 +81,7 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
             lamda_min = config.lamda_min_eahc_lvl[lvl];
             huber_radius = config.huber_residual_each_lvl[lvl];
         }
-        min_energy = optimizer.solve(iterations, lamda_init, lamda_min, huber_radius, true);
+        min_energy = optimizer.solve(iterations, lamda_init, lamda_min, huber_radius, false);
         T_curr_lastKF_pyramid.push_back(optimizer.getT());
         energy_vec.push_back(min_energy);
     }
@@ -95,7 +95,7 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
     Sophus::SE3f T_curr_lastKF = optimizer.getT();
     AffineLight aff_curr_map = optimizer.getAffineLight();
 
-    float thresh = (to_track_frame->get_id() < 10) ? 60 : 60;
+    float thresh = (to_track_frame->get_id() < 10) ? 30 : 20;
     if (min_energy > thresh) {
         std::cout << "@@@@@@@@@@@@@@@@@@@@@@@@@ tracking failed :"
                   << "per pixel energy :" << min_energy << "alpha : " << aff_curr_map.alpha()
@@ -138,11 +138,20 @@ void Tracker::generate_movement_predictions() {
 
     const Sophus::Vector6f se3_priori = T_last_overlast.log() * (failaure_cnt + 1);
     // X x movement
-    movement_prediction[1] = Sophus::SE3f::exp(0.5 * se3_priori);
-    movement_prediction[2] = Sophus::SE3f::exp(0.75 * se3_priori);
-    movement_prediction[3] = Sophus::SE3f::exp(1.25 * se3_priori);
-    movement_prediction[4] = Sophus::SE3f::exp(1.5 * se3_priori);
-    movement_prediction[5] = Sophus::SE3f::exp(1.75 * se3_priori);
+    movement_prediction[1] = Sophus::SE3f::trans(0, 0, 0);
+    movement_prediction[2] = Sophus::SE3f::exp(0.5 * se3_priori);
+    movement_prediction[3] = Sophus::SE3f::exp(0.75 * se3_priori);
+    movement_prediction[4] = Sophus::SE3f::exp(1.25 * se3_priori);
+    movement_prediction[5] = Sophus::SE3f::exp(1.5 * se3_priori);
+    movement_prediction[6] = Sophus::SE3f::exp(1.75 * se3_priori);
+    // small delta
+    movement_prediction[7] = Sophus::SE3f::trans(0.0f, -0.0f, -0.8f) * Sophus::SE3f::rotX(0.006f);
+    movement_prediction[8] = Sophus::SE3f::trans(0.0f, -0.0f, -0.8f) * Sophus::SE3f::rotX(-0.006f);
+    movement_prediction[9] = Sophus::SE3f::trans(0.0f, -0.0f, -0.8f) * Sophus::SE3f::rotZ(0.003f);
+    movement_prediction[10] = Sophus::SE3f::trans(0.0f, -0.0f, -0.8f) * Sophus::SE3f::rotZ(-0.003f);
+    // small z
+    movement_prediction[11] = Sophus::SE3f::transZ(-0.2f);
+    movement_prediction[12] = Sophus::SE3f::transZ(-0.4f);
     // 2* (movement + turn left , movement + turn right)
     Sophus::SE3f turn_right_small = Sophus::SE3f::rotY(-0.02f);
     Sophus::SE3f turn_right_mid = Sophus::SE3f::rotY(-0.04f);
@@ -151,31 +160,22 @@ void Tracker::generate_movement_predictions() {
     Sophus::SE3f turn_left_mid = Sophus::SE3f::rotY(0.04f);
     Sophus::SE3f turn_left_large = Sophus::SE3f::rotY(0.06f);
 
-    movement_prediction[6] = Sophus::SE3f::exp(se3_priori) * turn_right_small;
-    movement_prediction[7] = Sophus::SE3f::exp(se3_priori) * turn_right_mid;
-    movement_prediction[8] = Sophus::SE3f::exp(se3_priori) * turn_right_large;
-    movement_prediction[9] = Sophus::SE3f::exp(se3_priori) * turn_left_small;
-    movement_prediction[10] = Sophus::SE3f::exp(se3_priori) * turn_left_mid;
-    movement_prediction[11] = Sophus::SE3f::exp(se3_priori) * turn_left_large;
+    movement_prediction[13] = Sophus::SE3f::exp(se3_priori) * turn_right_small;
+    movement_prediction[14] = Sophus::SE3f::exp(se3_priori) * turn_right_mid;
+    movement_prediction[15] = Sophus::SE3f::exp(se3_priori) * turn_right_large;
+    movement_prediction[16] = Sophus::SE3f::exp(se3_priori) * turn_left_small;
+    movement_prediction[17] = Sophus::SE3f::exp(se3_priori) * turn_left_mid;
+    movement_prediction[18] = Sophus::SE3f::exp(se3_priori) * turn_left_large;
     // no movement
-    movement_prediction[12] = Sophus::SE3f::trans(0, 0, 0);
 
-    // forward movement
-    //* notice the movement is T_new_ref, so z negative here
-    // experiment
-    // movement_prediction[13] = Sophus::SE3f::rotY(-0.03f) * Sophus::SE3f::exp(0.5 * se3_priori);
-    // movement_prediction[14] = Sophus::SE3f::rotY(0.03f) * Sophus::SE3f::exp(0.5 * se3_priori);
-    // movement_prediction[15] = Sophus::SE3f::rotY(-0.01f) * Sophus::SE3f::exp(0.5 * se3_priori);
-    // movement_prediction[16] = Sophus::SE3f::rotY(0.01f) * Sophus::SE3f::exp(0.5 * se3_priori);
-    //
-    //    movement_prediction[17] = Sophus::SE3f::transZ(-0.32) * Sophus::SE3f::rotY(-0.06f);
-    //    movement_prediction[18] = Sophus::SE3f::transZ(-0.4) * Sophus::SE3f::rotY(-0.08);
-    //    movement_prediction[19] = Sophus::SE3f::transZ(-0.4) * Sophus::SE3f::rotY(-0.1f);
-    //    movement_prediction[20] = Sophus::SE3f::transZ(-0.4) * Sophus::SE3f::rotY(-0.12f);
-    //    movement_prediction[21] = Sophus::SE3f::transZ(-0.32) * Sophus::SE3f::rotY(+0.06f);
-    //    movement_prediction[22] = Sophus::SE3f::transZ(-0.4) * Sophus::SE3f::rotY(+0.08);
-    //    movement_prediction[23] = Sophus::SE3f::transZ(-0.4) * Sophus::SE3f::rotY(+0.1f);
-    //    movement_prediction[24] = Sophus::SE3f::transZ(-0.4) * Sophus::SE3f::rotY(+0.12f);
+    // movement_prediction[17] = Sophus::SE3f::transZ(-0.32) * Sophus::SE3f::rotY(-0.06f);
+    // movement_prediction[18] = Sophus::SE3f::transZ(-0.4) * Sophus::SE3f::rotY(-0.08);
+    // movement_prediction[19] = Sophus::SE3f::transZ(-0.4) * Sophus::SE3f::rotY(-0.1f);
+    // movement_prediction[20] = Sophus::SE3f::transZ(-0.4) * Sophus::SE3f::rotY(-0.12f);
+    // movement_prediction[21] = Sophus::SE3f::transZ(-0.32) * Sophus::SE3f::rotY(+0.06f);
+    // movement_prediction[22] = Sophus::SE3f::transZ(-0.4) * Sophus::SE3f::rotY(+0.08);
+    // movement_prediction[23] = Sophus::SE3f::transZ(-0.4) * Sophus::SE3f::rotY(+0.1f);
+    // movement_prediction[24] = Sophus::SE3f::transZ(-0.4) * Sophus::SE3f::rotY(+0.12f);
 }
 
 void Tracker::draw_result(PointCloudPyramid::ptr pcp, const std::vector<Sophus::SE3f>& T_vec, Frame::ptr frame,

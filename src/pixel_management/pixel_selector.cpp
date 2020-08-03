@@ -178,7 +178,7 @@ void PixelSelector::select_in_image() {
 }
 
 inline bool PixelSelector::is_valid(const int u, const int v) const {
-    if (!(this->depth_safe_mask.at<float>(v, u) < 1e-10 && ((int)this->alignment_mask.at<uchar>(v, u) < 35))) {
+    if (!(this->depth_safe_mask.at<float>(v, u) < 1e-10 && ((int)this->alignment_mask.at<uchar>(v, u) < 25))) {
         return false;
     }
 
@@ -194,7 +194,7 @@ inline bool PixelSelector::is_valid(const int u, const int v) const {
             std::cout << "angle : " << angle << '\n';
         } */
 
-    return angle < 0.15f;  // rad
+    return (angle < 0.2f && (dx + dy) > 1e-3);  // rad
 }
 
 void PixelSelector::select_in_one_grid(const int grid_x, const int grid_y) {

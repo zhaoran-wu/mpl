@@ -20,18 +20,17 @@ void TrackingOptimizer::init(const Sophus::SE3f init_pose, const AffineLight ini
 }
 
 float TrackingOptimizer::solve(const int iterations, const float lamda_init, const float lamda_min,
-                               const int huber_radius_, const bool remove_outlier_) {
+                               const int huber_radius_, const bool is_movement_prediction) {
     // build Hx = b problem
     this->huber_radius = huber_radius_;
     lamda = lamda_init;
     lamda_failed_penalize_factor = config->OPTIMIZATION_LAMDA_FAILED_PENALIZE;
-    sum_weighted_squared_residual = 0.0f;
 
     build_problem();
 
     int iteration_cnt = 0;
     bool is_converge = false;
-    while (!is_converge && iteration_cnt++ < iterations) {
+    while (!is_converge && iteration_cnt < iterations) {
         // LOG(INFO) << " curr lvl : " << curr_lvl << " iterations begin : " << iteration_cnt << ", lamda : " << lamda
         //          << "------------------------";
 
@@ -54,11 +53,12 @@ float TrackingOptimizer::solve(const int iterations, const float lamda_init, con
 
         update(delta_x);
         // evaluate result
-        float sum_at_new_states = calc_sum_weighted_squared_residual(false);
+        float sum_at_new_states = calc_sum_weighted_squared_residual();
         // affine light should not change to much
         bool is_accept = (sum_at_new_states < sum_weighted_squared_residual);  //&& std::abs(delta_x(6)) < 0.1f);
 
         if (is_accept) {
+            iteration_cnt++;
             // LOG(INFO) << "step accepted @@@@@@@, curr sum residual : " << sum_at_new_states;
             // LOG(INFO) << "curr gradient" << b.norm();
             if (delta_x.norm() < config->OPTIMIZATION_STEP_MIN) {
@@ -87,7 +87,7 @@ float TrackingOptimizer::solve(const int iterations, const float lamda_init, con
     }
 
     // assign voxel final energy and hit position
-    if (remove_outlier_) remove_outlier();
+    if (!is_movement_prediction) remove_outlier();
     assign_result_for_visualization();
 
     return calc_sum_weighted_squared_residual(true);
@@ -143,10 +143,11 @@ void TrackingOptimizer::remove_outlier() {
 
         // remove outlier according to tracking result
         float mag2 = to_track_frame->mag_squared(hit_pixel, curr_lvl);
-        if ((r * r > 5 && r * r * std::sqrt(mag2) > 1000) || (mag2 == 0)) {
+        if (is_outlier(r, mag2)) {
             // std::cout << "last tracking energy " << r * r << " mag"
             //          << std::sqrt(to_track_frame->mag_squared(hit_pixel, curr_lvl))
-            //          << "r*r*mag = " << r * r * std::sqrt(to_track_frame->mag_squared(hit_pixel, curr_lvl)) << '\n';
+            //          << "r*r*mag = " << r * r * std::pow(to_track_frame->mag_squared(hit_pixel, curr_lvl), 0.3)
+            //          << '\n';
             voxel.can->bad_track_cnt++;
             if (voxel.can->good_track_cnt == 0) {
                 voxel.can->status = CandidateStatus::OUTLIER;
@@ -164,12 +165,12 @@ inline float TrackingOptimizer::calc_huber_weight(const float residual) const {
     return (std::abs(residual) < huber_radius) ? 1.0f : huber_radius / std::abs(residual);
 }
 
-inline float TrackingOptimizer::calc_huber_weigted_redidual(const float huber_weight, const float residual) const {
+inline float TrackingOptimizer::calc_huber_weighted_redidual(const float huber_weight, const float residual) const {
     return huber_weight * (2.0f - huber_weight) * residual * residual;
 }
 
 // todo only update b
-void TrackingOptimizer::build_problem() {
+int TrackingOptimizer::build_problem() {
     H.setZero();
     b.setZero();
     sum_weighted_squared_residual = 0.0f;
@@ -227,16 +228,14 @@ void TrackingOptimizer::build_problem() {
         J_tmp(6) = -voxel.intensity * exp(affine_light.alpha());
         J_tmp(7) = -1.0;
 
-        float total_weight = gradient_weight * voxel.aligenment_weight;
+        const float total_weight = gradient_weight * voxel.aligenment_weight;
 
-        J_tmp *= total_weight;
-
-        sum_weighted_squared_residual += std::pow(total_weight, 2) * calc_huber_weigted_redidual(huber_weight, r_tmp);
+        sum_weighted_squared_residual += std::pow(total_weight, 2) * calc_huber_weighted_redidual(huber_weight, r_tmp);
         cnt++;
         // LOG(INFO) << "J :" << '\n' << J_tmp;
         // LOG(INFO) << "r :" << sum_weighted_squared_residual;
 
-        accumulate_H_b(huber_weight);
+        accumulate_H_b(huber_weight, total_weight);
     }
     // std::cout << "@@@@@@@@@@@@@@@@@@@@@@@@ finial used pcp cnt !!!!!!!!!!(in build problem): " << cnt
     //          << "average energy : " << std::sqrt(sum_weighted_squared_residual / cnt) << '\n';
@@ -245,11 +244,16 @@ void TrackingOptimizer::build_problem() {
     scaling_H_b();
 
     // LOG(INFO) << "!!!!new  H : " << '\n' << H;
+    return cnt;
 }
 
-void TrackingOptimizer::accumulate_H_b(const float robust_weight) {
-    H.noalias() += robust_weight * J_tmp.transpose() * J_tmp;
-    b += -robust_weight * J_tmp.transpose() * r_tmp;
+void TrackingOptimizer::accumulate_H_b(const float robust_weight, const float total_weight) {
+    const float w = robust_weight * total_weight;
+    J_tmp *= w;
+    r_tmp *= w;
+
+    H.noalias() += J_tmp.transpose() * J_tmp;
+    b += -J_tmp.transpose() * r_tmp;
 }
 
 Mat88 TrackingOptimizer::get_damped_hessian() {
@@ -301,11 +305,16 @@ inline Eigen::Vector3f TrackingOptimizer::map(Sophus::SE3d pose, Eigen::Vector3f
     return pose.cast<float>().rotationMatrix() * point + pose.cast<float>().translation();
 }
 
-float TrackingOptimizer::calc_sum_weighted_squared_residual(bool return_average_residual) const {
+inline bool TrackingOptimizer::is_outlier(const float residual, const float mag2) const {
+    return ((std::pow(residual, 2) > 5 && std::pow(residual, 2) * std::pow(mag2, 0.3) > 1000) || (mag2 == 0));
+}
+
+float TrackingOptimizer::calc_sum_weighted_squared_residual(bool return_average) const {
     float sum = 0.f;
     int cnt = 0;
     for (auto& voxel : (*point_cloud_pyramid)[curr_lvl]) {
         if (voxel.can->status != CandidateStatus::ACTIVE) continue;
+
         Eigen::Vector3f P = map(pose, voxel.position);  // point in curr frame
         Eigen::Vector2f hit_pixel = to_track_frame->project(P, curr_lvl);
         if (!to_track_frame->is_in_image(hit_pixel, curr_lvl)) {
@@ -313,24 +322,23 @@ float TrackingOptimizer::calc_sum_weighted_squared_residual(bool return_average_
         }
         float intensity_on_image = to_track_frame->at(hit_pixel, curr_lvl);
         float r = calc_residual(intensity_on_image, voxel.intensity);
-        cnt++;
         const float mag2 = to_track_frame->mag_squared(hit_pixel, curr_lvl);
 
         const float heuristic_const = 2500.0f;
-        const float gradient_weight = sqrt(heuristic_const / (heuristic_const + mag2));
+        const float gradient_weight = std::sqrt(heuristic_const / (heuristic_const + mag2));
 
+        cnt++;
         sum += std::pow(voxel.aligenment_weight * gradient_weight, 2) *
-               calc_huber_weigted_redidual(calc_huber_weight(r), r);
+               calc_huber_weighted_redidual(calc_huber_weight(r), r);
     }
 
     // std::cout << "@@@@@@@@@@@@@@@@@@@@@@@@ finial used pcp cnt :   " << cnt
     //          << "   average energy :" << std::sqrt(sum / cnt)
     //          << " total pcp size : " << (*point_cloud_pyramid)[curr_lvl].size() << '\n';
-
     float result = sum;
-    if (return_average_residual) {
-        result /= cnt;
-        result = std::sqrt(result);
+
+    if (return_average) {
+        result = std::sqrt(sum / cnt);
     }
 
     return result;

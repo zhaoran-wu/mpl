@@ -91,17 +91,18 @@ cv::Mat CandidateManager::generate_depth_safe_mask(const cv::Mat synetic_depth_i
 
     for (int r = 0; r < mag.rows; ++r) {
         for (int c = 0; c < mag.cols; ++c) {
-            mag.at<float>(r, c) /= synetic_depth_im.at<ushort>(r, c);
+            float depth = synetic_depth_im.at<ushort>(r, c);
+            mag.at<float>(r, c) = (depth > 20000) ? 0.0f : mag.at<float>(r, c) / depth;
         }
     }
 
     cv::Mat mask, mask_dilated;
 
-    float threshold_value = 0.38;
+    float threshold_value = 0.6;
     cv::threshold(mag, mask, threshold_value, 255, cv::THRESH_BINARY);
 
     // dilation
-    int dilation_size = 8;  // 10
+    int dilation_size = 4;  // 10
     cv::Mat element =
         cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(2 * dilation_size + 1, 2 * dilation_size + 1),
                                   cv::Point(dilation_size, dilation_size));

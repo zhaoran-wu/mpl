@@ -193,7 +193,7 @@ int main() {
         Sophus::SE3f T_curr_KF = get_src_to_dst_transform(curr_frame->get_ref_frame(), curr_frame);
         // visualize tracking result
         std::thread th_draw(&Visualizer::publish_curr_frame_tracking_info, std::ref(*vis), pcp, img_draw_vec[i],
-                            curr_frame->get_pose(), T_curr_KF, true);
+                            curr_frame->get_pose(), T_curr_KF, false);
         th_draw.detach();
 
         // todo : a best way to choose KF

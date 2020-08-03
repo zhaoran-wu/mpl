@@ -26,20 +26,22 @@ class TrackingOptimizer {
    private:
     // accumulate to H and b
     void update(const Vec8 delta_x);
-    void build_problem();
+    int build_problem();  // return the number of the residual
     void remove_outlier(const bool remove_outlier);
-    void accumulate_H_b(float roboust_weight);
+    void accumulate_H_b(const float roboust_weight, const float total_weight);
     Mat88 get_damped_hessian();
     void scaling_H_b();
     void scaling_delta_x(Vec8& delta_x);
     float calc_residual(const float curr_intensity, const float point_cloud_intensity) const;
-    float calc_sum_weighted_squared_residual(bool return_average_residual) const;
+    float calc_sum_weighted_squared_residual(bool return_average = false) const;
+
+    bool is_outlier(const float residual, const float mag2) const;
 
     void assign_result_for_visualization();
     void remove_outlier();
 
     float calc_huber_weight(const float residual) const;
-    float calc_huber_weigted_redidual(const float huber_weight, const float residual) const;
+    float calc_huber_weighted_redidual(const float huber_weight, const float residual) const;
     Eigen::Vector3f map(Sophus::SE3d pose,
                         Eigen::Vector3f point) const;  // map point to curr coordinate system
 
@@ -57,6 +59,7 @@ class TrackingOptimizer {
     Vec8 b = Vec8::Zero();    // b = - J.trans()*r_vec
 
     float sum_weighted_squared_residual = 0.0f;
+
     double r_tmp;                     // r for every measurement
     RowVec8 J_tmp = RowVec8::Zero();  // J for every measurement
 
