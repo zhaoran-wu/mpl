@@ -29,6 +29,7 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
     int huber_radius = config.huber_residual_each_lvl[lvls - 1];
     float lamda_min = config.lamda_min_eahc_lvl[lvls - 1];
     //
+    tictoc::tic();
     for (int i = 0; i < 19; ++i) {
         init_pose = movement_prediction[i] * T_last_lastKF;
         optimizer.init(init_pose, init_aff_light, point_cloud_pyramid_, to_track_frame);
@@ -66,7 +67,6 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
     std::vector<Sophus::SE3f> T_curr_lastKF_pyramid;
     std::vector<float> energy_vec;
 
-    tictoc::tic();
     for (int lvl = lvls - 1; lvl >= 0; --lvl) {
         optimizer.set_lvl(lvl);
 
@@ -91,7 +91,6 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
         config.DEBUG_COARSE_TO_FINE_TRACKING, config.debug_coarse_to_fine_tracking_mutex, &Tracker::draw_result, this,
         point_cloud_pyramid_, T_curr_lastKF_pyramid, to_track_frame, time_cost, energy_vec);
 
-    ;
     Sophus::SE3f T_curr_lastKF = optimizer.getT();
     AffineLight aff_curr_map = optimizer.getAffineLight();
 

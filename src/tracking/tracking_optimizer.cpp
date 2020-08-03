@@ -257,7 +257,10 @@ void TrackingOptimizer::build_problem() {
                                 (thread_id + 1) * group_size);
         }
         // remain point, total 9 thread
-        th_vec.emplace_back(&TrackingOptimizer::add_edges, std::ref(*this), thread_num * group_size, point_cloud_size);
+        if (point_cloud_size % thread_num) {
+            th_vec.emplace_back(&TrackingOptimizer::add_edges, std::ref(*this), thread_num * group_size,
+                                point_cloud_size);
+        }
 
         for (auto& th : th_vec) {
             th.join();

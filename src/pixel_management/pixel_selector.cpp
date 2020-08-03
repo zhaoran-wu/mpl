@@ -2,6 +2,7 @@
 #include "../util/tictoc.h"
 #include <glog/logging.h>
 #include <opencv2/opencv.hpp>
+#include <thread>
 namespace mpl {
 PixelSelector::PixelSelector() {
     config = &Config::getInstance();
@@ -169,10 +170,44 @@ bool PixelSelector::select_adaptively(int pot_dim_want) {
     }
 }
 
+void PixelSelector::select_with_grid_range(const int min_id, const int max_id) {
+    for (int i = min_id; i < max_id; ++i) {
+        const int grid_x = i % grid_num_x;
+        const int grid_y = i / grid_num_x;
+        select_in_one_grid(grid_x, grid_y);
+    }
+}
+
 void PixelSelector::select_in_image() {
-    for (int grid_x = 0; grid_x < grid_num_x; ++grid_x) {
-        for (int grid_y = 0; grid_y < grid_num_y; ++grid_y) {
-            select_in_one_grid(grid_x, grid_y);
+    bool multi_thread = true;
+
+    if (multi_thread) {
+        const int num_threads = 6;
+        const int total_grid_num = grid_num_x * grid_num_y;
+        const int num_grid_each_group = total_grid_num / num_threads;
+
+        std::vector<std::thread> th_vec;
+        for (int thread_id = 0; thread_id < num_threads; ++thread_id) {
+            const int grid_id_min = thread_id * num_grid_each_group;
+            const int grid_id_max = grid_id_min + num_grid_each_group;
+            th_vec.emplace_back(&PixelSelector::select_with_grid_range, std::ref(*this), grid_id_min, grid_id_max);
+        }
+
+        // remain grid
+        if (total_grid_num % num_threads) {
+            th_vec.emplace_back(&PixelSelector::select_with_grid_range, std::ref(*this),
+                                num_threads * num_grid_each_group, total_grid_num);
+        }
+
+        for (auto& th : th_vec) {
+            th.join();
+        }
+
+    } else {
+        for (int grid_x = 0; grid_x < grid_num_x; ++grid_x) {
+            for (int grid_y = 0; grid_y < grid_num_y; ++grid_y) {
+                select_in_one_grid(grid_x, grid_y);
+            }
         }
     }
 }
@@ -190,11 +225,11 @@ inline bool PixelSelector::is_valid(const int u, const int v) const {
     const float syn_dy = frame->get_synetic_photometric_pyramid()->dy(u, v);
     const float syn_mag2 = frame->mag_squared_synetic(u, v);
     const float angle = std::acos((dx * syn_dx + dy * syn_dy) / (std::sqrt(mag2) * std::sqrt(syn_mag2)));
-    /*     if (angle > 0.174f) {
-            std::cout << "angle : " << angle << '\n';
-        } */
+    // if (angle > 0.174f) {
+    //    std::cout << "angle : " << angle << '\n';
+    //}
 
-    return (angle < 0.2f && (dx + dy) > 1e-3);  // rad
+    return (angle < 0.2f && (dx + dy) > 1e-4);  // rad
 }
 
 void PixelSelector::select_in_one_grid(const int grid_x, const int grid_y) {
@@ -209,7 +244,9 @@ void PixelSelector::select_in_one_grid(const int grid_x, const int grid_y) {
                     Eigen::Vector3i candidate;
                     float mag2_max = find_max_mag2(candidate, grid_x, grid_y, block_x, block_y, pot_x, pot_y);
                     if (mag2_max > thresh_map[thresh_idx(candidate)]) {
+                        candidates_mutex.lock();
                         candidates.push_back(candidate);
+                        candidates_mutex.unlock();
                         is_one_pot_success = true;
                         is_one_block_success = true;
                     }
@@ -219,7 +256,9 @@ void PixelSelector::select_in_one_grid(const int grid_x, const int grid_y) {
                 Eigen::Vector3i candidate;
                 float mag2_max = find_max_mag2(candidate, grid_x, grid_y, block_x, block_y);
                 if (mag2_max > thresh_map[thresh_idx(candidate)] * config->PIXEL_SELECTION_DOWNWEIGHT) {
+                    candidates_mutex.lock();
                     candidates.push_back(candidate);
+                    candidates_mutex.unlock();
                     is_one_block_success = true;
                 }
             }
@@ -230,7 +269,9 @@ void PixelSelector::select_in_one_grid(const int grid_x, const int grid_y) {
         float mag2_max = find_max_mag2(candidate, grid_x, grid_y);
         if (mag2_max > thresh_map[thresh_idx(candidate)] * config->PIXEL_SELECTION_DOWNWEIGHT *
                            config->PIXEL_SELECTION_DOWNWEIGHT) {
+            candidates_mutex.lock();
             candidates.push_back(candidate);
+            candidates_mutex.unlock();
         }
     }
 }

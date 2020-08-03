@@ -53,6 +53,7 @@ class PixelSelector {
 
     bool is_valid(const int u, const int v) const;
     int thresh_idx(const Eigen::Vector3i& pixel);
+    void select_with_grid_range(const int min_id, const int max_id);  // thread function
     int thresh_block_dim;
     int thresh_block_num_x;
     int thresh_block_num_y;
@@ -79,6 +80,8 @@ class PixelSelector {
     Config* config;
 
     Frame::ptr frame;
+
+    std::mutex candidates_mutex;
     std::vector<Eigen::Vector3i> candidates;
 
     int recursive_count;
