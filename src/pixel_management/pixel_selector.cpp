@@ -213,23 +213,24 @@ void PixelSelector::select_in_image() {
 }
 
 inline bool PixelSelector::is_valid(const int u, const int v) const {
-    if (!(this->depth_safe_mask.at<float>(v, u) < 1e-10 && ((int)this->alignment_mask.at<uchar>(v, u) < 25))) {
+    if (!(this->depth_safe_mask.at<float>(v, u) < 1e-10 && ((int)this->alignment_mask.at<uchar>(v, u) < 10))) {
         return false;
     }
+    return true;
 
-    const float dx = frame->dx(u, v);
-    const float dy = frame->dy(u, v);
-    const float mag2 = frame->mag_squared(u, v);
-
-    const float syn_dx = frame->get_synetic_photometric_pyramid()->dx(u, v);
-    const float syn_dy = frame->get_synetic_photometric_pyramid()->dy(u, v);
-    const float syn_mag2 = frame->mag_squared_synetic(u, v);
-    const float angle = std::acos((dx * syn_dx + dy * syn_dy) / (std::sqrt(mag2) * std::sqrt(syn_mag2)));
-    // if (angle > 0.174f) {
-    //    std::cout << "angle : " << angle << '\n';
-    //}
-
-    return (angle < 0.2f && (dx + dy) > 1e-4);  // rad
+    // const float dx = frame->dx(u, v);
+    // const float dy = frame->dy(u, v);
+    // const float mag2 = frame->mag_squared(u, v);
+    //
+    //    const float syn_dx = frame->get_synetic_photometric_pyramid()->dx(u, v);
+    //    const float syn_dy = frame->get_synetic_photometric_pyramid()->dy(u, v);
+    //    const float syn_mag2 = frame->mag_squared_synetic(u, v);
+    //    const float angle = std::acos((dx * syn_dx + dy * syn_dy) / (std::sqrt(mag2) * std::sqrt(syn_mag2)));
+    //    // if (angle > 0.174f) {
+    //    //    std::cout << "angle : " << angle << '\n';
+    //    //}
+    //
+    //    return (angle < 0.2f && (dx + dy) > 1e-4);  // rad
 }
 
 void PixelSelector::select_in_one_grid(const int grid_x, const int grid_y) {

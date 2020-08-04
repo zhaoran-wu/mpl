@@ -26,6 +26,7 @@ struct Candidate {
     float synetic_color[8];  // pattern color of synetic image
     float weight[8];         // pattern weight of synetic image
     float alignment_weight = 1;
+
     int u;
     int v;
     float d_inv_synetic_im;  // in m, initialized with synetic depth map, = 0 if

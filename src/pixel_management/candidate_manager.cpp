@@ -1,4 +1,5 @@
 #include "candidate_manager.h"
+#include "../util/tictoc.h"
 #include "debug.h"
 #include "pattern.h"
 #include <algorithm>
@@ -231,6 +232,7 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
     // set
     activate_candidate();
 
+    tictoc::tic();
     if (!is_initialized) {  // initialized means,we have enough activated candidate
         const int lvls = pcp->lvls();
         int cnt = 0;
@@ -274,31 +276,31 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
                 }
                 ++can.age;
             }
-            // for all can in newst KF(not active yet)
-            for (auto& can : candidate_map[newst_KF]) {
-                if (dist_map.dist(can.u, can.v) < 20) continue;
+        }
+        // for all can in newst KF(not active yet)
+        for (auto& can : candidate_map[newst_KF]) {
+            if (dist_map.dist(can.u, can.v) < 20) continue;
 
-                can.status = CandidateStatus::ACTIVE;
-                dist_map.add(Eigen::Vector2f(can.u, can.v));
+            can.status = CandidateStatus::ACTIVE;
+            dist_map.add(Eigen::Vector2f(can.u, can.v));
 
-                ++cnt;
-                for (int lvl = 0; lvl < lvls; ++lvl) {
-                    if ((lvl != 0 && cnt % (lvl + 1) == 0) || lvl == 0) {
-                        Eigen::Vector3f position =
-                            newst_KF->unproject(Eigen::Vector2i(can.u, can.v), can.d_inv_synetic_im);
-                        (*pcp)[lvl].emplace_back(
-                            &can, position,
-                            newst_KF->at_synetic<float>(((can.u + 0.5f) / std::pow(2.0f, lvl)) - 0.5f,
-                                                        ((can.v + 0.5f) / std::pow(2.0f, lvl)) - 0.5f, lvl),
-                            can.alignment_weight);
-                    }
+            ++cnt;
+            for (int lvl = 0; lvl < lvls; ++lvl) {
+                if ((lvl != 0 && cnt % (lvl + 1) == 0) || lvl == 0) {
+                    Eigen::Vector3f position = newst_KF->unproject(Eigen::Vector2i(can.u, can.v), can.d_inv_synetic_im);
+                    (*pcp)[lvl].emplace_back(
+                        &can, position,
+                        newst_KF->at_synetic<float>(((can.u + 0.5f) / std::pow(2.0f, lvl)) - 0.5f,
+                                                    ((can.v + 0.5f) / std::pow(2.0f, lvl)) - 0.5f, lvl),
+                        can.alignment_weight);
                 }
             }
         }
     }
 
-    LOG(INFO) << "curr point cloud size of lvl 0: " << pcp->operator[](0).size();
+    LOG(INFO) << "build pcp total using time: " << tictoc::toc() / 1000.0f << " ms ,"
+              << "curr point cloud size of lvl 0: " << pcp->operator[](0).size();
     last_pcp = pcp;
     return pcp;
-}
+}  // namespace mpl
 }  // namespace mpl
