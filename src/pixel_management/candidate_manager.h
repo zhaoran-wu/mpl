@@ -48,7 +48,7 @@ struct Candidate {
     std::unordered_map<Frame::ptr, std::unique_ptr<PhotometricResidual>> observations;
 
     // ceres optimization param
-    std::unique_ptr<PointParameterBlock> point_block = std::make_unique<PointParameterBlock>();
+    std::unique_ptr<PointParameterBlock> point_block = nullptr;
 };
 
 class CandidateManager {

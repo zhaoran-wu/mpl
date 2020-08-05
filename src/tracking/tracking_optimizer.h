@@ -14,6 +14,15 @@ class TrackingOptimizer {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
     TrackingOptimizer() = default;
+
+    /**
+     * @brief set initial value for optimization
+     *
+     * @param init_pose : T_c_last_kf
+     * @param init_rel_affL : Aff_c_last_kf
+     * @param ref_point_cloud_prymid
+     * @param to_track_frame
+     */
     void init(const Sophus::SE3f init_pose, const AffineLight init_rel_affL,
               PointCloudPyramid::ptr ref_point_cloud_prymid, Frame::ptr to_track_frame);
 

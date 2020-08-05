@@ -12,9 +12,9 @@ FrameParameterization::~FrameParameterization() {
 bool FrameParameterization::Plus(const double* x, const double* delta, double* x_plus_delta) const {
     const auto& config = Config::getInstance();
 
-    // x: 9 number of parameters
-    // delta: 8 number of parameters
-    // x_plus_delta: 9 number of parameters
+    // x: 9 number of parameters(local parameter: 4(quaternion) + 3(translation) + 2(aff))
+    // delta: 8 number of parameters(global parameter: 3(se3: trans) + 3(se3 : rot) + 2(aff))
+    // x_plus_delta: 9 number of parameters(local parameter: 4 + 3 + 2)
 
     // map buffers
     Eigen::Map<Sophus::SE3d const> const T(x);
@@ -65,10 +65,10 @@ const std::unique_ptr<FrameParameterization> FrameParameterBlock::frameParameter
 FrameParameterBlock::FrameParameterBlock() : BAParameterBlock<9>() {
 }
 
-FrameParameterBlock::FrameParameterBlock(const Sophus::SE3d& camToWorld, const AffineLight& affineLight)
+FrameParameterBlock::FrameParameterBlock(const Sophus::SE3d& T_w_c, const AffineLight& Aff_w_c)
     : BAParameterBlock<9>() {
-    this->setPose(camToWorld);
-    this->setAffineLight(affineLight);
+    this->setPose(T_w_c);
+    this->setAffineLight(Aff_w_c);
     this->backup();
     this->setLocalParameterization(FrameParameterBlock::frameParameterization.get());
 }
@@ -76,18 +76,18 @@ FrameParameterBlock::FrameParameterBlock(const Sophus::SE3d& camToWorld, const A
 FrameParameterBlock::~FrameParameterBlock() {
 }
 
-void FrameParameterBlock::setPose(const Sophus::SE3d& camToWorld) {
+void FrameParameterBlock::setPose(const Sophus::SE3d& T_w_c) {
     // copy values
     // the internal order is: qx, qy, qz, qw, tx, ty, tz
     // the same as in Eigen and Sophus
-    std::copy(camToWorld.data(), camToWorld.data() + Sophus::SE3f::num_parameters, this->parameters_.data());
+    std::copy(T_w_c.data(), T_w_c.data() + Sophus::SE3f::num_parameters, this->parameters_.data());
 }
 
-void FrameParameterBlock::setAffineLight(const AffineLight& affineLight) {
+void FrameParameterBlock::setAffineLight(const AffineLight& Aff_w_c) {
     // copy values
     // the internal order is: alpha, beta
-    this->parameters_[7] = affineLight.alpha();
-    this->parameters_[8] = affineLight.beta();
+    this->parameters_[7] = Aff_w_c.alpha();
+    this->parameters_[8] = Aff_w_c.beta();
 }
 
 Sophus::SE3d FrameParameterBlock::getPose() const {

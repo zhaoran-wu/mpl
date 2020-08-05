@@ -11,10 +11,12 @@
 #include <memory>
 
 namespace mpl {
-// Local parameterization of frame parameters
-// In this case pose SE3 and affine light
-// Use only this parameterization if you are
-// estimating jacobians respect to the tangent space se3
+/**
+ * @brief Frame parameterization: ceres interface to update state , since for some parameter the local
+ * paramter is not the same with the global parameter(num are equal to num the of freedom) and compute Jacobian(chain
+ * rule)
+ *
+ */
 class FrameParameterization : public ceres::LocalParameterization {
    public:
     FrameParameterization();
@@ -29,25 +31,23 @@ class FrameParameterization : public ceres::LocalParameterization {
     virtual int LocalSize() const;
 };
 
-// Frame parameter block
-// First 7 components are the pose ( 4 quaternion + 3 translation)
-// Last 2 components are the affine light (alpha, beta)
+/**
+ * @brief class to pack up the frame param(and it's back up) and it's parameterization
+ *
+ */
 class FrameParameterBlock : public BAParameterBlock<9> {
    public:
     // variable ordering
     static const int Group = 1;
 
-    // default constructor
     FrameParameterBlock();
 
-    // constructor with a pose
-    FrameParameterBlock(const Sophus::SE3d& camToWorld, const AffineLight& affineLight);
+    FrameParameterBlock(const Sophus::SE3d& T_w_c, const AffineLight& Aff_w_c);
 
-    // destructor
     ~FrameParameterBlock();
 
-    void setPose(const Sophus::SE3d& camToWorld);
-    void setAffineLight(const AffineLight& affineLight);
+    void setPose(const Sophus::SE3d& T_w_c);
+    void setAffineLight(const AffineLight& Aff_w_c);
 
     Sophus::SE3d getPose() const;
     AffineLight getAffineLight() const;

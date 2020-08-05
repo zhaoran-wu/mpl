@@ -9,6 +9,12 @@ class LocalParameterization;
 namespace mpl {
 // Dim: dimension of parameter block
 template <int Dim>
+/**
+ * @brief
+ * class to pack up the param(and it's back up) and it's parameterization
+ *
+ */
+
 class BAParameterBlock {
    public:
     inline BAParameterBlock() : fixed_(false), localParameterization_(nullptr) {

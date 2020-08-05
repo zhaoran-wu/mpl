@@ -28,10 +28,6 @@ CandidateManager::CandidateManager(std::shared_ptr<Visualizer> vis_ptr_) : vis_p
 
 void CandidateManager::select_candidate(const Frame::ptr frame, const cv::Mat synetic_depth_im,
                                         cv::Mat alignment_mask) {
-    // frame is key frame --> set frame block data for optimization
-    frame->get_frame_block()->setPose(frame->get_pose().cast<double>());
-    frame->get_frame_block()->setAffineLight(frame->get_aff_light());
-
     // remove oldst frame
     if (candidate_map.size() > 7) {
         candidate_map.erase(key_frames.front());
@@ -73,6 +69,7 @@ void CandidateManager::select_candidate(const Frame::ptr frame, const cv::Mat sy
 
         candidate_vec.push_back(std::move(can));
     }
+
     // set newst_KF to new add key frame
     key_frames.push_back(frame);
     newst_KF = frame;
@@ -203,22 +200,6 @@ void CandidateManager::activate_candidate() {
             if (dist > static_cast<float>(min_square_dist)) {
                 can.status = CandidateStatus::ACTIVE;
                 dist_map.add(can.projection_on_newst_KF);
-                can.point_block->setIDepth((double)can.d_inv_synetic_im);  //! optimize based on map depth
-
-                // check and add obsevations
-                std::unique_ptr<PhotometricResidual> obs_newst_KF =
-                    std::make_unique<PhotometricResidual>(&can, newst_KF);
-                can.observations[newst_KF] = std::move(obs_newst_KF);
-
-                for (auto it2 = candidate_map.begin(); it2 != candidate_map.end(); ++it2) {
-                    if (it2->first == newst_KF || it2->first == can.host_frame) continue;
-                    Eigen::Vector2f projection = unproject_trans_project(can, can.host_frame, it2->first);
-                    if (is_in_img(cam, projection)) {
-                        std::unique_ptr<PhotometricResidual> obs =
-                            std::make_unique<PhotometricResidual>(&can, it2->first);
-                        can.observations[it2->first] = std::move(obs);
-                    }
-                }
             }
         }
     }
@@ -251,6 +232,7 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
                         can.alignment_weight);
                 }
             }
+            ++can.age;
         }
         if (dist_map.get_num_obstacles() > 1500) is_initialized = true;
     } else {
@@ -295,6 +277,7 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
                         can.alignment_weight);
                 }
             }
+            ++can.age;
         }
     }
 

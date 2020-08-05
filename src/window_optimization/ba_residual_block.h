@@ -3,6 +3,12 @@
 #include "ceres/ceres.h"
 
 namespace mpl {
+/**
+ * @brief class to pack up residual's id and it's cost & loss function
+ * drived class should has a point to CostFunction used as a memeber in the CostFunction class
+ * to provide nesessary info to evaluate residual and jacobi
+ *
+ */
 class BAResidualBlock {
    public:
     BAResidualBlock();

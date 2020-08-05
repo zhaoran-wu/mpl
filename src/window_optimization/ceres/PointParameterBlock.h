@@ -8,8 +8,10 @@
 #include <memory>
 
 namespace mpl {
-// Local parameterization of point parameters
-// In this case, only the inverse depth
+/**
+ * @brief point has only one parameters depth
+ *
+ */
 class PointParameterization : public ceres::LocalParameterization {
    public:
     PointParameterization();
@@ -26,7 +28,7 @@ class PointParameterization : public ceres::LocalParameterization {
 
 // Parameter block of points
 // Only onde dimensional parameter
-// This class is not needed but makes all the
+// This class is actually not needed but makes all the
 // optimization easier to understand
 class PointParameterBlock : public BAParameterBlock<1> {
    public:

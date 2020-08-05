@@ -32,11 +32,11 @@ class Frame {
     int height(const int lvl = 0) const;
     ImagePyramid::ptr get_image_pyramid() const;
     ImagePyramid::ptr get_synetic_photometric_pyramid() const;
-    Sophus::SE3f get_pose() const;      // return T_w_c
-    AffineLight get_aff_light() const;  // return aff_w_c
-    Frame::ptr get_ref_frame();         // get the frame, which used to tracking curr frame;
+    Sophus::SE3f get_pose();      // return T_w_c
+    AffineLight get_aff_light();  // return aff_w_c
+    Frame::ptr get_ref_frame();   // get the frame, which used to tracking curr frame;
     int get_id() const;
-    const std::unique_ptr<FrameParameterBlock>& get_frame_block() const;  // get ceres param block
+    std::unique_ptr<FrameParameterBlock>& get_frame_block();  // get ceres param block
 
     // access image pyramid data
     // get pixel value at lvl
@@ -75,8 +75,6 @@ class Frame {
     template <typename T>
     bool is_in_image(const Eigen::Matrix<T, 2, 1>& pixel, const int lvl = 0) const;
 
-    // interface to access image pyramid value
-
     // interface for ceres callback
     void merge_optimization_result();
 
@@ -86,12 +84,14 @@ class Frame {
     Frame::ptr refKF = nullptr;
 
     // global info
+    std::mutex state_mutex;
     Sophus::SE3f T_w_c = Sophus::SE3f::transZ(0.0f);  // T_w_c;
     AffineLight affine_light = AffineLight(0, 0);     // aff_w_c;
+
     int id;
 
     // ceres optimization params
-    std::unique_ptr<FrameParameterBlock> frame_block;
+    std::unique_ptr<FrameParameterBlock> frame_block;  // T_w_c, Aff_w_c
 
     CamData* cam;
     static int id_cnt;
@@ -136,16 +136,20 @@ inline void Frame::set_aff_light(const int alpha, const int beta) {
 
 inline void Frame::set_tracking_result(const Sophus::SE3f& T_curr_refKF, const AffineLight& aff_light_curr_w) {
     // inital global info
-    this->T_w_c = this->refKF->T_w_c * T_curr_refKF.inverse();
+    state_mutex.lock();
 
+    this->T_w_c = this->refKF->T_w_c * T_curr_refKF.inverse();
     this->affine_light = aff_light_curr_w.inverse();
+    state_mutex.unlock();
 }
 
-inline Sophus::SE3f Frame::get_pose() const {
+inline Sophus::SE3f Frame::get_pose() {
+    std::lock_guard<std::mutex> lg(state_mutex);
     return T_w_c;
 }
 
-inline AffineLight Frame::get_aff_light() const {
+inline AffineLight Frame::get_aff_light() {
+    std::lock_guard<std::mutex> lg(state_mutex);
     return affine_light;
 }
 
@@ -165,13 +169,18 @@ inline void Frame::set_synetic_photometirc_im(cv::Mat synetic_photometric_im) {
         std::make_shared<ImagePyramid>(synetic_photometric_im.data, true, affine_light.inverse());
 }
 
-inline const std::unique_ptr<FrameParameterBlock>& Frame::get_frame_block() const {
+inline std::unique_ptr<FrameParameterBlock>& Frame::get_frame_block() {
     return frame_block;
 }
 
 inline void Frame::merge_optimization_result() {
+    state_mutex.lock();
+
+    LOG(INFO) << "T_w_c  before : " << '\n' << T_w_c.matrix3x4();
     this->T_w_c = frame_block->getPose().cast<float>();
+    LOG(INFO) << "T_w_c after: " << '\n' << T_w_c.matrix3x4();
     this->affine_light = frame_block->getAffineLight();
+    state_mutex.unlock();
 }
 
 inline Frame::ptr Frame::create(cv::Mat image) {

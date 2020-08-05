@@ -63,8 +63,8 @@ class PhotometricResidual : public BAResidualBlock {
     Candidate* point() const;
 
     // frames
-    Frame::ptr ownerFrame() const;
-    Frame::ptr targetFrame() const;
+    Frame::ptr host_frame() const;
+    Frame::ptr obs_frame() const;
 
     // optimization state
     Visibility state() const;
@@ -80,10 +80,9 @@ class PhotometricResidual : public BAResidualBlock {
     double lossWeight() const;
 
    private:
-    // reference to parameters
-    Frame::ptr ownerFrame_;
-    Frame::ptr targetFrame_;
-
+    // reference to parameters(1 obsevation)
+    Frame::ptr host_frame_;
+    Frame::ptr target_frame_;
     Candidate* point_;
 
     // status

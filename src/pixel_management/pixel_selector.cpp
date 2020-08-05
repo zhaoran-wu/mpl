@@ -244,7 +244,7 @@ void PixelSelector::select_in_one_grid(const int grid_x, const int grid_y) {
                 for (int pot_y = 0; pot_y < 2; ++pot_y) {
                     Eigen::Vector3i candidate;
                     float mag2_max = find_max_mag2(candidate, grid_x, grid_y, block_x, block_y, pot_x, pot_y);
-                    if (mag2_max > thresh_map[thresh_idx(candidate)]) {
+                    if (mag2_max && mag2_max > thresh_map[thresh_idx(candidate)]) {
                         candidates_mutex.lock();
                         candidates.push_back(candidate);
                         candidates_mutex.unlock();
@@ -256,7 +256,7 @@ void PixelSelector::select_in_one_grid(const int grid_x, const int grid_y) {
             if (!is_one_pot_success) {
                 Eigen::Vector3i candidate;
                 float mag2_max = find_max_mag2(candidate, grid_x, grid_y, block_x, block_y);
-                if (mag2_max > thresh_map[thresh_idx(candidate)] * config->PIXEL_SELECTION_DOWNWEIGHT) {
+                if (mag2_max && mag2_max > thresh_map[thresh_idx(candidate)] * config->PIXEL_SELECTION_DOWNWEIGHT) {
                     candidates_mutex.lock();
                     candidates.push_back(candidate);
                     candidates_mutex.unlock();
@@ -268,8 +268,8 @@ void PixelSelector::select_in_one_grid(const int grid_x, const int grid_y) {
     if (!is_one_block_success) {
         Eigen::Vector3i candidate;
         float mag2_max = find_max_mag2(candidate, grid_x, grid_y);
-        if (mag2_max > thresh_map[thresh_idx(candidate)] * config->PIXEL_SELECTION_DOWNWEIGHT *
-                           config->PIXEL_SELECTION_DOWNWEIGHT) {
+        if (mag2_max && mag2_max > thresh_map[thresh_idx(candidate)] * config->PIXEL_SELECTION_DOWNWEIGHT *
+                                       config->PIXEL_SELECTION_DOWNWEIGHT) {
             candidates_mutex.lock();
             candidates.push_back(candidate);
             candidates_mutex.unlock();

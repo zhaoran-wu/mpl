@@ -37,8 +37,8 @@ PhotometricCostFunction::~PhotometricCostFunction() {
 
 bool PhotometricCostFunction::Evaluate(double const* const* parameters, double* residuals, double** jacobians) const {
     Candidate* point = this->residual_->point();
-    Frame::ptr ownerFrame = this->residual_->ownerFrame();
-    Frame::ptr targetFrame = this->residual_->targetFrame();
+    Frame::ptr host_frame = this->residual_->host_frame();
+    Frame::ptr obs_frame = this->residual_->obs_frame();
 
     const auto& config = Config::getInstance();
     const auto& cam = CamData::getInstance();
@@ -48,36 +48,30 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters, double* 
     const int32_t width = cam.width[0];
     const int32_t height = cam.height[0];
 
-    const float energyThreshold = 100;  // TODO
+    const float energyThreshold = 1e10;  // TODO
 
-    const auto& color = point->synetic_color;
-    const auto& weight = point->weight;
+    const auto& map_color = point->synetic_color;
 
     // residual computation
-
     // map pointer for efficiency. this avoids copying data
-    Eigen::Map<Sophus::SE3d const> const ownerToWorld(parameters[0]);
-    Eigen::Map<Sophus::SE3d const> const targetToWorld(parameters[1]);
+    Eigen::Map<Sophus::SE3d const> const T_w_h(parameters[0]);
+    Eigen::Map<Sophus::SE3d const> const T_w_o(parameters[1]);
 
-    const Sophus::SE3d worldToTarget = targetToWorld.inverse();
-    const Sophus::SE3d ownerToTarget = worldToTarget * ownerToWorld;
-    const Eigen::Matrix3d R = ownerToTarget.rotationMatrix();
-    const Eigen::Vector3d& t = ownerToTarget.translation();
+    const Sophus::SE3d T_o_w = T_w_o.inverse();
+    const Sophus::SE3d T_o_h = T_o_w * T_w_h;
+    const Eigen::Matrix3d R = T_o_h.rotationMatrix();
+    const Eigen::Vector3d& t = T_o_h.translation();
 
     // affine light
-    const AffineLight ownerLight((float)parameters[0][7], (float)parameters[0][8]);
-    const AffineLight targetLight((float)parameters[1][7], (float)parameters[1][8]);
-
-    const AffineLight relLight = calc_aff_map_src_to_dst(ownerLight, targetLight);
-
-    const double targetLight_beta = (double)targetLight.beta();
+    const AffineLight A_w_h((float)parameters[0][7], (float)parameters[0][8]);
+    const AffineLight A_w_o((float)parameters[1][7], (float)parameters[1][8]);
 
     // inverse depth
     const double iDepth = parameters[2][0];
 
     // obtain geometric jacobians(T,d) for central pixel
-    Eigen::Matrix<double, 2, 6> JupJT;
-    Eigen::Matrix<double, 2, 1> JupJid;
+    Eigen::Matrix<double, 2, 6> J_p_T_o_h;
+    Eigen::Matrix<double, 2, 1> J_p_d;
     if (jacobians != NULL) {
         Eigen::Vector2d Xpn, hit_pixel;
         double newIDepth, ratio_inv_d;
@@ -94,38 +88,38 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters, double* 
 
         // inverse depth jacobian
         if (jacobians[2] != NULL) {
-            JupJid(0, 0) = K(0, 0) * ratio_inv_d * (t[0] - t[2] * Xpn[0]);
-            JupJid(1, 0) = K(1, 1) * ratio_inv_d * (t[1] - t[2] * Xpn[1]);
+            J_p_d(0, 0) = K(0, 0) * ratio_inv_d * (t[0] - t[2] * Xpn[0]);
+            J_p_d(1, 0) = K(1, 1) * ratio_inv_d * (t[1] - t[2] * Xpn[1]);
         }
 
         // pose jacobian
         if (jacobians[0] != NULL || jacobians[1] != NULL) {
             // relative pose jacobian
-            JupJT(0, 0) = K(0, 0) * newIDepth;
-            JupJT(0, 1) = 0.0;
-            JupJT(0, 2) = -K(0, 0) * newIDepth * Xpn[0];
-            JupJT(0, 3) = -K(0, 0) * Xpn[0] * Xpn[1];
-            JupJT(0, 4) = K(0, 0) * (1.0 + Xpn[0] * Xpn[0]);
-            JupJT(0, 5) = -K(0, 0) * Xpn[1];
+            J_p_T_o_h(0, 0) = K(0, 0) * newIDepth;
+            J_p_T_o_h(0, 1) = 0.0;
+            J_p_T_o_h(0, 2) = -K(0, 0) * newIDepth * Xpn[0];
+            J_p_T_o_h(0, 3) = -K(0, 0) * Xpn[0] * Xpn[1];
+            J_p_T_o_h(0, 4) = K(0, 0) * (1.0 + Xpn[0] * Xpn[0]);
+            J_p_T_o_h(0, 5) = -K(0, 0) * Xpn[1];
 
-            JupJT(1, 0) = 0.0;
-            JupJT(1, 1) = K(1, 1) * newIDepth;
-            JupJT(1, 2) = -K(1, 1) * newIDepth * Xpn[1];
-            JupJT(1, 3) = -K(1, 1) * (1.0 + Xpn[1] * Xpn[1]);
-            JupJT(1, 4) = K(1, 1) * Xpn[0] * Xpn[1];
-            JupJT(1, 5) = K(1, 1) * Xpn[0];
+            J_p_T_o_h(1, 0) = 0.0;
+            J_p_T_o_h(1, 1) = K(1, 1) * newIDepth;
+            J_p_T_o_h(1, 2) = -K(1, 1) * newIDepth * Xpn[1];
+            J_p_T_o_h(1, 3) = -K(1, 1) * (1.0 + Xpn[1] * Xpn[1]);
+            J_p_T_o_h(1, 4) = K(1, 1) * Xpn[0] * Xpn[1];
+            J_p_T_o_h(1, 5) = K(1, 1) * Xpn[0];
 
             // adjoint
-            JupJT *= worldToTarget.Adj();
+            J_p_T_o_h *= T_o_w.Adj();
         }
     }
 
     // compute residual for all pattern points
-    double energy = 0.0;
-    double hessian = 0.0;
-    double gradient = 0.0;
-    double avgWeight = 0.0;
-    double numBad = 0.0;
+    /*     double energy = 0.0;
+        double hessian = 0.0;
+        double gradient = 0.0;
+        double avgWeight = 0.0;
+        double numBad = 0.0; */
 
     const Eigen::Matrix3d KRKinv = K * R * Kinv;
     const Eigen::Vector3d Kt = K * t;
@@ -145,46 +139,39 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters, double* 
         }
 
         // obtain bilinear interpolated intensity values
-        double hit_color = targetFrame->at((float)hit_pixel(0), (float)hit_pixel(1));
+        double hit_color = obs_frame->at((float)hit_pixel(0), (float)hit_pixel(1));
 
         // residual with light compensation and weight
-        double res = calc_light_diff((double)color[idx], hit_color, relLight);
+        double res = calc_light_diff((double)map_color[idx], hit_color, A_w_o.inverse());
 
         // image jacobian: dIj/du'
-        Eigen::Matrix<double, 1, 2> JIJup;
-        JIJup(0, 0) = targetFrame->dx((float)hit_pixel(0), (float)hit_pixel(1));
-        JIJup(0, 1) = targetFrame->dy((float)hit_pixel(0), (float)hit_pixel(1));
+        Eigen::Matrix<double, 1, 2> J_r_p;
+        J_r_p(0, 0) = obs_frame->dx((float)hit_pixel(0), (float)hit_pixel(1));
+        J_r_p(0, 1) = obs_frame->dy((float)hit_pixel(0), (float)hit_pixel(1));
 
-        double squaredGrad = JIJup.squaredNorm();
+        double squaredGrad = J_r_p.squaredNorm();
 
         // observation weight based on gradient magnitude
         // set as the mean value between owner and target frames
-        double gradWeight = point->weight[idx];  // sqrt(settings.weightConstant /
-                                                 //     (settings.weightConstant + squaredGrad));
-        // gradWeight = 0.5 * ((double)weight[idx] + gradWeight);
+        double gradWeight = std::sqrt(2500.f / (2500.f + squaredGrad));
 
         // apply gradient weight first
         const double resgw = res * gradWeight;
 
         // weight function
-        const double distWeight = 1.0;  // dist->weight((float)resgw);
-        const double totalWeight = gradWeight * sqrt(distWeight);
+        const double totalWeight = gradWeight * point->weight[idx];
 
         // energy
         residuals[idx] = totalWeight * res;
-        this->residual_->pixelEnergy_[idx] = resgw;
-        energy += distWeight * resgw * resgw;
-
-        // weight average
-        avgWeight += distWeight;
+        // energy += std::pow(totalWeight, 2) * res * res;
 
         // sum of gradients to avoid residuals in white walls
-        gradient += distWeight * gradWeight * gradWeight * squaredGrad;
+        // gradient += gradWeight * gradWeight * squaredGrad;
 
         // discard bad pixels
         if (std::abs(resgw) > energyThreshold) {
-            // std::cout << "resgw : " << resgw << '\n';
-            numBad++;
+            std::cout << "resgw : " << resgw << '\n';
+            // numBad++;
         }
 
         // compute jacobian
@@ -198,72 +185,72 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters, double* 
             // r: residual
             // c: parameter from block
 
-            const Eigen::Matrix<double, 1, 6> JIJT = totalWeight * JIJup * JupJT;
-            const double JIJalpha = -totalWeight * exp(relLight.alpha()) * color[idx];
+            const Eigen::Matrix<double, 1, 6> J_r_T_o_h = totalWeight * J_r_p * J_p_T_o_h;
+            const double J_r_A_o_h = -totalWeight * exp(A_w_o.inverse().alpha()) * map_color[idx];
 
-            // owner frame: J1x9
+            // host frame: J1x9
             if (jacobians[0] != NULL) {
-                Eigen::Map<Eigen::Matrix<double, 1, 9>> Jowner(jacobians[0] + (idx * 9));
-                Jowner.segment<6>(0) = -JIJT;  // owner pose
-                Jowner[6] = -JIJalpha;         // owner alpha
-                Jowner[7] = -totalWeight;      // owner beta
-                Jowner[8] = 0.0;
+                Eigen::Map<Eigen::Matrix<double, 1, 9>> J_host(jacobians[0] + (idx * 9));
+                J_host.segment<6>(0) = J_r_T_o_h;  // host pose
+                J_host[6] = 0.0f;                  // owner alpha
+                J_host[7] = 0.0f;                  // owner beta
+                J_host[8] = 0.0;
 
                 // variable scaling
                 // "Numerical Optimization" Nocedal et al. 2006, page 95
-                Jowner.segment<3>(0) *= config.OPTIMIZATION_TRANS_SCALE;
-                Jowner.segment<3>(3) *= config.OPTIMIZATION_ROTATION_SCALE;
-                Jowner[6] *= config.OPTIMIZATION_ALPHA_SCALE;
-                Jowner[7] *= config.OPTIMIZATION_BETA_SCALE;
+                J_host.segment<3>(0) *= config.OPTIMIZATION_TRANS_SCALE;
+                J_host.segment<3>(3) *= config.OPTIMIZATION_ROTATION_SCALE;
+                J_host[6] *= config.OPTIMIZATION_ALPHA_SCALE;
+                J_host[7] *= config.OPTIMIZATION_BETA_SCALE;
 
-                // LOG(INFO) << "Jowner" << '\n' << Jowner << '\n';
+                // LOG(INFO) << "Jowner" << '\n' << J_host << '\n';
             }
 
             // target frame: J1x9
             if (jacobians[1] != NULL) {
-                Eigen::Map<Eigen::Matrix<double, 1, 9>> Jtarget(jacobians[1] + (idx * 9));
-                Jtarget.segment<6>(0) = JIJT;        // target pose
-                Jtarget[6] = JIJalpha;               // target alpha
-                Jtarget[7] = exp(relLight.alpha());  // target beta
-                Jtarget[8] = 0.0;
+                Eigen::Map<Eigen::Matrix<double, 1, 9>> J_obs(jacobians[1] + (idx * 9));
+                J_obs.segment<6>(0) = -J_r_T_o_h;  // target pose
+                J_obs[6] = J_r_A_o_h;              // target alpha
+                J_obs[7] = -1;                     // target beta
+                J_obs[8] = 0.0;
 
                 // variable scaling
                 // "Numerical Optimization" Nocedal et al. 2006, page 95
-                Jtarget.segment<3>(0) *= config.OPTIMIZATION_TRANS_SCALE;
-                Jtarget.segment<3>(3) *= config.OPTIMIZATION_ROTATION_SCALE;
-                Jtarget[6] *= config.OPTIMIZATION_ALPHA_SCALE;
-                Jtarget[7] *= config.OPTIMIZATION_BETA_SCALE;
-                // LOG(INFO) << "Jtarget" << '\n' << Jtarget << '\n' << '\n';
+                J_obs.segment<3>(0) *= config.OPTIMIZATION_TRANS_SCALE;
+                J_obs.segment<3>(3) *= config.OPTIMIZATION_ROTATION_SCALE;
+                J_obs[6] *= config.OPTIMIZATION_ALPHA_SCALE;
+                J_obs[7] *= config.OPTIMIZATION_BETA_SCALE;
+                // LOG(INFO) << "Jtarget" << '\n' << J_obs << '\n' << '\n';
             }
 
             // point inverse depth: J1x1
             if (jacobians[2] != NULL) {
-                double iDepthJacob = -totalWeight * JIJup * JupJid;
+                double iDepthJacob = totalWeight * J_r_p * J_p_d;
 
                 jacobians[2][idx] = iDepthJacob * config.OPTIMIZATION_IDEPTH_SCALE;
 
-                hessian += iDepthJacob * iDepthJacob;
+                // hessian += iDepthJacob * iDepthJacob;
             }
         }
     }
 
     // check outlier
-    if ((float)numBad / PATTERN_SIZE > 0.5 || gradient < 10.0) {
-        this->residual_->state_ = Visibility::OUTLIER;
-        // std::cout << "bad ratio:" << (float)numBad / PATTERN_SIZE
-        //          << "   gradient: " << gradient << '\n';
-        this->discardOutlier(jacobians);
-    } else {
-        this->residual_->state_ = Visibility::VISIBLE;
-    }
+    //! if ((float)numBad / PATTERN_SIZE > 0.5 || gradient < 10.0) {
+    //!     this->residual_->state_ = Visibility::OUTLIER;
+    //!     // std::cout << "bad ratio:" << (float)numBad / PATTERN_SIZE
+    //!     //          << "   gradient: " << gradient << '\n';
+    //!     this->discardOutlier(jacobians);
+    //! } else {
+    //!     this->residual_->state_ = Visibility::VISIBLE;
+    //! }
 
     // store useful values
-    this->residual_->energy_ = energy;
-    this->residual_->lossWeight_ = avgWeight / PATTERN_SIZE;
+    // this->residual_->energy_ = energy;
+    // this->residual_->lossWeight_ = avgWeight / PATTERN_SIZE;
 
-    if (jacobians != NULL && jacobians[2] != NULL) {
-        this->residual_->iDepthHessian_ = hessian;
-    }
+    //!    if (jacobians != NULL && jacobians[2] != NULL) {
+    //!        this->residual_->iDepthHessian_ = hessian;
+    //!    }
 
     return true;
 }
@@ -323,7 +310,7 @@ void PhotometricCostFunction::discardOutlier(double** jacobians, int idx) const 
 // Residual
 
 PhotometricResidual::PhotometricResidual(Candidate* point, const std::shared_ptr<Frame>& targetFrame)
-    : point_(point), ownerFrame_(point->host_frame), targetFrame_(targetFrame) {
+    : point_(point), host_frame_(point->host_frame), target_frame_(targetFrame) {
     this->state_ = Visibility::VISIBLE;
 
     this->iDepthHessian_ = 0.0;
@@ -355,12 +342,12 @@ Candidate* PhotometricResidual::point() const {
     return this->point_;
 }
 
-Frame::ptr PhotometricResidual::ownerFrame() const {
-    return this->ownerFrame_;
+Frame::ptr PhotometricResidual::host_frame() const {
+    return this->host_frame_;
 }
 
-Frame::ptr PhotometricResidual::targetFrame() const {
-    return this->targetFrame_;
+Frame::ptr PhotometricResidual::obs_frame() const {
+    return this->target_frame_;
 }
 
 Visibility PhotometricResidual::state() const {
@@ -450,17 +437,17 @@ double PhotometricResidual::lossWeight() const {
         const float res = color[idx] - light_a * hit_color - light_b;
 
         // image gradient: dIj/du'
-        Eigen::Matrix<float, 1, 2> JIJup;
-        JIJup(0, 0) = light_a * bilinearInterpolation(gx, hit_pixel[0],
+        Eigen::Matrix<float, 1, 2> J_r_p;
+        J_r_p(0, 0) = light_a * bilinearInterpolation(gx, hit_pixel[0],
                                                       hit_pixel[1], width);
-        JIJup(0, 1) = light_a * bilinearInterpolation(gy, hit_pixel[0],
+        J_r_p(0, 1) = light_a * bilinearInterpolation(gy, hit_pixel[0],
                                                       hit_pixel[1], width);
 
         // observation weight based on gradient magnitude
         // set as the mean value between owner and target frames
         float gradWeight =
             sqrt(settings.weightConstant /
-                 (settings.weightConstant + JIJup.squaredNorm()));
+                 (settings.weightConstant + J_r_p.squaredNorm()));
         gradWeight = 0.5f * (weight[idx] + gradWeight);
 
         // apply gradient weight first

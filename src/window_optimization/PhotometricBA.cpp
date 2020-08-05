@@ -17,7 +17,8 @@ PhotometricBA::PhotometricBA(const PhotometricBAConfig& config)
     : options(config), numFrames(0), numPoints(0), numResiduals(0) {
     // iteration callback
     this->iterCallback = std::make_unique<PhotometricBAIterationCallback>(*this);
-    this->options.solverOptions.callbacks.push_back(this->iterCallback.get());
+    //! this->options.solverOptions.callbacks.push_back(this->iterCallback.get());
+    // todo use callback
 }
 
 PhotometricBA::~PhotometricBA() {
@@ -36,7 +37,7 @@ void PhotometricBA::solve(CandidateManager& cm) {
     // reset internal data
     this->reset();
 
-    // create least squares problem
+    // create bundle adjust problem
     BundleAdjustment problem(this->options.problemOptions);
 
     // prepare data and observations -> very slow!!
@@ -49,14 +50,14 @@ void PhotometricBA::solve(CandidateManager& cm) {
     // stats
     const ceres::Solver::Summary& summary = problem.summary();
 
-    // std::cout << summary.FullReport() << '\n';
+    std::cout << summary.FullReport() << '\n';
 
     // merge solution
     std::vector<PhotometricResidual*> obsToRemove;
     this->mergeOptimization(cm, obsToRemove);
 
     // remove bad observations
-    this->removeBadObservations(obsToRemove);
+    //! this->removeBadObservations(obsToRemove);
 }
 
 void PhotometricBA::prepareOptimization(CandidateManager& cm, BundleAdjustment& problem) {
@@ -68,33 +69,34 @@ void PhotometricBA::prepareOptimization(CandidateManager& cm, BundleAdjustment& 
 
     // add all cameras, points and observations
     for (auto it = candidate_map.begin(); it != candidate_map.end(); ++it) {
-        // add camera
+        // add host frame to param
         auto kf = it->first;
+
         problem.addParameterBlock(kf->get_frame_block().get());
+        if (kf == cm.get_key_frames().front()) problem.setParameterBlockConstant(kf->get_frame_block().get());
         ordering->AddElementToGroup(kf->get_frame_block()->getParameters(), FrameParameterBlock::Group);
         this->activeKeyframes.push_back(kf);
 
-        // fix first camera, this fixes unobservable gauge freedoms
-        if (kf == cm.get_key_frames().front()) {
-            problem.setParameterBlockConstant(kf->get_frame_block().get());
-        }
-        if (kf == cm.get_key_frames().back()) continue;  // no point from newst kf will be observed
+        // add point param/ obs residual to problem
+        if (kf == cm.get_key_frames().back()) continue;  // all candidate on newst kf is non active
         for (auto& point : candidate_map[kf]) {
-            //! if (!point.is_active) continue;
-            // add point
+            if (point.status == CandidateStatus::NOT_ACTIVE || point.status == CandidateStatus::OUTLIER) continue;
+            //! add point param, try at fix the depth
             problem.addParameterBlock(point.get_point_block().get());
             // problem.setParameterBlockConstant(point.get_point_block().get());
+
             ordering->AddElementToGroup(point.get_point_block()->getParameters(), PointParameterBlock::Group);
 
-            // add residuals
-            for (const auto& obs : point.observations) {
-                problem.addParameterBlock(obs.first->get_frame_block().get());
-                ordering->AddElementToGroup(obs.first->get_frame_block()->getParameters(), FrameParameterBlock::Group);
+            // add obs frame to param and add residuals
+            for (const auto& obs_per_frame : point.observations) {
+                problem.addParameterBlock(obs_per_frame.first->get_frame_block().get());
+                ordering->AddElementToGroup(obs_per_frame.first->get_frame_block()->getParameters(),
+                                            FrameParameterBlock::Group);
 
-                problem.addResidualBlock(obs.second.get(), kf->get_frame_block().get(),
-                                         obs.first->get_frame_block().get(), point.get_point_block().get());
+                problem.addResidualBlock(obs_per_frame.second.get(), kf->get_frame_block().get(),
+                                         obs_per_frame.first->get_frame_block().get(), point.get_point_block().get());
 
-                this->activeObservations.push_back(obs.second.get());
+                this->activeObservations.push_back(obs_per_frame.second.get());
             }
         }
     }
@@ -109,14 +111,15 @@ void PhotometricBA::mergeOptimization(CandidateManager& cm, std::vector<Photomet
         kf->merge_optimization_result();
     }
 
+    // merge depth
     for (const std::shared_ptr<Frame>& kf : cm.get_key_frames()) {
         if (kf == cm.get_key_frames().back()) continue;
         for (auto& point : cm.get_candidate_map()[kf]) {
             const Sophus::SE3f& refToWorld = point.host_frame->get_pose();
 
-            //! if (point.is_active) {
-            //!    point.merge_optimization_result();
-            //!}
+            if (point.status == CandidateStatus::ACTIVE || point.status == CandidateStatus::OOB) {
+                point.merge_optimization_result();
+            }
 
             // const Eigen::Vector3f pt3d =
             // point.host_frame->unproject(point);//point->pt3d();
@@ -130,7 +133,7 @@ void PhotometricBA::mergeOptimization(CandidateManager& cm, std::vector<Photomet
 
                 // remove or compute useful information based on good
                 // observations
-                if (state == Visibility::OOB || state == Visibility::OUTLIER) {
+                if (state == Visibility::OUTLIER) {
                     obsToRemove.push_back(observation.second.get());
                 } /* else {
                     const Sophus::SE3f refToTarget =
@@ -167,9 +170,9 @@ void PhotometricBA::mergeOptimization(CandidateManager& cm, std::vector<Photomet
 void PhotometricBA::removeBadObservations(const std::vector<PhotometricResidual*>& obsToRemove) const {
     for (int i = 0; i < obsToRemove.size(); ++i) {
         Candidate* const point = obsToRemove[i]->point();
-        point->observations.erase(obsToRemove[i]->targetFrame());
+        point->observations.erase(obsToRemove[i]->obs_frame());
         if (point->observations.size() < 1) {
-            //! point->status = CandidateStatus::BAD;
+            point->status = CandidateStatus::OUTLIER;
         }
     }
 }

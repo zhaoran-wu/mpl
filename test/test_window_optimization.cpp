@@ -14,6 +14,32 @@
 
 using namespace std;
 using namespace mpl;
+void add_last_tracking_result(PointCloudPyramid::ptr pcp, Frame::ptr newst_KF, CandidateManager& cm) {
+    auto& cam = CamData::getInstance();
+    for (auto& voxel : pcp->operator[](0)) {
+        if (voxel.can->status == CandidateStatus::OUTLIER) continue;
+
+        if (voxel.can->point_block == nullptr) {
+            voxel.can->point_block = std::make_unique<PointParameterBlock>(voxel.can->d_inv_synetic_im);
+
+            // here only for new added active candidate
+            auto& kf_vec = cm.get_key_frames();
+            for (auto it = kf_vec.begin(); *it != voxel.can->host_frame; ++it) {
+                Eigen::Vector2f projection = unproject_trans_project(*(voxel.can), voxel.can->host_frame, *it);
+
+                // todo check energy
+                if (is_in_img(cam, projection)) {
+                    std::unique_ptr<PhotometricResidual> obs = std::make_unique<PhotometricResidual>(voxel.can, *it);
+                    voxel.can->observations[*it] = std::move(obs);
+                }
+            }
+        }
+
+        // add all active point the new observation on newst KF
+        std::unique_ptr<PhotometricResidual> obs_newst_KF = std::make_unique<PhotometricResidual>(voxel.can, newst_KF);
+        voxel.can->observations[newst_KF] = std::move(obs_newst_KF);
+    }
+}
 
 bool is_newframe_KF(PointCloudPyramid::ptr pcp, const Sophus::SE3f& T_KF_curr, float energy) {
     std::cout << "@@@@@@@@ log norm: " << T_KF_curr.log().norm() << "  angle Y : " << abs(T_KF_curr.angleY())
@@ -150,7 +176,8 @@ int main() {
     key_frame->set_synetic_photometirc_im(syn_im_vec_curr[0]);
     cv::Mat alignment_weight_mask = cv::Mat::zeros(syn_im_vec_curr[1].size(), CV_8UC1);
     cm.select_candidate(key_frame, syn_im_vec_curr[1], alignment_weight_mask);
-    std::vector<Candidate>& candidates = cm.get_candidate(key_frame);
+
+    // std::vector<Candidate>& candidates = cm.get_candidate(key_frame);
 
     PointCloudPyramid::ptr pcp = cm.get_point_cloud_pyramid();
 
@@ -169,6 +196,9 @@ int main() {
     std::thread th_draw(&Visualizer::publish_curr_frame_tracking_info, std::ref(*vis), pcp, img_draw_vec[off_set],
                         key_frame->get_pose(), key_frame->get_pose().inverse(), true);
     th_draw.detach();
+
+    key_frame->get_frame_block() =
+        std::make_unique<FrameParameterBlock>(key_frame->get_pose().cast<double>(), key_frame->get_aff_light());
 
     // draw candidates before and after tracking
     cv::Mat key_frame_vis = img_draw_vec[off_set];
@@ -201,6 +231,7 @@ int main() {
         if (is_KF) {
             key_frame = curr_frame;
             key_frame_vis = img_draw_vec[i];
+
             // rendering at new key frame's pose
             render_pose = curr_frame->get_pose();
             syn_im_vec_curr = synetic_image.renderingAt(render_pose);
@@ -209,10 +240,17 @@ int main() {
             curr_frame->set_synetic_photometirc_im(syn_im_vec_curr[0]);
             cv::Mat alignment_weight_mask =
                 make_alignment_weight_mask(img_vec[i], syn_im_vec_curr[0], key_frame->get_aff_light());
+
+            key_frame->get_frame_block() =
+                std::make_unique<FrameParameterBlock>(key_frame->get_pose().cast<double>(), key_frame->get_aff_light());
+
             cm.select_candidate(curr_frame, syn_im_vec_curr[1], alignment_weight_mask);
 
+            // add new tracking result(residual)
+            add_last_tracking_result(pcp, key_frame, cm);
+
             // optimize key frame window
-            //! pba.solve(cm);
+            pba.solve(cm);
 
             // get and set new tracking reference point cloud after optimization
             pcp = cm.get_point_cloud_pyramid();

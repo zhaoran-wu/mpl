@@ -8,7 +8,8 @@
 #include "ba_residual_block.h"
 
 namespace mpl {
-// Wrapper of ceres problem
+//  class to (wrappe) pack up ceres problem and summary
+//  provide intermediate lvl between ceres and user-defined class
 class BundleAdjustment {
    public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -111,6 +112,7 @@ class BundleAdjustment {
 template <int Dim>
 inline void BundleAdjustment::addParameterBlock(BAParameterBlock<Dim>* parameterBlock) {
     parameterBlock->setFixed(false);
+
     this->problem_->AddParameterBlock(parameterBlock->getParameters(), parameterBlock->dimension(),
                                       parameterBlock->getLocalParameterization());
 }

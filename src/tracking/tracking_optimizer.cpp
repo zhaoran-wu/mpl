@@ -131,6 +131,8 @@ void TrackingOptimizer::assign_result_for_visualization() {
 
 void TrackingOptimizer::remove_outlier() {
     for (auto& voxel : (*point_cloud_pyramid)[curr_lvl]) {
+        if (voxel.can->status != CandidateStatus::ACTIVE) continue;
+
         Eigen::Vector3f P = map(pose, voxel.position);  // point in curr frame
         Eigen::Vector2f hit_pixel = to_track_frame->project(P, curr_lvl);
         // out of image
@@ -157,7 +159,7 @@ void TrackingOptimizer::remove_outlier() {
             } else {
                 voxel.can->status = CandidateStatus::OOB;
             }
-        } else {
+        } else if (curr_lvl == 0) {
             voxel.can->good_track_cnt++;
         }
     }
@@ -400,7 +402,7 @@ inline Eigen::Vector3f TrackingOptimizer::map(Sophus::SE3d pose, Eigen::Vector3f
 
 inline bool TrackingOptimizer::is_outlier(const float residual, const float mag2) const {
     return ((std::pow(residual, 2) > 5 && std::pow(residual, 2) * std::pow(mag2, 0.3) > 1000) ||
-            (0.5 * mag2 < config->PIXEL_SELECTION_HERURISTIC_CONST));
+            (curr_lvl == 0 && (0.5 * mag2 < config->PIXEL_SELECTION_HERURISTIC_CONST)));
 }
 
 float TrackingOptimizer::calc_sum_weighted_squared_residual(bool return_average) const {

@@ -26,8 +26,8 @@ PhotometricBAConfig::PhotometricBAConfig() {
     this->problemOptions.disable_all_safety_checks = true;
 
     // solver options
-    this->solverOptions.logging_type = ceres::SILENT;  // ceres::PER_MINIMIZER_ITERATION;
-    this->solverOptions.minimizer_progress_to_stdout = false;
+    this->solverOptions.logging_type = ceres::PER_MINIMIZER_ITERATION;
+    this->solverOptions.minimizer_progress_to_stdout = true;
 
     this->solverOptions.linear_solver_type = ceres::DENSE_SCHUR;
     this->solverOptions.minimizer_type = ceres::TRUST_REGION;
@@ -40,13 +40,12 @@ PhotometricBAConfig::PhotometricBAConfig() {
 
     // required for ceres::IterationCallback
     this->solverOptions.update_state_every_iteration = true;
-
     this->solverOptions.max_num_iterations = 50;
 
     // ignore ceres termination criteria
-    this->solverOptions.function_tolerance = 0.0;
-    this->solverOptions.gradient_tolerance = 0.0;
-    this->solverOptions.parameter_tolerance = 0.0;
+    //! this->solverOptions.function_tolerance = 0.0;
+    //! this->solverOptions.gradient_tolerance = 0.0;
+    //! this->solverOptions.parameter_tolerance = 0.0;
 
     // number of parallel threads
     this->solverOptions.num_threads = 8;
