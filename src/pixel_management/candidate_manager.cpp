@@ -65,7 +65,7 @@ void CandidateManager::select_candidate(const Frame::ptr frame, const cv::Mat sy
                                         cv::Mat alignment_mask) {
     // remove oldst frame
     Config& config = Config::getInstance();
-    if (candidate_map.size() > config.WINDOW_SIZE) {
+    if (candidate_map.size() >= config.WINDOW_SIZE) {
         to_remove_kf = key_frames.front();
         // remove all candidate/observation, that  observated/host by oldest kf
         for (auto it = candidate_map.begin(); it != candidate_map.end(); ++it) {
@@ -208,7 +208,7 @@ void CandidateManager::activate_candidate() {
     auto& cam = CamData::getInstance();
     // pre-compute the distance map of (already) active points
 
-    dist_map.compute(candidate_map, newst_KF, safe_mask);
+    dist_map.compute(candidate_map, this->key_frames, safe_mask);
 
     // set the min dist to active based on statistics
     Config& config = Config::getInstance();

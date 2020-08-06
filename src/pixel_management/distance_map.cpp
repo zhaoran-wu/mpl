@@ -46,8 +46,8 @@ int DistanceMap::get_num_obstacles() const {
     return this->num_obstacles - unreal_obsacles_cnt;
 }
 
-void DistanceMap::compute(std::unordered_map<Frame::ptr, std::vector<Candidate>>& candidate_map, const Frame::ptr frame,
-                          cv::Mat mask) {
+void DistanceMap::compute(std::unordered_map<Frame::ptr, std::vector<Candidate>>& candidate_map,
+                          const std::vector<Frame::ptr>& frame_vec, cv::Mat mask) {
     // reset distance map
     std::fill(this->dist_map, this->dist_map + this->w * this->h, std::numeric_limits<float>::max());
     this->num_obstacles = 0;
@@ -66,13 +66,15 @@ void DistanceMap::compute(std::unordered_map<Frame::ptr, std::vector<Candidate>>
         }
     }
     // generate point in newst key frame and put dist = 0 in distance map
-    for (auto& it : candidate_map) {
-        if (it.first == frame) continue;
+    Frame::ptr newst_kf = frame_vec.back();
+    for (auto it = frame_vec.begin(); it != frame_vec.end(); ++it) {
+        Frame::ptr frame = *it;
+        if (frame == newst_kf) continue;
 
         // go through all candidate
-        auto& can_vec = it.second;
+        auto& can_vec = candidate_map[frame];
         for (auto& can : can_vec) {
-            const Eigen::Vector2f point_in_frame = unproject_trans_project(can, it.first, frame);
+            const Eigen::Vector2f point_in_frame = unproject_trans_project(can, frame, newst_kf);
 
             if (!is_in_img(*cam, point_in_frame)) {
                 continue;

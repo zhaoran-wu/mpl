@@ -29,8 +29,8 @@ class DistanceMap {
     // compute distance map of active candidate on all other frames project on
     // given frame
     // mask: all non-zero point in maks will used as initial obstacles
-    void compute(std::unordered_map<Frame::ptr, std::vector<Candidate>>& candidate_map, const Frame::ptr frame,
-                 cv::Mat mask = cv::Mat());
+    void compute(std::unordered_map<Frame::ptr, std::vector<Candidate>>& candidate_map,
+                 const std::vector<Frame::ptr>& frame_vec, cv::Mat mask = cv::Mat());
 
     // adds new pixel to map and updates distance
     void add(const Eigen::Vector2f point_in_newst_KF);

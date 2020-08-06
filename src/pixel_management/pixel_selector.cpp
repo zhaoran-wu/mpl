@@ -213,7 +213,7 @@ void PixelSelector::select_in_image() {
 }
 
 inline bool PixelSelector::is_valid(const int u, const int v) const {
-    if (!(this->depth_safe_mask.at<float>(v, u) < 1e-10 && ((int)this->alignment_mask.at<uchar>(v, u) < 10))) {
+    if (!(this->depth_safe_mask.at<float>(v, u) < 1e-10 && ((int)this->alignment_mask.at<uchar>(v, u) < 20))) {
         return false;
     }
     return true;

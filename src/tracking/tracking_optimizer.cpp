@@ -401,8 +401,8 @@ inline Eigen::Vector3f TrackingOptimizer::map(Sophus::SE3d pose, Eigen::Vector3f
 }
 
 inline bool TrackingOptimizer::is_outlier(const float residual, const float mag2) const {
-    return ((std::pow(residual, 2) > 5 && std::pow(residual, 2) * std::pow(mag2, 0.3) > 1000) ||
-            (curr_lvl == 0 && (0.5 * mag2 < config->PIXEL_SELECTION_HERURISTIC_CONST)));
+    return (std::pow(residual, 2) * std::pow(mag2, 0.3) > 2000) ||
+           (mag2 < 0.5 * config->PIXEL_SELECTION_HERURISTIC_CONST);
 }
 
 float TrackingOptimizer::calc_sum_weighted_squared_residual(bool return_average) const {

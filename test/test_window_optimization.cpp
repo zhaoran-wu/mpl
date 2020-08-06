@@ -110,7 +110,7 @@ cv::Mat make_alignment_weight_mask(cv::Mat frame_img, cv::Mat synetic_img, const
     abs_8U.convertTo(abs_8U, CV_8UC1);
     abs_8U.copyTo(result, mask);
 
-    cv::GaussianBlur(result, gauss_blured_result, cv::Size(3, 3), 0);
+    cv::GaussianBlur(result, gauss_blured_result, cv::Size(3, 3), 3);
 
     debug::execute_func_according_to_config(config.DEBUG_KEY_FRAME_SYNETIC_IMAGE_ALIGNMENT,
                                             config.debug_key_frame_synetci_img_alignment_mutex,
@@ -249,12 +249,12 @@ int main() {
                 std::make_unique<FrameParameterBlock>(key_frame->get_pose().cast<double>(), key_frame->get_aff_light());
 
             // add new tracking result(residual)
-            add_last_tracking_result(pcp, key_frame, cm);
+            // add_last_tracking_result(pcp, key_frame, cm);
 
             cm.select_candidate(curr_frame, syn_im_vec_curr[1], alignment_weight_mask);
 
             // optimize key frame window
-            pba.solve(cm);
+            // pba.solve(cm);
 
             // get and set new tracking reference point cloud after optimization
             pcp = cm.get_point_cloud_pyramid();
