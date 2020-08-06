@@ -249,12 +249,12 @@ int main() {
                 std::make_unique<FrameParameterBlock>(key_frame->get_pose().cast<double>(), key_frame->get_aff_light());
 
             // add new tracking result(residual)
-            // add_last_tracking_result(pcp, key_frame, cm);
+            add_last_tracking_result(pcp, key_frame, cm);
 
             cm.select_candidate(curr_frame, syn_im_vec_curr[1], alignment_weight_mask);
 
             // optimize key frame window
-            // pba.solve(cm);
+            pba.solve(cm);
 
             // get and set new tracking reference point cloud after optimization
             pcp = cm.get_point_cloud_pyramid();

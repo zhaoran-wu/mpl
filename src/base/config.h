@@ -66,12 +66,12 @@ class Config {
     // std::mutex debug_pixel_selection_mutex;
     // bool DEBUG_PIXEL_SELECTION = false;
 
-    const int max_iteration_each_lvl[5] = {50, 10, 10, 15, 10};
+    const int max_iteration_each_lvl[5] = {30, 8, 8, 15, 10};
     const float lamda_init_each_lvl[5] = {1e-8, 1e-6, 1e-1, 1, 100};  // very sensitive : e.g motion blur
     const float lamda_min_eahc_lvl[5] = {1e-14, 1e-10, 1e-8, 1e-7, 1e-7};
     const int huber_residual_each_lvl[5] = {5, 11, 12, 13, 40};
 
-    static const int WINDOW_SIZE = 7;
+    static const int WINDOW_SIZE = 6;
 };
 
 }  // namespace mpl

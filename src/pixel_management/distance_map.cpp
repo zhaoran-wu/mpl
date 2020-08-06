@@ -67,7 +67,7 @@ void DistanceMap::compute(std::unordered_map<Frame::ptr, std::vector<Candidate>>
     }
     // generate point in newst key frame and put dist = 0 in distance map
     Frame::ptr newst_kf = frame_vec.back();
-    for (auto it = frame_vec.begin(); it != frame_vec.end(); ++it) {
+    for (auto it = frame_vec.rbegin(); it != frame_vec.rend(); ++it) {
         Frame::ptr frame = *it;
         if (frame == newst_kf) continue;
 

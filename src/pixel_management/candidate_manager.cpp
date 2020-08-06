@@ -190,7 +190,7 @@ void CandidateManager::calc_structure_mat(Frame::ptr host_frame, Candidate& can,
 
         can.synetic_color[idx] = (float)host_frame->at_synetic(u, v);
         float w1 = -std::abs(can.synetic_color[idx] - can.synetic_color[0]) / 32.0f;
-        can.weight[idx] = exp(w1);
+        can.weight[idx] = std::sqrt(exp(w1));
         sum += can.weight[idx];
 
         can.alignment_weight = std::sqrt(std::exp(-((int)weight_mask.at<uchar>(can.v, can.u) / 32.0f)));
