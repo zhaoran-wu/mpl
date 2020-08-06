@@ -137,7 +137,6 @@ inline void Frame::set_aff_light(const int alpha, const int beta) {
 inline void Frame::set_tracking_result(const Sophus::SE3f& T_curr_refKF, const AffineLight& aff_light_curr_w) {
     // inital global info
     state_mutex.lock();
-
     this->T_w_c = this->refKF->T_w_c * T_curr_refKF.inverse();
     this->affine_light = aff_light_curr_w.inverse();
     state_mutex.unlock();

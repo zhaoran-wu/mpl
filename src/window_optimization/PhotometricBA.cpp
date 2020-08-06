@@ -79,7 +79,7 @@ void PhotometricBA::prepareOptimization(CandidateManager& cm, BundleAdjustment& 
 
         // add point param/ obs residual to problem
         if (kf == cm.get_key_frames().back()) continue;  // all candidate on newst kf is non active
-        for (auto& point : candidate_map[kf]) {
+        for (const auto& point : candidate_map[kf]) {
             if (point.status == CandidateStatus::NOT_ACTIVE || point.status == CandidateStatus::OUTLIER) continue;
             //! add point param, try at fix the depth
             problem.addParameterBlock(point.get_point_block().get());

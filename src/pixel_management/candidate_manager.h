@@ -72,7 +72,7 @@ class CandidateManager {
 
     void activate_candidate();
 
-    std::vector<Frame::ptr>& get_key_frames();
+    const std::vector<Frame::ptr>& get_key_frames() const;
     Frame::ptr get_last_removed_kf() const;
 
    private:

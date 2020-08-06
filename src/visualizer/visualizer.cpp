@@ -82,6 +82,7 @@ void Visualizer::run() {
 
         // display 3d
         view_3d.Activate(cam_3d);
+        draw_sliding_window();
         draw_tracking_point_cloud();
         draw_curr_frame_cam();
 
@@ -237,7 +238,7 @@ void Visualizer::draw_tracking_point_cloud() {
     const Sophus::SE3f T_w_kf = this->T_w_c * this->T_c_kf;
     this->curr_frame_mutex.unlock();
 
-    glPointSize(4.0f);
+    glPointSize(POINT_SIZE);
     glBegin(GL_POINTS);
 
     glColor4f(0.0f, 1.0f, 0.0f, 1.0f);
@@ -345,6 +346,67 @@ void Visualizer::draw_cam(const Sophus::SE3f& T_w_c_) {
     glEnd();
     glPopMatrix();
 }
+void Visualizer::draw_sliding_window() {
+    std::vector<Sophus::SE3f> T_w_c_vec(this->T_w_c_sliding_window.size());
+    std::vector<Eigen::Vector3f> point_vec(this->point_cloud_siding_window.size());
+
+    this->sliding_window_mutex.lock();
+    std::copy(this->T_w_c_sliding_window.begin(), this->T_w_c_sliding_window.end(), T_w_c_vec.begin());
+    std::copy(this->point_cloud_siding_window.begin(), this->point_cloud_siding_window.end(), point_vec.begin());
+    this->sliding_window_mutex.unlock();
+    // draw all frame
+    draw_cameras(T_w_c_vec);
+    // draw all point
+    draw_point_clouds(point_vec, POINT_SIZE, 0.0f, 0.0f, 1.0f);
+}
+
+void Visualizer::draw_cameras(const std::vector<Sophus::SE3f>& pose_vec) {
+    // draw camera
+    std::vector<line> lines;
+
+    Eigen::Vector3f last_center(0.0f, 0.0f, 0.0f);
+    for (int i = 0; i < pose_vec.size(); ++i) {
+        this->draw_cam(pose_vec[i]);
+
+        if (i > 0) {
+            lines.push_back({pose_vec[i].translation(), last_center});
+        }
+        last_center = pose_vec[i].translation();
+    }
+
+    // draw conneted line
+    draw_lines(lines, 5.0f, 1.0f, 0.0f, 1.0f);
+}
+
+void Visualizer::draw_lines(const std::vector<line>& line_vec, const float line_width, const float r, const float g,
+                            const float b, const Sophus::SE3f& T_w_o) {
+    glPushMatrix();
+    glMultMatrixf(T_w_o.matrix().data());
+
+    glColor3f(r, g, b);
+
+    glLineWidth(line_width);
+    glBegin(GL_LINES);
+
+    for (const auto& line : line_vec) {
+        glVertex3f(line.first(0), line.first(1), line.first(2));
+        glVertex3f(line.second(0), line.second(1), line.second(2));
+    }
+
+    glEnd();
+    glPopMatrix();
+}
+
+void Visualizer::draw_point_clouds(const std::vector<Eigen::Vector3f>& point_vec, const float point_size, const float r,
+                                   const float g, const float b) {
+    glPointSize(point_size);
+    glBegin(GL_POINTS);
+    glColor4f(r, g, b, 1.0f);
+    for (auto& point : point_vec) {
+        glVertex3f(point(0), point(1), point(2));
+    }
+    glEnd();
+}
 
 void Visualizer::stop_or_start_according_to_pangolin_menu() {
     std::unique_lock<std::mutex> ul(stop_main_thread_mutex);
@@ -352,6 +414,49 @@ void Visualizer::stop_or_start_according_to_pangolin_menu() {
         ul.unlock();
         std::this_thread::sleep_for(std::chrono::seconds(2));
         ul.lock();
+    }
+}
+
+void Visualizer::set_new_sliding_window_data(CandidateManager& cm, const Frame::ptr to_remove_frame) {
+    const auto& key_frame_vec = cm.get_key_frames();
+    auto& candidate_map = cm.get_candidate_map();
+
+    // prepare data
+    std::vector<Sophus::SE3f> pose_buff_sliding_window;
+    std::vector<Eigen::Vector3f> point_buff_sliding_window;
+    std::vector<Eigen::Vector3f> point_buff_history;
+    for (auto it = key_frame_vec.begin(); it != key_frame_vec.end(); it++) {
+        const auto pose = ((*it)->get_pose());
+        pose_buff_sliding_window.push_back(pose);
+        auto& can_vec = candidate_map[*it];
+        for (const auto& can : can_vec) {
+            if (can.status == CandidateStatus::ACTIVE || can.status == CandidateStatus::OOB) {
+                Eigen::Vector3f point_3d = pose * (*it)->unproject(Eigen::Vector2i(can.u, can.v), can.d_inv_synetic_im);
+
+                point_buff_sliding_window.push_back(point_3d);
+
+                if (*it == to_remove_frame) {
+                    point_buff_history.push_back(point_3d);
+                }
+            }
+        }
+    }
+    // set internal data
+    sliding_window_mutex.lock();
+
+    this->T_w_c_sliding_window.resize(pose_buff_sliding_window.size());
+    this->point_cloud_siding_window.resize(point_buff_sliding_window.size());
+
+    std::move(pose_buff_sliding_window.begin(), pose_buff_sliding_window.end(), this->T_w_c_sliding_window.begin());
+    std::move(point_buff_sliding_window.begin(), point_buff_sliding_window.end(),
+              this->point_cloud_siding_window.begin());
+    sliding_window_mutex.unlock();
+
+    if (to_remove_frame != nullptr) {
+        history_mutex.lock();
+        T_w_c_history.push(to_remove_frame->get_pose());
+        this->point_cloud_history.push(point_buff_history);
+        history_mutex.unlock();
     }
 }
 }  // namespace mpl

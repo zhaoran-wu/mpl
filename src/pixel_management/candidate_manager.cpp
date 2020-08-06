@@ -19,7 +19,7 @@ vector<Vector2f> get_rotatet_pattern(const Matrix2f& R) {
     return rotatetPattern;
 }
 
-std::vector<Frame::ptr>& CandidateManager::get_key_frames() {
+const std::vector<Frame::ptr>& CandidateManager::get_key_frames() const {
     return key_frames;
 }
 
@@ -63,10 +63,13 @@ void add_last_tracking_result(PointCloudPyramid::ptr pcp, Frame::ptr newst_KF, C
 }
 void CandidateManager::select_candidate(const Frame::ptr frame, const cv::Mat synetic_depth_im,
                                         cv::Mat alignment_mask) {
-    // remove oldst frame
     Config& config = Config::getInstance();
+    // set data for visulization
+    to_remove_kf = (key_frames.size() >= config.WINDOW_SIZE) ? key_frames.front() : nullptr;
+    this->vis_ptr->set_new_sliding_window_data(*this, to_remove_kf);
+
+    // remove oldst frame
     if (candidate_map.size() >= config.WINDOW_SIZE) {
-        to_remove_kf = key_frames.front();
         // remove all candidate/observation, that  observated/host by oldest kf
         for (auto it = candidate_map.begin(); it != candidate_map.end(); ++it) {
             if (it->first == to_remove_kf) continue;
