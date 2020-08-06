@@ -45,11 +45,20 @@ void Visualizer::init() {
                   .SetHandler(new pangolin::Handler3D(cam_3d));
 
     // data to draw the camera frame
-    float scale = 0.9f;
+    float scale = 0.3f;
     tl = unproject(cam_data, Eigen::Vector2i(0, 0), 1 / scale);
     tr = unproject(cam_data, Eigen::Vector2i(img_cols - 1, 0), 1 / scale);
     dl = unproject(cam_data, Eigen::Vector2i(0, img_rows - 1), 1 / scale);
     dr = unproject(cam_data, Eigen::Vector2i(img_cols - 1, img_rows - 1), 1 / scale);
+
+    camera_to_draw.push_back({tl, Eigen::Vector3f::Zero()});
+    camera_to_draw.push_back({dl, Eigen::Vector3f::Zero()});
+    camera_to_draw.push_back({tr, Eigen::Vector3f::Zero()});
+    camera_to_draw.push_back({dr, Eigen::Vector3f::Zero()});
+    camera_to_draw.push_back({tl, tr});
+    camera_to_draw.push_back({tr, dr});
+    camera_to_draw.push_back({dr, dl});
+    camera_to_draw.push_back({dl, tl});
 }
 void Visualizer::run() {
     init();
@@ -85,6 +94,7 @@ void Visualizer::run() {
         draw_sliding_window();
         draw_tracking_point_cloud();
         draw_curr_frame_cam();
+        draw_all_history();
 
         // display  curr frame and key frame depth
         if (curr_frame_image_changed) {  // double check trick to save time
@@ -238,16 +248,15 @@ void Visualizer::draw_tracking_point_cloud() {
     const Sophus::SE3f T_w_kf = this->T_w_c * this->T_c_kf;
     this->curr_frame_mutex.unlock();
 
-    glPointSize(POINT_SIZE);
-    glBegin(GL_POINTS);
+    std::vector<Eigen::Vector3f> point_cloud_to_draw;
+    point_cloud_to_draw.reserve(pcd.size());
 
-    glColor4f(0.0f, 1.0f, 0.0f, 1.0f);
     for (auto& point : pcd) {
         if (!point.vis_data.visible_for_newst_frame) continue;
-        Eigen::Vector3f P_w = T_w_kf * point.position;
-        glVertex3f(P_w(0), P_w(1), P_w(2));
+        point_cloud_to_draw.push_back(T_w_kf * point.position);
     }
-    glEnd();
+
+    draw_point_clouds(point_cloud_to_draw, 3, 0.75f, 0.0f, 0.0f);
 }
 
 void Visualizer::draw_and_publish_key_frame_depth(cv::Mat depth_im) {
@@ -307,66 +316,57 @@ void Visualizer::draw_curr_frame_cam() {
     curr_pose = T_w_c;
     curr_frame_mutex.unlock();
 
-    draw_cam(curr_pose);
+    draw_camera(curr_pose, 5, 0.5f, 0.0f, 0.0f);
 }
 
-void Visualizer::draw_cam(const Sophus::SE3f& T_w_c_) {
-    glPushMatrix();
-    glMultMatrixf(T_w_c_.matrix().data());
-
-    glColor3f(1.0f, 0, 0);
-
-    glLineWidth(3);
-    glBegin(GL_LINES);
-
-    glVertex3f(0, 0, 0);
-    glVertex3f(tl(0), tl(1), tl(2));
-
-    glVertex3f(0, 0, 0);
-    glVertex3f(tr(0), tr(1), tr(2));
-
-    glVertex3f(0, 0, 0);
-    glVertex3f(dl(0), dl(1), dl(2));
-
-    glVertex3f(0, 0, 0);
-    glVertex3f(dr(0), dr(1), dr(2));
-
-    glVertex3f(tl(0), tl(1), tl(2));
-    glVertex3f(tr(0), tr(1), tr(2));
-
-    glVertex3f(tr(0), tr(1), tr(2));
-    glVertex3f(dr(0), dr(1), dr(2));
-
-    glVertex3f(dr(0), dr(1), dr(2));
-    glVertex3f(dl(0), dl(1), dl(2));
-
-    glVertex3f(dl(0), dl(1), dl(2));
-    glVertex3f(tl(0), tl(1), tl(2));
-
-    glEnd();
-    glPopMatrix();
+void Visualizer::draw_camera(const Sophus::SE3f& T_w_c_, const int line_width, const float r, const float g,
+                             const float b) {
+    draw_lines(this->camera_to_draw, line_width, r, g, b, T_w_c_);
 }
 void Visualizer::draw_sliding_window() {
-    std::vector<Sophus::SE3f> T_w_c_vec(this->T_w_c_sliding_window.size());
-    std::vector<Eigen::Vector3f> point_vec(this->point_cloud_siding_window.size());
+    std::vector<Sophus::SE3f> T_w_c_vec;
+    std::vector<Eigen::Vector3f> point_vec;
+
+    T_w_c_vec.reserve(this->T_w_c_sliding_window.size());
+    point_vec.reserve(this->point_cloud_siding_window.size());
 
     this->sliding_window_mutex.lock();
-    std::copy(this->T_w_c_sliding_window.begin(), this->T_w_c_sliding_window.end(), T_w_c_vec.begin());
-    std::copy(this->point_cloud_siding_window.begin(), this->point_cloud_siding_window.end(), point_vec.begin());
+    std::copy(this->T_w_c_sliding_window.begin(), this->T_w_c_sliding_window.end(), std::back_inserter(T_w_c_vec));
+    std::copy(this->point_cloud_siding_window.begin(), this->point_cloud_siding_window.end(),
+              std::back_inserter(point_vec));
     this->sliding_window_mutex.unlock();
     // draw all frame
-    draw_cameras(T_w_c_vec);
+    draw_cameras(T_w_c_vec, 3.0f, 0.8f, 0.36f, 0.36f, 2.0f, 0.0f, 0.0f, 0.3f);
     // draw all point
-    draw_point_clouds(point_vec, POINT_SIZE, 0.0f, 0.0f, 1.0f);
+    draw_point_clouds(point_vec, 3.0f, 0.6f, 0.8f, 0.2f);
 }
 
-void Visualizer::draw_cameras(const std::vector<Sophus::SE3f>& pose_vec) {
-    // draw camera
-    std::vector<line> lines;
+void Visualizer::draw_all_history() {
+    std::vector<Sophus::SE3f> T_w_c_vec;
+    std::vector<Eigen::Vector3f> point_cloud_vec;
 
+    T_w_c_vec.reserve(this->T_w_c_history.size());
+    point_cloud_vec.reserve(this->point_cloud_history.size());
+
+    this->history_mutex.lock();
+    std::copy(this->T_w_c_history.begin(), this->T_w_c_history.end(), std::back_inserter(T_w_c_vec));
+    std::copy(this->point_cloud_history.begin(), this->point_cloud_history.end(), std::back_inserter(point_cloud_vec));
+    this->history_mutex.unlock();
+    // draw all frame
+    draw_cameras(T_w_c_vec, 2.0f, 0.26f, 0.41f, 0.88f, 2.0f, 0.1f, 0.1f, 0.1f);
+    // draw all point
+    draw_point_clouds(point_cloud_vec, 2.0f, 0.4f, 0.4f, 0.4f);
+}
+
+void Visualizer::draw_cameras(const std::vector<Sophus::SE3f>& pose_vec, const float cam_width, const float cam_r,
+                              const float cam_g, const float cam_b, const float traj_width, const float traj_r,
+                              const float traj_g, const float traj_b) {
+    std::vector<line> lines;
     Eigen::Vector3f last_center(0.0f, 0.0f, 0.0f);
+
+    // draw camera
     for (int i = 0; i < pose_vec.size(); ++i) {
-        this->draw_cam(pose_vec[i]);
+        this->draw_camera(pose_vec[i], cam_width, cam_r, cam_g, cam_b);
 
         if (i > 0) {
             lines.push_back({pose_vec[i].translation(), last_center});
@@ -375,7 +375,7 @@ void Visualizer::draw_cameras(const std::vector<Sophus::SE3f>& pose_vec) {
     }
 
     // draw conneted line
-    draw_lines(lines, 5.0f, 1.0f, 0.0f, 1.0f);
+    draw_lines(lines, traj_width, traj_r, traj_g, traj_b);
 }
 
 void Visualizer::draw_lines(const std::vector<line>& line_vec, const float line_width, const float r, const float g,
@@ -424,7 +424,19 @@ void Visualizer::set_new_sliding_window_data(CandidateManager& cm, const Frame::
     // prepare data
     std::vector<Sophus::SE3f> pose_buff_sliding_window;
     std::vector<Eigen::Vector3f> point_buff_sliding_window;
+
+    int size_cnt = 0;
+    for (auto& it : candidate_map) {
+        size_cnt += it.second.size();
+    }
+
+    pose_buff_sliding_window.reserve(candidate_map.size());
+    point_buff_sliding_window.reserve(size_cnt);
     std::vector<Eigen::Vector3f> point_buff_history;
+    if (to_remove_frame != nullptr) {
+        point_buff_history.reserve(candidate_map[to_remove_frame].size());
+    }
+
     for (auto it = key_frame_vec.begin(); it != key_frame_vec.end(); it++) {
         const auto pose = ((*it)->get_pose());
         pose_buff_sliding_window.push_back(pose);
@@ -454,8 +466,11 @@ void Visualizer::set_new_sliding_window_data(CandidateManager& cm, const Frame::
 
     if (to_remove_frame != nullptr) {
         history_mutex.lock();
-        T_w_c_history.push(to_remove_frame->get_pose());
-        this->point_cloud_history.push(point_buff_history);
+        T_w_c_history.push_back(to_remove_frame->get_pose());
+
+        this->point_cloud_history.reserve(this->point_cloud_history.size() + point_buff_history.size());
+        this->point_cloud_history.insert(this->point_cloud_history.end(), point_buff_history.begin(),
+                                         point_buff_history.end());
         history_mutex.unlock();
     }
 }

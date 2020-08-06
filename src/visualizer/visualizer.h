@@ -49,7 +49,11 @@ class Visualizer {
     void draw_tracking_point_cloud();
     void draw_curr_frame_cam();
 
-    void draw_cameras(const std::vector<Sophus::SE3f>& pose_vec);
+    void draw_camera(const Sophus::SE3f& T_w_c, const int line_width = 5.0f, const float r = 1.0f, const float g = 0.0f,
+                     const float b = 0.0f);
+    void draw_cameras(const std::vector<Sophus::SE3f>& pose_vec, const float line_width, const float line_r,
+                      const float line_g, const float line_b, const float traj_width, const float traj_r,
+                      const float traj_g, const float traj_b);
     void draw_point_clouds(const std::vector<Eigen::Vector3f>& point_vec, const float point_size, const float r,
                            const float g, const float b);
     // line are given the pose in local frame if T_w_o is given, or in global frame(T_w_o is identity)
@@ -58,7 +62,6 @@ class Visualizer {
     void draw_sliding_window();
     void draw_all_history();
 
-    void draw_cam(const Sophus::SE3f& T_w_c);
     cv::Mat resize(cv::Mat im) const;
     void set_key_frame_depth(cv::Mat img);
     void set_curr_frame_tracking_info(cv::Mat img, const Sophus::SE3f& T_w_c, const Sophus::SE3f& T_c_kf);
@@ -84,8 +87,8 @@ class Visualizer {
 
     // all key frame/point cloud history(data that will not change )
     std::mutex history_mutex;
-    std::queue<Sophus::SE3f> T_w_c_history;
-    std::queue<std::vector<Eigen::Vector3f>> point_cloud_history;
+    std::vector<Sophus::SE3f> T_w_c_history;
+    std::vector<Eigen::Vector3f> point_cloud_history;
 
     // opengl object
     pangolin::View view_3d;
@@ -111,7 +114,7 @@ class Visualizer {
     CamData* cam_data;
     Config* config;
 
-    const float POINT_SIZE = 3.0f;
+    std::vector<line> camera_to_draw;
 };
 
 }  // namespace mpl
