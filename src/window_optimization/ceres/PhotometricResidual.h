@@ -40,7 +40,7 @@ class PhotometricResidual : public BAResidualBlock {
 
     friend class PhotometricCostFunction;
 
-    PhotometricResidual(Candidate* point, const std::shared_ptr<Frame>& targetFrame);
+    PhotometricResidual(Candidate* point, Frame* targetFrame) noexcept;
     virtual ~PhotometricResidual();
 
     // avoid copying
@@ -63,8 +63,8 @@ class PhotometricResidual : public BAResidualBlock {
     Candidate* point() const;
 
     // frames
-    Frame::ptr host_frame() const;
-    Frame::ptr obs_frame() const;
+    Frame* host_frame() const;
+    Frame* obs_frame() const;
 
     // optimization state
     Visibility state() const;
@@ -81,8 +81,8 @@ class PhotometricResidual : public BAResidualBlock {
 
    private:
     // reference to parameters(1 obsevation)
-    Frame::ptr host_frame_;
-    Frame::ptr target_frame_;
+    Frame* host_frame_;
+    Frame* target_frame_;
     Candidate* point_;
 
     // status

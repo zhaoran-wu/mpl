@@ -83,7 +83,7 @@ void PhotometricBA::prepareOptimization(CandidateManager& cm, BundleAdjustment& 
             if (point.status == CandidateStatus::NOT_ACTIVE || point.status == CandidateStatus::OUTLIER) continue;
             //! add point param, try at fix the depth
             problem.addParameterBlock(point.get_point_block().get());
-            // problem.setParameterBlockConstant(point.get_point_block().get());
+            problem.setParameterBlockConstant(point.get_point_block().get());
 
             ordering->AddElementToGroup(point.get_point_block()->getParameters(), PointParameterBlock::Group);
 
@@ -170,7 +170,7 @@ void PhotometricBA::mergeOptimization(CandidateManager& cm, std::vector<Photomet
 void PhotometricBA::removeBadObservations(const std::vector<PhotometricResidual*>& obsToRemove) const {
     for (int i = 0; i < obsToRemove.size(); ++i) {
         Candidate* const point = obsToRemove[i]->point();
-        point->observations.erase(obsToRemove[i]->obs_frame());
+        // point->observations.erase(obsToRemove[i]->obs_frame());
         if (point->observations.size() < 1) {
             point->status = CandidateStatus::OUTLIER;
         }

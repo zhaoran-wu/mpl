@@ -73,6 +73,7 @@ class CandidateManager {
     void activate_candidate();
 
     std::vector<Frame::ptr>& get_key_frames();
+    Frame::ptr get_last_removed_kf() const;
 
    private:
     // valid : depth from model is nearly correct
@@ -101,6 +102,8 @@ class CandidateManager {
     std::shared_ptr<Visualizer> vis_ptr;
 
     PointCloudPyramid::ptr last_pcp = nullptr;
+
+    Frame::ptr to_remove_kf = nullptr;
 
     cv::Mat safe_mask;
 };

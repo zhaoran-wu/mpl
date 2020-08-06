@@ -37,8 +37,8 @@ PhotometricCostFunction::~PhotometricCostFunction() {
 
 bool PhotometricCostFunction::Evaluate(double const* const* parameters, double* residuals, double** jacobians) const {
     Candidate* point = this->residual_->point();
-    Frame::ptr host_frame = this->residual_->host_frame();
-    Frame::ptr obs_frame = this->residual_->obs_frame();
+    Frame* host_frame = this->residual_->host_frame();
+    Frame* obs_frame = this->residual_->obs_frame();
 
     const auto& config = Config::getInstance();
     const auto& cam = CamData::getInstance();
@@ -309,8 +309,8 @@ void PhotometricCostFunction::discardOutlier(double** jacobians, int idx) const 
 
 // Residual
 
-PhotometricResidual::PhotometricResidual(Candidate* point, const std::shared_ptr<Frame>& targetFrame)
-    : point_(point), host_frame_(point->host_frame), target_frame_(targetFrame) {
+PhotometricResidual::PhotometricResidual(Candidate* point, Frame* targetFrame) noexcept
+    : point_(point), host_frame_(point->host_frame.get()), target_frame_(targetFrame) {
     this->state_ = Visibility::VISIBLE;
 
     this->iDepthHessian_ = 0.0;
@@ -342,11 +342,11 @@ Candidate* PhotometricResidual::point() const {
     return this->point_;
 }
 
-Frame::ptr PhotometricResidual::host_frame() const {
+Frame* PhotometricResidual::host_frame() const {
     return this->host_frame_;
 }
 
-Frame::ptr PhotometricResidual::obs_frame() const {
+Frame* PhotometricResidual::obs_frame() const {
     return this->target_frame_;
 }
 

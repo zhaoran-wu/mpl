@@ -17,26 +17,28 @@ using namespace mpl;
 void add_last_tracking_result(PointCloudPyramid::ptr pcp, Frame::ptr newst_KF, CandidateManager& cm) {
     auto& cam = CamData::getInstance();
     for (auto& voxel : pcp->operator[](0)) {
-        if (voxel.can->status == CandidateStatus::OUTLIER) continue;
+        if ((voxel.can->status != CandidateStatus::ACTIVE && voxel.can->status != CandidateStatus::OOB)) continue;
 
-        if (voxel.can->point_block == nullptr) {
+        if (voxel.can->point_block == nullptr) {  // can,that never been added to sw
             voxel.can->point_block = std::make_unique<PointParameterBlock>(voxel.can->d_inv_synetic_im);
 
-            // here only for new added active candidate
+            // add obs on the frame, that added into sw before
             auto& kf_vec = cm.get_key_frames();
             for (auto it = kf_vec.begin(); *it != voxel.can->host_frame; ++it) {
                 Eigen::Vector2f projection = unproject_trans_project(*(voxel.can), voxel.can->host_frame, *it);
 
                 // todo check energy
                 if (is_in_img(cam, projection)) {
-                    std::unique_ptr<PhotometricResidual> obs = std::make_unique<PhotometricResidual>(voxel.can, *it);
+                    std::unique_ptr<PhotometricResidual> obs =
+                        std::make_unique<PhotometricResidual>(voxel.can, it->get());
                     voxel.can->observations[*it] = std::move(obs);
                 }
             }
         }
 
         // add all active point the new observation on newst KF
-        std::unique_ptr<PhotometricResidual> obs_newst_KF = std::make_unique<PhotometricResidual>(voxel.can, newst_KF);
+        std::unique_ptr<PhotometricResidual> obs_newst_KF =
+            std::make_unique<PhotometricResidual>(voxel.can, newst_KF.get());
         voxel.can->observations[newst_KF] = std::move(obs_newst_KF);
     }
 }
@@ -187,6 +189,8 @@ int main() {
     // given initial pose is not precise, so estimate it(tracking itself)
     tracker.tracking(key_frame);
     Eigen::Isometry3f T_c_c0 = static_cast<Eigen::Isometry3f>(key_frame->get_pose().matrix());
+
+    add_last_tracking_result(pcp, key_frame, cm);
     // reset rendering start pose
     synetic_image.set_start_pose(pose.atIndex(start_idx) * T_c_c0.inverse());
 
@@ -244,10 +248,10 @@ int main() {
             key_frame->get_frame_block() =
                 std::make_unique<FrameParameterBlock>(key_frame->get_pose().cast<double>(), key_frame->get_aff_light());
 
-            cm.select_candidate(curr_frame, syn_im_vec_curr[1], alignment_weight_mask);
-
             // add new tracking result(residual)
             add_last_tracking_result(pcp, key_frame, cm);
+
+            cm.select_candidate(curr_frame, syn_im_vec_curr[1], alignment_weight_mask);
 
             // optimize key frame window
             pba.solve(cm);

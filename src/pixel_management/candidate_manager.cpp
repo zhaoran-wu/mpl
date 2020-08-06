@@ -26,11 +26,65 @@ std::vector<Frame::ptr>& CandidateManager::get_key_frames() {
 CandidateManager::CandidateManager(std::shared_ptr<Visualizer> vis_ptr_) : vis_ptr(vis_ptr_) {
 }
 
+Frame::ptr CandidateManager::get_last_removed_kf() const {
+    return this->to_remove_kf;
+}
+void add_last_tracking_result(PointCloudPyramid::ptr pcp, Frame::ptr newst_KF, CandidateManager& cm) {
+    auto& cam = CamData::getInstance();
+    for (auto& voxel : pcp->operator[](0)) {
+        if ((voxel.can->status != CandidateStatus::ACTIVE && voxel.can->status != CandidateStatus::OOB) ||
+            voxel.can->host_frame == cm.get_last_removed_kf() || voxel.can->host_frame == nullptr ||
+            voxel.aligenment_weight < 1e-10)
+            continue;
+
+        if (voxel.can->point_block == nullptr) {
+            voxel.can->point_block = std::make_unique<PointParameterBlock>(voxel.can->d_inv_synetic_im);
+
+            // here only for new added active candidate
+            auto& kf_vec = cm.get_key_frames();
+            for (auto it = kf_vec.begin(); *it != voxel.can->host_frame; ++it) {
+                if (*it == cm.get_last_removed_kf()) continue;
+                Eigen::Vector2f projection = unproject_trans_project(*(voxel.can), voxel.can->host_frame, *it);
+
+                // todo check energy
+                if (is_in_img(cam, projection)) {
+                    std::unique_ptr<PhotometricResidual> obs =
+                        std::make_unique<PhotometricResidual>(voxel.can, it->get());
+                    voxel.can->observations[*it] = std::move(obs);
+                }
+            }
+        }
+
+        // add all active point the new observation on newst KF
+        std::unique_ptr<PhotometricResidual> obs_newst_KF =
+            std::make_unique<PhotometricResidual>(voxel.can, newst_KF.get());
+        voxel.can->observations[newst_KF] = std::move(obs_newst_KF);
+    }
+}
 void CandidateManager::select_candidate(const Frame::ptr frame, const cv::Mat synetic_depth_im,
                                         cv::Mat alignment_mask) {
     // remove oldst frame
-    if (candidate_map.size() > 7) {
-        candidate_map.erase(key_frames.front());
+    Config& config = Config::getInstance();
+    if (candidate_map.size() > config.WINDOW_SIZE) {
+        to_remove_kf = key_frames.front();
+        // remove all candidate/observation, that  observated/host by oldest kf
+        for (auto it = candidate_map.begin(); it != candidate_map.end(); ++it) {
+            if (it->first == to_remove_kf) continue;
+            for (auto& can : it->second) {
+                for (auto it2 = can.observations.begin(); it2 != can.observations.end();) {
+                    if (it2->second->host_frame() == to_remove_kf.get() ||
+                        it2->second->obs_frame() == to_remove_kf.get()) {
+                        it2 = can.observations.erase(it2);
+                    } else {
+                        it2++;
+                    }
+                }
+            }
+        }
+
+        // remove all candidate host by to_remove_kf
+
+        candidate_map.erase(to_remove_kf);
         key_frames.erase(key_frames.begin());
     }
 
@@ -140,7 +194,8 @@ void CandidateManager::calc_structure_mat(Frame::ptr host_frame, Candidate& can,
         sum += can.weight[idx];
 
         can.alignment_weight = std::sqrt(std::exp(-((int)weight_mask.at<uchar>(can.v, can.u) / 32.0f)));
-        // std::cout << "diff : " << (int)weight_mask.at<uchar>(can.v, can.u) << "   weight :" << can.alignment_weight
+        // std::cout << "diff : " << (int)weight_mask.at<uchar>(can.v, can.u) << "   weight :" <<
+        // can.alignment_weight
         //          << '\n';
     }
 
@@ -285,5 +340,5 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
               << "curr point cloud size of lvl 0: " << pcp->operator[](0).size();
     last_pcp = pcp;
     return pcp;
-}  // namespace mpl
+}
 }  // namespace mpl
