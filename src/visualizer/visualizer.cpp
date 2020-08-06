@@ -45,7 +45,7 @@ void Visualizer::init() {
                   .SetHandler(new pangolin::Handler3D(cam_3d));
 
     // data to draw the camera frame
-    float scale = 0.3f;
+    float scale = 0.5f;
     tl = unproject(cam_data, Eigen::Vector2i(0, 0), 1 / scale);
     tr = unproject(cam_data, Eigen::Vector2i(img_cols - 1, 0), 1 / scale);
     dl = unproject(cam_data, Eigen::Vector2i(0, img_rows - 1), 1 / scale);
