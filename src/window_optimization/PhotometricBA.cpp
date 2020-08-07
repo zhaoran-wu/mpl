@@ -73,7 +73,6 @@ void PhotometricBA::prepareOptimization(CandidateManager& cm, BundleAdjustment& 
         auto kf = it->first;
 
         problem.addParameterBlock(kf->get_frame_block().get());
-        if (kf == cm.get_key_frames().front()) problem.setParameterBlockConstant(kf->get_frame_block().get());
         ordering->AddElementToGroup(kf->get_frame_block()->getParameters(), FrameParameterBlock::Group);
         this->activeKeyframes.push_back(kf);
 
@@ -83,7 +82,7 @@ void PhotometricBA::prepareOptimization(CandidateManager& cm, BundleAdjustment& 
             if (point->status == CandidateStatus::NOT_ACTIVE || point->status == CandidateStatus::OUTLIER) continue;
             //! add point->param, try at fix the depth
             problem.addParameterBlock(point->get_point_block().get());
-            if (kf == cm.get_key_frames().back()) problem.setParameterBlockConstant(point->get_point_block().get());
+            problem.setParameterBlockConstant(point->get_point_block().get());
 
             ordering->AddElementToGroup(point->get_point_block()->getParameters(), PointParameterBlock::Group);
 

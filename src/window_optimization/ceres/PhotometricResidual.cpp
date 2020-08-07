@@ -48,7 +48,7 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters, double* 
     const int32_t width = cam.width[0];
     const int32_t height = cam.height[0];
 
-    const float energyThreshold = 1e10;  // TODO
+    const float energyThreshold = 10;  // TODO
 
     const auto& map_color = point->synetic_color;
 
@@ -59,7 +59,7 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters, double* 
 
     const Sophus::SE3d T_o_w = T_w_o.inverse();
     const Sophus::SE3d T_o_h = T_o_w * T_w_h;
-    const Eigen::Matrix3d R = T_o_h.rotationMatrix();
+    const Eigen::Matrix3d& R = T_o_h.rotationMatrix();
     const Eigen::Vector3d& t = T_o_h.translation();
 
     // affine light
@@ -117,9 +117,10 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters, double* 
     // compute residual for all pattern points
     /*     double energy = 0.0;
         double hessian = 0.0;
-        double gradient = 0.0;
         double avgWeight = 0.0;
-        double numBad = 0.0; */
+        **/
+    double numBad = 0.0;
+    double gradient = 0.0;
 
     const Eigen::Matrix3d KRKinv = K * R * Kinv;
     const Eigen::Vector3d Kt = K * t;
@@ -166,12 +167,12 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters, double* 
         // energy += std::pow(totalWeight, 2) * res * res;
 
         // sum of gradients to avoid residuals in white walls
-        // gradient += gradWeight * gradWeight * squaredGrad;
+        gradient += gradWeight * gradWeight * squaredGrad;
 
         // discard bad pixels
-        if (std::abs(resgw) > energyThreshold) {
+        if (std::abs(residuals[idx]) > energyThreshold) {
             std::cout << "resgw : " << resgw << '\n';
-            // numBad++;
+            numBad++;
         }
 
         // compute jacobian
@@ -235,14 +236,14 @@ bool PhotometricCostFunction::Evaluate(double const* const* parameters, double* 
     }
 
     // check outlier
-    //! if ((float)numBad / PATTERN_SIZE > 0.5 || gradient < 10.0) {
-    //!     this->residual_->state_ = Visibility::OUTLIER;
-    //!     // std::cout << "bad ratio:" << (float)numBad / PATTERN_SIZE
-    //!     //          << "   gradient: " << gradient << '\n';
-    //!     this->discardOutlier(jacobians);
-    //! } else {
-    //!     this->residual_->state_ = Visibility::VISIBLE;
-    //! }
+    if ((float)numBad / PATTERN_SIZE > 0.5 || gradient < 10.0) {
+        this->residual_->state_ = Visibility::OUTLIER;
+        // std::cout << "bad ratio:" << (float)numBad / PATTERN_SIZE
+        //          << "   gradient: " << gradient << '\n';
+        this->discardOutlier(jacobians);
+    } else {
+        this->residual_->state_ = Visibility::VISIBLE;
+    }
 
     // store useful values
     // this->residual_->energy_ = energy;
