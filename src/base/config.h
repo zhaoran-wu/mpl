@@ -63,8 +63,8 @@ class Config {
     std::mutex debug_depth_safe_mask_mutex;
     bool DEBUG_DEPTH_SAFE_MASK = false;
 
-    // std::mutex debug_pixel_selection_mutex;
-    // bool DEBUG_PIXEL_SELECTION = false;
+    std::mutex debug_sliding_window_mutex;
+    bool DEBUG_SLIDING_WINDOW = false;
 
     const int max_iteration_each_lvl[5] = {30, 8, 8, 15, 10};
     const float lamda_init_each_lvl[5] = {1e-8, 1e-6, 1e-1, 1, 100};  // very sensitive : e.g motion blur

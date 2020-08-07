@@ -41,6 +41,8 @@ class PhotometricBA {
 
     void freeFixedKeyframesMemory();
 
+    void draw_result(CandidateManager* cm) const;
+
    private:
     // optimization options
     PhotometricBAConfig options;

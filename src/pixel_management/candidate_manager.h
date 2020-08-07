@@ -120,8 +120,8 @@ inline bool is_in_img(CamData& cam, const T& p) {
 
 // project with inv depth on synetic image
 
-inline Eigen::Vector2f unproject_trans_project(const Candidate* const can, const Frame::ptr host_frame,
-                                               const Frame::ptr target_frame) {
+template <typename T1, typename T2>
+inline Eigen::Vector2f unproject_trans_project(const T1 can, const T2 host_frame, const T2 target_frame) {
     Eigen::Vector3f P_host = host_frame->unproject(Eigen::Vector2i(can->u, can->v), can->d_inv_synetic_im);
     Sophus::SE3f T_target_host = get_src_to_dst_transform(host_frame, target_frame);
     return target_frame->project(T_target_host * P_host);

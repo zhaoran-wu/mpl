@@ -5,6 +5,7 @@
 #include "ceres/PhotometricResidual.h"
 #include "ceres/PointParameterBlock.h"
 #include "config.h"
+#include "debug.h"
 #include "frame.h"
 #include "pattern.h"
 #include "visibility.h"
@@ -30,7 +31,7 @@ void PhotometricBA::reset() {
 }
 
 void PhotometricBA::solve(CandidateManager& cm) {
-    const auto& config = Config::getInstance();
+    auto& config = Config::getInstance();
     candidate_map_ptr = &cm.get_candidate_map();
     if (cm.get_key_frames().size() < 3) return;
 
@@ -57,7 +58,82 @@ void PhotometricBA::solve(CandidateManager& cm) {
     this->mergeOptimization(cm, obsToRemove);
 
     // remove bad observations
+
     //! this->removeBadObservations(obsToRemove);
+
+    debug::execute_mem_according_to_config(config.DEBUG_SLIDING_WINDOW, config.debug_sliding_window_mutex,
+                                           &PhotometricBA::draw_result, this, &cm);
+}
+
+void PhotometricBA::draw_result(CandidateManager* cm) const {
+    CamData& cam = CamData::getInstance();
+    const auto& kf_vec = cm->get_key_frames();
+    auto& candidate_map = cm->get_candidate_map();
+    // prepare image to draw
+    std::unordered_map<Frame*, cv::Mat> imgs_to_draw;
+    for (const auto& kf : kf_vec) {
+        cv::Mat gray_im =
+            cv::Mat(cv::Size(cam.width[0], cam.height[0]), CV_8UC1, kf->get_image_pyramid()->data(0).get());
+        cv::Mat color_im;
+        cv::cvtColor(gray_im, color_im, CV_GRAY2BGR);
+        imgs_to_draw[kf.get()] = color_im;
+    }
+
+    // draw every observation on target frame
+    for (const auto& kf : kf_vec) {
+        const auto& can_vec = candidate_map[kf];
+        for (const auto& can : can_vec) {
+            for (const auto& it : can->observations) {
+                const auto& obs = it.second;
+                const auto& obs_frame = obs->obs_frame();
+
+                const Eigen::Vector2f projection = unproject_trans_project(can.get(), kf.get(), obs_frame);
+
+                cv::circle(imgs_to_draw[obs_frame], cv::Point(projection(0), projection(1)), 2, cv::Scalar(0, 255, 0),
+                           2);
+            }
+        }
+    }
+
+    // stiching and show all img
+    const int imgs_size = imgs_to_draw.size();
+    const int num_img_x = 2;
+    const int num_img_y = imgs_size / 2 + (imgs_size % 2);
+    int imgs_width = num_img_x * cam.width[0];
+    int imgs_height = num_img_y * cam.height[0];
+
+    int interval = 15;
+
+    cv::Mat result = cv::Mat::zeros(
+        cv::Size(imgs_width + (num_img_x + 1) * interval, imgs_height + (num_img_y + 1) * interval), CV_8UC3);
+
+    int id = 0;
+    for (auto it = kf_vec.begin(); it != kf_vec.end(); ++it) {
+        cv::Mat im = imgs_to_draw[it->get()];
+        const int row = id / 2;
+        const int col = id % 2;
+
+        int ul_x = interval * (col + 1) + cam.width[0] * col;
+        int ul_y = interval * (row + 1) + cam.height[0] * row;
+
+        cv::putText(im,                                               // target image
+                    "ID : " + std::to_string(id),                     // text
+                    cv::Point(interval * 3, interval * 3),            // top-left position
+                    cv::FONT_HERSHEY_DUPLEX, 1.0, CV_RGB(255, 0, 0),  // font color
+                    2);
+
+        im.copyTo(result(cv::Rect(cv::Point(ul_x, ul_y), cv::Size(cam.width[0], cam.height[0]))));
+
+        id++;
+    }
+
+    const int max_rows = 750;
+
+    float ratio = static_cast<float>(max_rows) / result.rows;
+
+    cv::resize(result, result, cv::Size(result.cols * ratio, result.rows * ratio));
+    cv::imshow("sliding window result", result);
+    cv::waitKey(0);
 }
 
 void PhotometricBA::prepareOptimization(CandidateManager& cm, BundleAdjustment& problem) {

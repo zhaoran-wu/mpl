@@ -254,7 +254,9 @@ inline int Frame::height(const int lvl) const {
     return cam->height[lvl];
 }
 // help function
-inline Sophus::SE3f get_src_to_dst_transform(const Frame::ptr src, const Frame::ptr dst) {
+
+template <typename T>
+inline Sophus::SE3f get_src_to_dst_transform(const T src, const T dst) {
     return dst->get_pose().inverse() * src->get_pose();
 }
 
