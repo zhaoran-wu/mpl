@@ -52,7 +52,7 @@ int main() {
 
     CandidateManager cm;
     cm.select_candidate(key_frame, depth_vec[0]);
-    std::vector<Candidate>& candidates = cm.get_candidate(key_frame);
+    std::vector<std::unique_ptr<Candidate>>& candidates = cm.get_candidate(key_frame);
 
     // generate depth map vec
     cv::Mat depth_im = depth_vec[0];

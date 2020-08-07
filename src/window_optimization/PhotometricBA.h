@@ -58,6 +58,6 @@ class PhotometricBA {
 
     std::vector<PhotometricResidual*> activeObservations;
 
-    std::unordered_map<Frame::ptr, std::vector<Candidate>>* candidate_map_ptr;
+    std::unordered_map<Frame::ptr, std::vector<std::unique_ptr<Candidate>>>* candidate_map_ptr;
 };
 }  // namespace mpl

@@ -41,7 +41,7 @@ void PhotometricBAIterationCallback::backup() const {
     for (const Frame::ptr frame : this->bundle.activeKeyframes) {
         frame->get_frame_block()->backup();
         for (const auto& point : bundle.candidate_map_ptr->operator[](frame)) {
-            point.get_point_block()->backup();
+            point->get_point_block()->backup();
         }
     }
 }
@@ -67,7 +67,7 @@ bool PhotometricBAIterationCallback::checkTerminationCriteria() const {
         deltaBeta += frameStep[7] * frameStep[7];
 
         for (const auto& point : bundle.candidate_map_ptr->operator[](frame)) {
-            meanIDepth += fabs(point.get_point_block()->getIDepthBackup());
+            meanIDepth += fabs(point->get_point_block()->getIDepthBackup());
             numPoints++;
         }
     }

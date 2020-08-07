@@ -447,8 +447,9 @@ void Visualizer::set_new_sliding_window_data(CandidateManager& cm, const Frame::
 
         auto& can_vec = candidate_map[*it];
         for (const auto& can : can_vec) {
-            if (can.status == CandidateStatus::ACTIVE || can.status == CandidateStatus::OOB) {
-                Eigen::Vector3f point_3d = pose * (*it)->unproject(Eigen::Vector2i(can.u, can.v), can.d_inv_synetic_im);
+            if (can->status == CandidateStatus::ACTIVE || can->status == CandidateStatus::OOB) {
+                Eigen::Vector3f point_3d =
+                    pose * (*it)->unproject(Eigen::Vector2i(can->u, can->v), can->d_inv_synetic_im);
 
                 if (*it == to_remove_frame) {
                     point_buff_history.push_back(point_3d);

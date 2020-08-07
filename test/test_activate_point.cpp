@@ -57,7 +57,7 @@ int main() {
     std::vector<cv::Mat> syn_im_vec_curr = synetic_image.renderingAt(render_pose);
     CandidateManager cm;
     cm.select_candidate(key_frame, syn_im_vec_curr[1]);
-    std::vector<Candidate>& candidates = cm.get_candidate(key_frame);
+    std::vector<std::unique_ptr<Candidate>>& candidates = cm.get_candidate(key_frame);
 
     PointCloudPyramid::ptr pcp = cm.get_point_cloud_pyramid();
 

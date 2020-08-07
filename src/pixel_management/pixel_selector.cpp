@@ -314,6 +314,7 @@ float PixelSelector::find_max_mag2(Eigen::Vector3i& candidate, const int grid_x,
                 }
             }
 
+            if (max_x < 3 || max_y < 3 || max_x > cam->width[0] - 4 || max_y > cam->height[0] - 4) return 0;
             candidate(0) = max_x;
             candidate(1) = max_y;
             candidate(2) = 0;
@@ -345,6 +346,7 @@ float PixelSelector::find_max_mag2(Eigen::Vector3i& candidate, const int grid_x,
                 }
             }
 
+            if (max_x < 3 || max_y < 3 || max_x > cam->width[0] - 4 || max_y > cam->height[0] - 4) return 0;
             candidate(0) = max_x;
             candidate(1) = max_y;
             candidate(2) = 1;
@@ -380,6 +382,8 @@ float PixelSelector::find_max_mag2(Eigen::Vector3i& candidate, const int grid_x,
                     }
                 }
             }
+            if (max_x < 3 || max_y < 3 || max_x > cam->width[0] - 4 || max_y > cam->height[0] - 4) return 0;
+
             candidate(0) = max_x;
             candidate(1) = max_y;
             candidate(2) = 2;

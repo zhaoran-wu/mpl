@@ -55,7 +55,7 @@ int main() {
 
     CandidateManager cm;
     cm.select_candidate(key_frame, syn_im_vec[1]);
-    std::vector<Candidate>& candidates = cm.get_candidate(key_frame);
+    std::vector<std::unique_ptr<Candidate>>& candidates = cm.get_candidate(key_frame);
 
     // generate depth map pyramid
     /*     int lvls = config.PYRAMID_LVLS;

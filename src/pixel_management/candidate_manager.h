@@ -29,6 +29,7 @@ struct Candidate {
 
     int u;
     int v;
+    std::mutex d_inv_mutex;
     float d_inv_synetic_im;  // in m, initialized with synetic depth map, = 0 if
                              // the synetic depth is not valid
     int good_track_cnt = 0;
@@ -66,9 +67,9 @@ class CandidateManager {
 
     PointCloudPyramid::ptr get_point_cloud_pyramid();
 
-    std::vector<Candidate>& get_candidate(const Frame::ptr frame);
+    std::vector<std::unique_ptr<Candidate>>& get_candidate(const Frame::ptr frame);
 
-    std::unordered_map<Frame::ptr, std::vector<Candidate>>& get_candidate_map();
+    std::unordered_map<Frame::ptr, std::vector<std::unique_ptr<Candidate>>>& get_candidate_map();
 
     void activate_candidate();
 
@@ -87,7 +88,7 @@ class CandidateManager {
     void calc_structure_mat(Frame::ptr host_frame, Candidate& can, cv::Mat weight_mask);
 
     // map frame ptr to it's candidate
-    std::unordered_map<Frame::ptr, std::vector<Candidate>> candidate_map;
+    std::unordered_map<Frame::ptr, std::vector<std::unique_ptr<Candidate>>> candidate_map;
 
     Frame::ptr newst_KF = nullptr;
     std::vector<Frame::ptr> key_frames;
@@ -119,17 +120,18 @@ inline bool is_in_img(CamData& cam, const T& p) {
 
 // project with inv depth on synetic image
 
-inline Eigen::Vector2f unproject_trans_project(const Candidate& can, const Frame::ptr host_frame,
+inline Eigen::Vector2f unproject_trans_project(const Candidate* const can, const Frame::ptr host_frame,
                                                const Frame::ptr target_frame) {
-    Eigen::Vector3f P_host = host_frame->unproject(Eigen::Vector2i(can.u, can.v), can.d_inv_synetic_im);
+    Eigen::Vector3f P_host = host_frame->unproject(Eigen::Vector2i(can->u, can->v), can->d_inv_synetic_im);
     Sophus::SE3f T_target_host = get_src_to_dst_transform(host_frame, target_frame);
     return target_frame->project(T_target_host * P_host);
 }
 
 inline void Candidate::merge_optimization_result() {
     // std::cout << "old_depth :" << this->d_inv_synetic_im;
-
+    d_inv_mutex.lock();
     this->d_inv_synetic_im = (float)this->point_block->getIDepth();
+    d_inv_mutex.unlock();
 
     // std::cout << "  new_depth :" << this->d_inv_synetic_im << '\n';
 }

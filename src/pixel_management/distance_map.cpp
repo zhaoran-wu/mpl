@@ -46,7 +46,7 @@ int DistanceMap::get_num_obstacles() const {
     return this->num_obstacles - unreal_obsacles_cnt;
 }
 
-void DistanceMap::compute(std::unordered_map<Frame::ptr, std::vector<Candidate>>& candidate_map,
+void DistanceMap::compute(std::unordered_map<Frame::ptr, std::vector<std::unique_ptr<Candidate>>>& candidate_map,
                           const std::vector<Frame::ptr>& frame_vec, cv::Mat mask) {
     // reset distance map
     std::fill(this->dist_map, this->dist_map + this->w * this->h, std::numeric_limits<float>::max());
@@ -74,15 +74,15 @@ void DistanceMap::compute(std::unordered_map<Frame::ptr, std::vector<Candidate>>
         // go through all candidate
         auto& can_vec = candidate_map[frame];
         for (auto& can : can_vec) {
-            const Eigen::Vector2f point_in_frame = unproject_trans_project(can, frame, newst_kf);
+            const Eigen::Vector2f point_in_frame = unproject_trans_project(can.get(), frame, newst_kf);
 
             if (!is_in_img(*cam, point_in_frame)) {
                 continue;
             }
-            can.projection_on_newst_KF = point_in_frame;
+            can->projection_on_newst_KF = point_in_frame;
 
             // check active point
-            if (can.status != CandidateStatus::ACTIVE) continue;
+            if (can->status != CandidateStatus::ACTIVE) continue;
 
             int x = static_cast<int>(point_in_frame[0]);
             int y = static_cast<int>(point_in_frame[1]);

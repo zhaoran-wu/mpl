@@ -77,24 +77,24 @@ void PhotometricBA::prepareOptimization(CandidateManager& cm, BundleAdjustment& 
         ordering->AddElementToGroup(kf->get_frame_block()->getParameters(), FrameParameterBlock::Group);
         this->activeKeyframes.push_back(kf);
 
-        // add point param/ obs residual to problem
+        // add point->param/ obs residual to problem
         if (kf == cm.get_key_frames().back()) continue;  // all candidate on newst kf is non active
         for (const auto& point : candidate_map[kf]) {
-            if (point.status == CandidateStatus::NOT_ACTIVE || point.status == CandidateStatus::OUTLIER) continue;
-            //! add point param, try at fix the depth
-            problem.addParameterBlock(point.get_point_block().get());
-            if (kf == cm.get_key_frames().back()) problem.setParameterBlockConstant(point.get_point_block().get());
+            if (point->status == CandidateStatus::NOT_ACTIVE || point->status == CandidateStatus::OUTLIER) continue;
+            //! add point->param, try at fix the depth
+            problem.addParameterBlock(point->get_point_block().get());
+            if (kf == cm.get_key_frames().back()) problem.setParameterBlockConstant(point->get_point_block().get());
 
-            ordering->AddElementToGroup(point.get_point_block()->getParameters(), PointParameterBlock::Group);
+            ordering->AddElementToGroup(point->get_point_block()->getParameters(), PointParameterBlock::Group);
 
             // add obs frame to param and add residuals
-            for (const auto& obs_per_frame : point.observations) {
+            for (const auto& obs_per_frame : point->observations) {
                 problem.addParameterBlock(obs_per_frame.first->get_frame_block().get());
                 ordering->AddElementToGroup(obs_per_frame.first->get_frame_block()->getParameters(),
                                             FrameParameterBlock::Group);
 
                 problem.addResidualBlock(obs_per_frame.second.get(), kf->get_frame_block().get(),
-                                         obs_per_frame.first->get_frame_block().get(), point.get_point_block().get());
+                                         obs_per_frame.first->get_frame_block().get(), point->get_point_block().get());
 
                 this->activeObservations.push_back(obs_per_frame.second.get());
             }
@@ -115,16 +115,16 @@ void PhotometricBA::mergeOptimization(CandidateManager& cm, std::vector<Photomet
     for (const std::shared_ptr<Frame>& kf : cm.get_key_frames()) {
         if (kf == cm.get_key_frames().back()) continue;
         for (auto& point : cm.get_candidate_map()[kf]) {
-            const Sophus::SE3f& refToWorld = point.host_frame->get_pose();
+            const Sophus::SE3f& refToWorld = point->host_frame->get_pose();
 
-            if (point.status == CandidateStatus::ACTIVE || point.status == CandidateStatus::OOB) {
-                point.merge_optimization_result();
+            if (point->status == CandidateStatus::ACTIVE || point->status == CandidateStatus::OOB) {
+                point->merge_optimization_result();
             }
 
             // const Eigen::Vector3f pt3d =
-            // point.host_frame->unproject(point);//point->pt3d();
+            // point->host_frame->unproject(point);//point->pt3d();
 
-            for (const auto& observation : point.observations) {
+            for (const auto& observation : point->observations) {
                 // const int obsIdx = observation.first->keyframeID();
                 const Visibility state = observation.second->state();
 
