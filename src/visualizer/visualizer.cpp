@@ -427,11 +427,13 @@ void Visualizer::set_new_sliding_window_data(CandidateManager& cm, const Frame::
 
     int size_cnt = 0;
     for (auto& it : candidate_map) {
+        if (it.first == to_remove_frame) continue;
         size_cnt += it.second.size();
     }
 
     pose_buff_sliding_window.reserve(candidate_map.size());
     point_buff_sliding_window.reserve(size_cnt);
+
     std::vector<Eigen::Vector3f> point_buff_history;
     if (to_remove_frame != nullptr) {
         point_buff_history.reserve(candidate_map[to_remove_frame].size());
@@ -439,16 +441,19 @@ void Visualizer::set_new_sliding_window_data(CandidateManager& cm, const Frame::
 
     for (auto it = key_frame_vec.begin(); it != key_frame_vec.end(); it++) {
         const auto pose = ((*it)->get_pose());
-        pose_buff_sliding_window.push_back(pose);
+        if (*it != to_remove_frame) {
+            pose_buff_sliding_window.push_back(pose);
+        }
+
         auto& can_vec = candidate_map[*it];
         for (const auto& can : can_vec) {
             if (can.status == CandidateStatus::ACTIVE || can.status == CandidateStatus::OOB) {
                 Eigen::Vector3f point_3d = pose * (*it)->unproject(Eigen::Vector2i(can.u, can.v), can.d_inv_synetic_im);
 
-                point_buff_sliding_window.push_back(point_3d);
-
                 if (*it == to_remove_frame) {
                     point_buff_history.push_back(point_3d);
+                } else {
+                    point_buff_sliding_window.push_back(point_3d);
                 }
             }
         }
