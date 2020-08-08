@@ -255,16 +255,16 @@ std::vector<cv::Mat> SyneticImage::renderingAt(const Eigen::Isometry3f& pose) {
     cv::flip(photometric, photometric, 0);
     results.push_back(photometric);
 
-    // rendering normal image
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    rendering_normal_image(pose);
+    //// rendering normal image
+    // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    // rendering_normal_image(pose);
 
     // copy from gpu to cpu
 
-    glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo_arr[2]);
-    glBufferData(GL_PIXEL_PACK_BUFFER, camera.cols * camera.rows * 4 * sizeof(uchar), 0, GL_STREAM_READ);
-    glReadBuffer(GL_BACK);
-    glReadPixels(0, 0, camera.cols, camera.rows, GL_BGRA, GL_UNSIGNED_BYTE, 0);
+    // glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo_arr[2]);
+    // glBufferData(GL_PIXEL_PACK_BUFFER, camera.cols * camera.rows * 4 * sizeof(uchar), 0, GL_STREAM_READ);
+    // glReadBuffer(GL_BACK);
+    // glReadPixels(0, 0, camera.cols, camera.rows, GL_BGRA, GL_UNSIGNED_BYTE, 0);
 
     // when read normal map data, we can map and process the result from depth
     // map
@@ -285,14 +285,14 @@ std::vector<cv::Mat> SyneticImage::renderingAt(const Eigen::Isometry3f& pose) {
 
     results.push_back(depth_single_channnel);
 
-    glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo_arr[2]);
-    cv::Mat normal(camera.rows, camera.cols, CV_8UC4);
-    normal.data = (uchar*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
-    cv::flip(normal, normal, 0);
-
-    glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
-
-    results.push_back(normal);
+    // glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo_arr[2]);
+    // cv::Mat normal(camera.rows, camera.cols, CV_8UC4);
+    // normal.data = (uchar*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+    // cv::flip(normal, normal, 0);
+    //
+    //    glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+    //
+    //    results.push_back(normal);
 
     return results;
 }

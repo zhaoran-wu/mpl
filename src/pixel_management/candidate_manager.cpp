@@ -173,138 +173,29 @@ void CandidateManager::calc_structure_mat(Frame::ptr host_frame, Candidate& can,
     }
 }
 
-void CandidateManager::activate_candidate() {
-    auto& cam = CamData::getInstance();
-    // pre-compute the distance map of (already) active points
-
-    dist_map.compute(candidate_map, this->key_frames, safe_mask);
-
-    // set the min dist to active based on statistics
-    Config& config = Config::getInstance();
-
-    int num_active = dist_map.get_num_obstacles();
-    float ratio = (float)num_active / config.PIXEL_SELECTION_NUM;
-
-    if (ratio > 1.7f)
-        min_dist_to_active += 3;
-    else if (ratio > 1.4f)
-        min_dist_to_active += 2;
-    else if (ratio > 1.1f)
-        min_dist_to_active += 1;
-    else if (ratio < 0.4f)  // less point is more dangerous than more point
-        min_dist_to_active -= 4;
-    else if (ratio < 0.7f)
-        min_dist_to_active -= 3;
-    else if (ratio < 0.9f)
-        min_dist_to_active -= 2;
-
-    min_dist_to_active = std::min(max(4, min_dist_to_active), 12);
-
-    int min_square_dist = pow(min_dist_to_active, 2);
-
-    // choose new active points
-    // std::cout << " before add ,we have active points : " << dist_map.get_num_obstacles()
-    //          << " min_dist :" << min_square_dist << '\n';
-
-    for (auto it = candidate_map.begin(); it != candidate_map.end(); ++it) {
-        if (it->first == newst_KF) continue;
-        for (auto& can : it->second) {
-            // remove bad candidate
-            if (can->status != CandidateStatus::NOT_ACTIVE) continue;
-
-            //! decide now only with distmap
-            // bool can_be_activated = (can.status != CandidateStatus::BAD &&
-            //                         can.status != CandidateStatus::OOB);
-
-            // if (!can_be_activated) continue;
-
-            // check dist on dist map
-            float dist = dist_map.dist(can->projection_on_newst_KF(0), can->projection_on_newst_KF(1));
-
-            if (dist > static_cast<float>(min_square_dist)) {
-                can->status = CandidateStatus::ACTIVE;
-                dist_map.add(can->projection_on_newst_KF);
-            }
-        }
-    }
-    // debug only run if required in config file or setting in the menu
-    debug::execute_mem_according_to_config(config.DEBUG_DISTANCE_MAP, config.debug_distance_map_mutex,
-                                           &DistanceMap::show_distance_map_for_visualization, &dist_map, true);
-}
 PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
     PointCloudPyramid::ptr pcp(new PointCloudPyramid);  // todo : avoid allocaction every time
     // before get a new reference point cloud we need to update our active point
     // set
-    activate_candidate();
-
     tictoc::tic();
-    if (!is_initialized) {  // initialized means,we have enough activated candidate
-        const int lvls = pcp->lvls();
-        int cnt = 0;
+    const int lvls = pcp->lvls();
+    int cnt = 0;
 
-        for (auto& can : candidate_map[newst_KF]) {
-            can->status = CandidateStatus::ACTIVE;
-            ++cnt;
-            for (int lvl = 0; lvl < lvls; ++lvl) {
-                if ((lvl != 0 && cnt % (lvl + 1) == 0) || lvl == 0) {
-                    Eigen::Vector3f position =
-                        newst_KF->unproject(Eigen::Vector2i(can->u, can->v), can->d_inv_synetic_im);
+    for (auto& can : candidate_map[newst_KF]) {
+        can->status = CandidateStatus::ACTIVE;
+        ++cnt;
+        for (int lvl = 0; lvl < lvls; ++lvl) {
+            if ((lvl != 0 && cnt % (lvl + 1) == 0) || lvl == 0) {
+                Eigen::Vector3f position = newst_KF->unproject(Eigen::Vector2i(can->u, can->v), can->d_inv_synetic_im);
 
-                    (*pcp)[lvl].emplace_back(
-                        can.get(), position,
-                        newst_KF->at_synetic<float>(((can->u + 0.5f) / std::pow(2.0f, lvl)) - 0.5f,
-                                                    ((can->v + 0.5f) / std::pow(2.0f, lvl)) - 0.5f, lvl),
-                        can->alignment_weight);
-                }
-            }
-            ++can->age;
-        }
-        if (dist_map.get_num_obstacles() > 1500) is_initialized = true;
-    } else {
-        const int lvls = pcp->lvls();
-        int cnt = 0;
-        for (auto it = candidate_map.begin(); it != candidate_map.end(); ++it) {
-            if (it->first == newst_KF) continue;
-
-            for (auto& can : it->second) {
-                if (can->age > 7 || can->status != CandidateStatus::ACTIVE) continue;
-                ++cnt;
-                for (int lvl = 0; lvl < lvls; ++lvl) {
-                    Eigen::Vector3f position =
-                        get_src_to_dst_transform(it->first, newst_KF) *
-                        it->first->unproject(Eigen::Vector2i(can->u, can->v), can->d_inv_synetic_im);
-
-                    if ((lvl != 0 && cnt % (lvl + 1) == 0) || lvl == 0) {
-                        float color = it->first->at_synetic<float>(((can->u + 0.5f) / std::pow(2.0f, lvl)) - 0.5f,
-                                                                   ((can->v + 0.5f) / std::pow(2.0f, lvl)) - 0.5f, lvl);
-
-                        (*pcp)[lvl].emplace_back(can.get(), position, color, can->alignment_weight);
-                    }
-                }
-                ++can->age;
+                (*pcp)[lvl].emplace_back(
+                    can.get(), position,
+                    newst_KF->at_synetic<float>(((can->u + 0.5f) / std::pow(2.0f, lvl)) - 0.5f,
+                                                ((can->v + 0.5f) / std::pow(2.0f, lvl)) - 0.5f, lvl),
+                    can->alignment_weight);
             }
         }
-        // for all can in newst KF(not active yet)
-        for (auto& can : candidate_map[newst_KF]) {
-            if (dist_map.dist(can->u, can->v) < 20) continue;
-
-            can->status = CandidateStatus::ACTIVE;
-            dist_map.add(Eigen::Vector2f(can->u, can->v));
-
-            ++cnt;
-            for (int lvl = 0; lvl < lvls; ++lvl) {
-                if ((lvl != 0 && cnt % (lvl + 1) == 0) || lvl == 0) {
-                    Eigen::Vector3f position =
-                        newst_KF->unproject(Eigen::Vector2i(can->u, can->v), can->d_inv_synetic_im);
-                    (*pcp)[lvl].emplace_back(
-                        can.get(), position,
-                        newst_KF->at_synetic<float>(((can->u + 0.5f) / std::pow(2.0f, lvl)) - 0.5f,
-                                                    ((can->v + 0.5f) / std::pow(2.0f, lvl)) - 0.5f, lvl),
-                        can->alignment_weight);
-                }
-            }
-            ++can->age;
-        }
+        ++can->age;
     }
 
     LOG(INFO) << "build pcp total using time: " << tictoc::toc() / 1000.0f << " ms ,"

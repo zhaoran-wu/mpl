@@ -38,7 +38,7 @@ class SyneticImage {
      */
     void set_start_pose(const Eigen::Isometry3f& pose);
     /**
-     * @brief rendering with relative pose
+     * @brief rendering with relative pose , should use with set_start_pose()
      *
      * @param pose : T_c0_c , c0 set with interface set_start_pose
      * @return std::vector<cv::Mat>

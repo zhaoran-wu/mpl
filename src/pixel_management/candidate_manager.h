@@ -2,7 +2,6 @@
 #include "../visualizer/visualizer.h"
 #include "ceres/PhotometricResidual.h"
 #include "ceres/PointParameterBlock.h"
-#include "distance_map.h"
 #include "frame.h"
 #include "pixel_selector.h"
 #include "point_cloud_pyramid.h"
@@ -71,8 +70,6 @@ class CandidateManager {
 
     std::unordered_map<Frame::ptr, std::vector<std::unique_ptr<Candidate>>>& get_candidate_map();
 
-    void activate_candidate();
-
     const std::vector<Frame::ptr>& get_key_frames() const;
     Frame::ptr get_last_removed_kf() const;
 
@@ -95,7 +92,6 @@ class CandidateManager {
     // add candidate covariance info
     PixelSelector pixel_selector;
     // distance map
-    DistanceMap dist_map;
     int min_dist_to_active = 5;
 
     bool is_initialized = false;  // initialized: has enough activate point, else directly use synetic depth image in
