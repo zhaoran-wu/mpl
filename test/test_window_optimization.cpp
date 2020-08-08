@@ -1,4 +1,4 @@
-
+#include "../util/kitti.h"
 #include "PhotometricBA.h"
 #include "cam_data.h"
 #include "candidate_manager.h"

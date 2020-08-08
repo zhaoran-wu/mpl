@@ -3,6 +3,7 @@ trajectory.cpp
 utility.cpp
 ply.cpp
 tictoc.cpp
+kitti.cpp
 )
 target_link_libraries(util
 ${Eigen_LIBRARIES}

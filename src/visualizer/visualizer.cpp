@@ -22,6 +22,9 @@ void Visualizer::init() {
     config = &Config::getInstance();
     img_cols = cam_data->width[scale_factor];
     img_rows = cam_data->height[scale_factor];
+    // ground truth
+    const std::string kitti_gound_truth = "/home/zhaoran/dataset/KITTI/data_odometry_poses/dataset/poses/00.txt";
+    this->ground_truth = KittiReader(kitti_gound_truth);
 
     W = 1.5 * (cam_data->width[0] + UI_W);
     H = cam_data->height[0] * 3;
@@ -96,6 +99,7 @@ void Visualizer::run() {
         draw_tracking_point_cloud();
         draw_curr_frame_cam();
         draw_all_history();
+        draw_ground_truth();
 
         // display  curr frame and key frame depth
         if (curr_frame_image_changed) {  // double check trick to save time
@@ -261,6 +265,21 @@ void Visualizer::draw_tracking_point_cloud() {
     }
 
     draw_point_clouds(point_cloud_to_draw, 3, 0.75f, 0.0f, 0.0f);
+}
+void Visualizer::draw_ground_truth() {
+    const int init_idx = 80;
+    const int end_idx = 520;
+
+    std::vector<Sophus::SE3f> pose_to_draw;
+    Sophus::SE3f init_pose = ground_truth.get_pose_at_index(init_idx);
+
+    for (int i = init_idx; i <= end_idx; ++i) {
+        Sophus::SE3f pose = init_pose.inverse() * ground_truth.get_pose_at_index(i);
+
+        pose_to_draw.push_back(pose);
+    }
+
+    this->draw_cameras(pose_to_draw, 3, 0.0f, 1.0f, 0.0f, 1, 1.0f, 0.0f, 1.0f);
 }
 
 void Visualizer::draw_and_publish_key_frame_depth(cv::Mat depth_im) {
