@@ -216,8 +216,8 @@ void TrackingOptimizer::add_edge(const Voxel& voxel) {
     J_tmp(1) = fy_dy * inv_z;
     J_tmp(2) = -(fx_dx * P(0) + fy_dy * P(1)) * inv_zz;
 
-    J_tmp(3) = -(fx_dx * P(0) * p1_inv_zz + fy_dy * (1.0f + P(1) * p1_inv_zz));
-    J_tmp(4) = fx_dx * (1.0f + P(0) * P(0) * inv_zz) + fy_dy * P(0) * p1_inv_zz;
+    J_tmp(3) = -(fx_dx * P(0) * p1_inv_zz + fy_dy * (1.0 + P(1) * p1_inv_zz));
+    J_tmp(4) = fx_dx * (1.0 + P(0) * P(0) * inv_zz) + fy_dy * P(0) * p1_inv_zz;
     J_tmp(5) = -fx_dx * P(1) * inv_z + fy_dy * P(0) * inv_z;
 
     J_tmp(6) = -voxel.intensity * exp(affine_light.alpha());

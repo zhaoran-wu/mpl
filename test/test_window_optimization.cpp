@@ -48,7 +48,7 @@ bool is_newframe_KF(PointCloudPyramid::ptr pcp, const Sophus::SE3f& T_KF_curr, f
               << "   energy :" << energy << '\n';
 
     // should use depth/movement ratio and candidate num cnt
-    return (abs(T_KF_curr.angleY()) > 0.02 || T_KF_curr.log().norm() > 0.9 || energy > 7.f ||
+    return (abs(T_KF_curr.angleY()) > 0.02 || T_KF_curr.log().norm() > 0.7 || energy > 7.f ||
             T_KF_curr.log().tail(3).norm() > 0.01);
 }
 
@@ -247,12 +247,12 @@ int main() {
                 std::make_unique<FrameParameterBlock>(key_frame->get_pose().cast<double>(), key_frame->get_aff_light());
 
             // add new tracking result(residual)
-            add_last_tracking_result_to_window(pcp, key_frame, cm);
+            // add_last_tracking_result_to_window(pcp, key_frame, cm);
 
             cm.select_candidate(curr_frame, syn_im_vec_curr[1], alignment_weight_mask);
 
             // optimize key frame window
-            pba.solve(cm);
+            // pba.solve(cm);
 
             // get and set new tracking reference point cloud after optimization
             pcp = cm.get_point_cloud_pyramid();
@@ -262,6 +262,11 @@ int main() {
             std::thread th_draw_depth(&Visualizer::draw_and_publish_key_frame_depth, std::ref(*vis),
                                       syn_im_vec_curr[1]);
             th_draw_depth.detach();
+        }
+
+        // sleep at last image
+        if (i == img_vec.size() - 1) {
+            while (true) std::this_thread::sleep_for(std::chrono::seconds(1));
         }
     }
 }
