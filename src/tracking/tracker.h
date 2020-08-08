@@ -32,6 +32,14 @@ class Tracker {
 
     float get_per_pixel_energy() const;
 
+    /**
+     * @brief tracking the frame itself
+     *
+     * @param to_refine_frame
+     * @param point_cloud_pyramid: point cloud in current synetic image coordinate
+     */
+    void refine_pose(Frame::ptr to_refine_frame, const PointCloudPyramid::ptr point_cloud_pyramid);
+
    private:
     // generate pediction T_curr_last
     void generate_movement_predictions();
@@ -47,7 +55,7 @@ class Tracker {
     // no movement
     // forward movement
     Sophus::SE3f movement_prediction[25];
-    PointCloudPyramid::ptr point_cloud_pyramid_;
+    PointCloudPyramid::ptr point_cloud_pyramid_;  // in synetic image coordinate
     TrackingOptimizer optimizer;
 
     Frame::ptr curr_ref_frame;

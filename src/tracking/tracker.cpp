@@ -11,6 +11,34 @@ void Tracker::set_tracking_ref(const Frame::ptr ref_frame, const PointCloudPyram
     curr_ref_frame = ref_frame;
 }
 
+void Tracker::refine_pose(const Frame::ptr to_refine_frame, const PointCloudPyramid::ptr point_cloud_pyramid) {
+    auto& config = Config::getInstance();
+
+    Sophus::SE3f init_pose = Sophus::SE3f::transZ(0.0f);
+    AffineLight init_aff_light = to_refine_frame->get_aff_light();
+
+    optimizer.init(init_pose, init_aff_light, point_cloud_pyramid_, to_refine_frame);
+    optimizer.set_lvl(0);
+
+    int iterations = 15;
+    float lamda_init = 1e-14;
+    float huber_radius = 10;
+    float lamda_min = 1e-21;
+
+    float energy = optimizer.solve(iterations, lamda_init, lamda_min, huber_radius, false);
+
+    Sophus::SE3f T_c_s = optimizer.getT();
+    AffineLight final_aff_light = optimizer.getAffineLight();
+
+    std::cout << " Refine : T_c_s :" << '\n'
+              << T_c_s.matrix3x4() << '\n'
+              << "aff alpha " << final_aff_light.alpha() << "aff beta " << final_aff_light.beta() << "energy : energy";
+
+    // set refine result
+
+    to_refine_frame->set_refine_result(T_c_s, final_aff_light);
+}
+
 bool Tracker::tracking(Frame::ptr to_track_frame) {
     auto& config = Config::getInstance();
     // select best movement prediction
@@ -87,9 +115,6 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
     }
 
     float time_cost = tictoc::toc();
-    debug::execute_mem_according_to_config(
-        config.DEBUG_COARSE_TO_FINE_TRACKING, config.debug_coarse_to_fine_tracking_mutex, &Tracker::draw_result, this,
-        point_cloud_pyramid_, T_curr_lastKF_pyramid, to_track_frame, time_cost, energy_vec);
 
     Sophus::SE3f T_curr_lastKF = optimizer.getT();
     AffineLight aff_curr_map = optimizer.getAffineLight();
@@ -113,6 +138,10 @@ bool Tracker::tracking(Frame::ptr to_track_frame) {
 
     over_last_frame = last_frame;
     last_frame = to_track_frame;
+
+    debug::execute_mem_according_to_config(
+        config.DEBUG_COARSE_TO_FINE_TRACKING, config.debug_coarse_to_fine_tracking_mutex, &Tracker::draw_result, this,
+        point_cloud_pyramid_, T_curr_lastKF_pyramid, to_track_frame, time_cost, energy_vec);
 
     return true;
 }

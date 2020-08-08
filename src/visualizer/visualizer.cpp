@@ -444,7 +444,8 @@ void Visualizer::set_new_sliding_window_data(CandidateManager& cm, const Frame::
     }
 
     for (auto it = key_frame_vec.begin(); it != key_frame_vec.end(); it++) {
-        const auto pose = ((*it)->get_pose());
+        const auto pose = (*it)->get_pose();
+        const auto synetic_pose = (*it)->get_synetic_pose();
         if (*it != to_remove_frame) {
             pose_buff_sliding_window.push_back(pose);
         }
@@ -453,7 +454,7 @@ void Visualizer::set_new_sliding_window_data(CandidateManager& cm, const Frame::
         for (const auto& can : can_vec) {
             if (can->status == CandidateStatus::ACTIVE || can->status == CandidateStatus::OOB) {
                 Eigen::Vector3f point_3d =
-                    pose * (*it)->unproject(Eigen::Vector2i(can->u, can->v), can->d_inv_synetic_im);
+                    synetic_pose * (*it)->unproject(Eigen::Vector2i(can->u, can->v), can->d_inv_synetic_im);
 
                 if (*it == to_remove_frame) {
                     point_buff_history.push_back(point_3d);

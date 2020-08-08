@@ -23,18 +23,20 @@ class Frame {
     // set member variable
     void set_pose(const Sophus::SE3f& T_w_c);             // global T_w_c
     void set_aff_light(const int alpha, const int beta);  // global aff_w_c
-    void set_tracking_result(const Sophus::SE3f& T_curr_refKF, const AffineLight& aff_light_curr_refKF);
+    void set_tracking_result(const Sophus::SE3f& T_curr_refKF_s, const AffineLight& aff_light_curr_refKF);
+    void set_refine_result(const Sophus::SE3f& T_c_s, const AffineLight& aff_light_c_s);
     void set_ref_frame(const Frame::ptr& frame);
-    void set_synetic_photometirc_im(cv::Mat synetic_photometric_im);
+    void set_synetic_photometirc_im(cv::Mat synetic_photometric_im);  // global T_w_c
 
     // get member variable
     int width(const int lvl = 0) const;
     int height(const int lvl = 0) const;
     ImagePyramid::ptr get_image_pyramid() const;
     ImagePyramid::ptr get_synetic_photometric_pyramid() const;
-    Sophus::SE3f get_pose();      // return T_w_c
-    AffineLight get_aff_light();  // return aff_w_c
-    Frame::ptr get_ref_frame();   // get the frame, which used to tracking curr frame;
+    Sophus::SE3f get_pose();          // return T_w_c
+    Sophus::SE3f get_synetic_pose();  // return T_w_s
+    AffineLight get_aff_light();      // return aff_w_c
+    Frame::ptr get_ref_frame();       // get the frame, which used to tracking curr frame;
     int get_id() const;
     std::unique_ptr<FrameParameterBlock>& get_frame_block();  // get ceres param block
 
@@ -82,6 +84,8 @@ class Frame {
     ImagePyramid::ptr synetic_photometirc_pyramid = nullptr;
     ImagePyramid::ptr pyramid = nullptr;
     Frame::ptr refKF = nullptr;
+
+    Sophus::SE3f T_w_s = Sophus::SE3f::transZ(0.0f);  // correspond im will rendering at this pose
 
     // global info
     std::mutex state_mutex;
@@ -134,17 +138,27 @@ inline void Frame::set_aff_light(const int alpha, const int beta) {
     this->affine_light = AffineLight(alpha, beta);
 }
 
-inline void Frame::set_tracking_result(const Sophus::SE3f& T_curr_refKF, const AffineLight& aff_light_curr_w) {
+inline void Frame::set_tracking_result(const Sophus::SE3f& T_curr_refKF_s, const AffineLight& aff_light_curr_w) {
     // inital global info
     state_mutex.lock();
-    this->T_w_c = this->refKF->T_w_c * T_curr_refKF.inverse();
+    this->T_w_s = this->T_w_c = this->refKF->T_w_s * T_curr_refKF_s.inverse();  // assume T_w_c = T_w_s at first
     this->affine_light = aff_light_curr_w.inverse();
+    state_mutex.unlock();
+}
+
+inline void Frame::set_refine_result(const Sophus::SE3f& T_c_s, const AffineLight& aff_light_c_s) {
+    state_mutex.lock();
+    this->T_w_c = this->T_w_s * T_c_s.inverse();
+    this->affine_light = aff_light_c_s.inverse();
     state_mutex.unlock();
 }
 
 inline Sophus::SE3f Frame::get_pose() {
     std::lock_guard<std::mutex> lg(state_mutex);
     return T_w_c;
+}
+inline Sophus::SE3f Frame::get_synetic_pose() {
+    return this->T_w_s;
 }
 
 inline AffineLight Frame::get_aff_light() {

@@ -174,7 +174,7 @@ void CandidateManager::calc_structure_mat(Frame::ptr host_frame, Candidate& can,
 }
 
 PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
-    PointCloudPyramid::ptr pcp(new PointCloudPyramid);  // todo : avoid allocaction every time
+    PointCloudPyramid::ptr pcp(new PointCloudPyramid);  // in synetic image coordinate
     // before get a new reference point cloud we need to update our active point
     // set
     tictoc::tic();

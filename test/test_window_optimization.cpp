@@ -139,7 +139,7 @@ int main() {
     pose.read(pose_file, trajectory_io::Trajectory::FORMAT_MAT);
 
     // read 12 image date for test
-    std::string data_path = "/home/zhaoran/dataset/KITTI/sequences/00/image_0/";
+    std::string data_path = "/home/zhaoran/dataset/KITTI/sequences/00/image_1/";
     std::vector<cv::Mat> img_vec;
     std::vector<cv::Mat> img_draw_vec;
     for (int i = 0; i < 520; ++i) {
@@ -256,6 +256,11 @@ int main() {
 
             // get and set new tracking reference point cloud after optimization
             pcp = cm.get_point_cloud_pyramid();
+
+            // refine last frame
+            tracker.refine_pose(curr_frame, pcp);
+
+            // set pcp for next tracking
             tracker.set_tracking_ref(curr_frame, pcp);
 
             // visualize: depth map
