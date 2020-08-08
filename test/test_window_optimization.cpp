@@ -139,14 +139,20 @@ int main() {
     pose.read(pose_file, trajectory_io::Trajectory::FORMAT_MAT);
 
     // read 12 image date for test
-    std::string data_path = "/home/zhaoran/dataset/KITTI/sequences/00/image_1/";
+    std::string data_path = "/home/zhaoran/dataset/KITTI/sequences/00/image_0/";
     std::vector<cv::Mat> img_vec;
     std::vector<cv::Mat> img_draw_vec;
     for (int i = 0; i < 520; ++i) {
         int im_id = 80 + i;
         string im_name = (im_id < 100) ? "0000" + to_string(im_id) + ".png" : "000" + to_string(im_id) + ".png";
         cv::Mat im_tmp = cv::imread(data_path + im_name);
+
         assert(im_tmp.isContinuous());
+        /*         cv::putText(im_tmp,                                                // target image
+                            "TRUMP",                                               // text
+                            cv::Point(0, im_tmp.rows),                             // down-left position
+                            cv::FONT_HERSHEY_DUPLEX, 10.0, CV_RGB(255, 255, 255),  // font color
+                            5); */
 
         img_draw_vec.push_back(im_tmp.clone());
 
