@@ -147,11 +147,11 @@ int main() {
         cv::Mat im_tmp = cv::imread(data_path + im_name);
 
         assert(im_tmp.isContinuous());
-        /*         cv::putText(im_tmp,                                                // target image
-                            "TRUMP",                                               // text
-                            cv::Point(0, im_tmp.rows),                             // down-left position
-                            cv::FONT_HERSHEY_DUPLEX, 10.0, CV_RGB(255, 255, 255),  // font color
-                            5); */
+        // cv::putText(im_tmp,                                                // target image
+        //            "T",                                                   // text
+        //            cv::Point(0, im_tmp.rows),                             // down-left position
+        //            cv::FONT_HERSHEY_DUPLEX, 13.0, CV_RGB(255, 255, 255),  // font color
+        //            14);
 
         img_draw_vec.push_back(im_tmp.clone());
 
@@ -281,8 +281,6 @@ int main() {
 
             // refine itself
             tracker.refine_pose(curr_frame);
-            syn_im_vec_curr = synetic_image.renderingAt(curr_frame->get_pose());
-            make_alignment_weight_mask(img_vec[i], syn_im_vec_curr[0], key_frame->get_aff_light());
 
             // visualize: depth map
             std::thread th_draw_depth(&Visualizer::draw_and_publish_key_frame_depth, std::ref(*vis),

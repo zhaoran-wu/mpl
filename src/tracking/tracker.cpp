@@ -30,10 +30,10 @@ void Tracker::refine_pose(const Frame::ptr to_refine_frame) {
     Sophus::SE3f T_c_s = optimizer.getT();
     AffineLight final_aff_light = optimizer.getAffineLight();
 
-    std::cout << " Refine : T_c_s :" << '\n'
-              << T_c_s.matrix3x4() << '\n'
-              << "aff alpha " << final_aff_light.alpha() << "aff beta " << final_aff_light.beta()
-              << "energy : " << energy << '\n';
+    // std::cout << " Refine : T_c_s :" << '\n'
+    //          << T_c_s.matrix3x4() << '\n'
+    //          << "aff alpha " << final_aff_light.alpha() << "aff beta " << final_aff_light.beta()
+    //          << "energy : " << energy << '\n';
 
     // set refine result
 
