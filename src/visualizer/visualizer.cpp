@@ -41,7 +41,7 @@ void Visualizer::init() {
     ground_truth2.read(pose_file, trajectory_io::Trajectory::FORMAT_MAT);
 
     Sophus::SE3f init_pose2 = Sophus::SE3f(ground_truth2.atIndex(0).rotation(), ground_truth2.atIndex(0).translation());
-    for (int i = 0; i <= (end_idx - init_idx) / 4; i++) {
+    for (int i = 0; i < (end_idx - init_idx) / 4; i++) {
         pose_groud_truth2.push_back(init_pose2.inverse() * Sophus::SE3f(ground_truth2.atIndex(i).rotation(),
                                                                         ground_truth2.atIndex(i).translation()));
     }

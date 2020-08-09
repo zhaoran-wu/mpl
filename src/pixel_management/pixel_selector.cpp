@@ -182,7 +182,7 @@ void PixelSelector::select_in_image() {
     bool multi_thread = true;
 
     if (multi_thread) {
-        const int num_threads = 6;
+        const int num_threads = 8;
         const int total_grid_num = grid_num_x * grid_num_y;
         const int num_grid_each_group = total_grid_num / num_threads;
 
@@ -213,24 +213,28 @@ void PixelSelector::select_in_image() {
 }
 
 inline bool PixelSelector::is_valid(const int u, const int v) const {
-    if (!(this->depth_safe_mask.at<float>(v, u) < 1e-10 && ((int)this->alignment_mask.at<uchar>(v, u) < 20))) {
+    if (!(this->depth_safe_mask.at<float>(v, u) < 1e-10 && ((int)this->alignment_mask.at<uchar>(v, u) < 18))) {
         return false;
     }
-    return true;
+    if (frame->get_id() == 0) return true;
 
-    // const float dx = frame->dx(u, v);
-    // const float dy = frame->dy(u, v);
-    // const float mag2 = frame->mag_squared(u, v);
-    //
-    //    const float syn_dx = frame->get_synetic_photometric_pyramid()->dx(u, v);
-    //    const float syn_dy = frame->get_synetic_photometric_pyramid()->dy(u, v);
-    //    const float syn_mag2 = frame->mag_squared_synetic(u, v);
-    //    const float angle = std::acos((dx * syn_dx + dy * syn_dy) / (std::sqrt(mag2) * std::sqrt(syn_mag2)));
+    return (frame->mag_squared(u, v) > 3.0f);
+
+    /* if (frame->get_id() == 0) return true;
+
+    const float dx = frame->dx(u, v);
+    const float dy = frame->dy(u, v);
+    const float mag2 = frame->mag_squared(u, v);
+
+    const float syn_dx = frame->get_synetic_photometric_pyramid()->dx(u, v);
+    const float syn_dy = frame->get_synetic_photometric_pyramid()->dy(u, v);
+    const float syn_mag2 = frame->mag_squared_synetic(u, v);
+    const float angle = std::acos((dx * syn_dx + dy * syn_dy) / (std::sqrt(mag2) * std::sqrt(syn_mag2)));
     //    // if (angle > 0.174f) {
     //    //    std::cout << "angle : " << angle << '\n';
     //    //}
     //
-    //    return (angle < 0.2f && (dx + dy) > 1e-4);  // rad
+    return (angle < 0.18f && (dx + dy) > 1.0f);  // rad */
 }
 
 void PixelSelector::select_in_one_grid(const int grid_x, const int grid_y) {

@@ -40,20 +40,20 @@ void CandidateManager::select_candidate(const Frame::ptr frame, const cv::Mat sy
     // remove oldst frame
     if (candidate_map.size() >= config.WINDOW_SIZE) {
         // remove all candidate/observation, that  observated/host by oldest kf
-        for (auto it = candidate_map.begin(); it != candidate_map.end(); ++it) {
-            if (it->first == to_remove_kf) continue;
-            for (auto& can : it->second) {
-                for (auto it2 = can->observations.begin(); it2 != can->observations.end();) {
-                    if (it2->second->host_frame() == to_remove_kf.get() ||
-                        it2->second->obs_frame() == to_remove_kf.get()) {
-                        it2 = can->observations.erase(it2);
-                    } else {
-                        it2++;
+        /*         for (auto it = candidate_map.begin(); it != candidate_map.end(); ++it) {
+                    if (it->first == to_remove_kf) continue;
+                    for (auto& can : it->second) {
+                        for (auto it2 = can->observations.begin(); it2 != can->observations.end();) {
+                            if (it2->second->host_frame() == to_remove_kf.get() ||
+                                it2->second->obs_frame() == to_remove_kf.get()) {
+                                it2 = can->observations.erase(it2);
+                            } else {
+                                it2++;
+                            }
+                        }
                     }
                 }
-            }
-        }
-
+         */
         // remove all candidate host by to_remove_kf
 
         candidate_map.erase(to_remove_kf);
@@ -129,7 +129,7 @@ cv::Mat CandidateManager::generate_depth_safe_mask(const cv::Mat synetic_depth_i
     cv::threshold(mag, mask, threshold_value, 255, cv::THRESH_BINARY);
 
     // dilation
-    int dilation_size = 4;  // 10
+    int dilation_size = 8;  // 10
     cv::Mat element =
         cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(2 * dilation_size + 1, 2 * dilation_size + 1),
                                   cv::Point(dilation_size, dilation_size));
