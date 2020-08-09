@@ -22,6 +22,7 @@ class Frame {
 
     // set member variable
     void set_pose(const Sophus::SE3f& T_w_c);             // global T_w_c
+    void set_rendering_pose(const Sophus::SE3f& T_w_s);   // T_w_s
     void set_aff_light(const int alpha, const int beta);  // global aff_w_c
     void set_tracking_result(const Sophus::SE3f& T_curr_refKF_s, const AffineLight& aff_light_curr_refKF);
     void set_refine_result(const Sophus::SE3f& T_c_s, const AffineLight& aff_light_c_s);
@@ -134,6 +135,10 @@ inline Eigen::Vector2f project(const CamData* cam, const Eigen::Vector3f& point,
 inline void Frame::set_pose(const Sophus::SE3f& T_w_c) {
     this->T_w_c = T_w_c;
 }
+inline void Frame::set_rendering_pose(const Sophus::SE3f& T_w_s) {
+    this->T_w_s = T_w_s;
+}
+
 inline void Frame::set_aff_light(const int alpha, const int beta) {
     this->affine_light = AffineLight(alpha, beta);
 }
@@ -148,7 +153,7 @@ inline void Frame::set_tracking_result(const Sophus::SE3f& T_curr_refKF_s, const
 
 inline void Frame::set_refine_result(const Sophus::SE3f& T_c_s, const AffineLight& aff_light_c_s) {
     state_mutex.lock();
-    this->T_w_c = this->T_w_s * T_c_s.inverse();
+    this->T_w_c = this->T_w_s * T_c_s.inverse();  // refine change only T_w_c, aff
     this->affine_light = aff_light_c_s.inverse();
     state_mutex.unlock();
 }

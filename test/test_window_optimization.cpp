@@ -1,4 +1,3 @@
-#include "../util/kitti.h"
 #include "PhotometricBA.h"
 #include "cam_data.h"
 #include "candidate_manager.h"
@@ -173,34 +172,48 @@ int main() {
     synetic_image.set_start_pose(pose.atIndex(start_idx));
     Sophus::SE3f render_pose = Sophus::SE3f::transZ(0.0);
 
-    int off_set = start_idx * 4;  // 80
-    Frame::ptr key_frame = Frame::create(img_vec[off_set]);
+    int off_set = start_idx * 4;                                                        // 80
+    Frame::ptr init_frame = Frame::create(cv::Mat::zeros(img_vec[0].size(), CV_8UC1));  // only has synetic im
     std::vector<cv::Mat> syn_im_vec_curr = synetic_image.renderingAt(render_pose);
 
     std::shared_ptr<Visualizer> vis(new Visualizer);
     vis->stop_or_start_according_to_pangolin_menu();
     CandidateManager cm(vis);
 
-    key_frame->set_synetic_photometirc_im(syn_im_vec_curr[0]);
+    init_frame->set_synetic_photometirc_im(syn_im_vec_curr[0]);
     cv::Mat alignment_weight_mask = cv::Mat::zeros(syn_im_vec_curr[1].size(), CV_8UC1);
-    cm.select_candidate(key_frame, syn_im_vec_curr[1], alignment_weight_mask);
+    cm.select_candidate(init_frame, syn_im_vec_curr[1], alignment_weight_mask);
 
     PointCloudPyramid::ptr pcp = cm.get_point_cloud_pyramid();
 
     Tracker tracker;
-    tracker.set_tracking_ref(key_frame, pcp);
+    tracker.set_tracking_ref(init_frame, pcp);
 
     // given initial pose is not precise, so estimate it(tracking itself)
+    Frame::ptr key_frame = Frame::create(img_vec[off_set]);
     tracker.tracking(key_frame);
+
+    // add_last_tracking_result_to_window(pcp, key_frame, cm);
+
+    // refine the initial state
+    syn_im_vec_curr = synetic_image.renderingAt(key_frame->get_pose());
+    key_frame->set_synetic_photometirc_im(syn_im_vec_curr[0]);
+    alignment_weight_mask = make_alignment_weight_mask(img_vec[0], syn_im_vec_curr[0], key_frame->get_aff_light());
+    cm.select_candidate(key_frame, syn_im_vec_curr[1], alignment_weight_mask);
+
+    pcp = cm.get_point_cloud_pyramid();
+    tracker.set_tracking_ref(key_frame, pcp);
+    tracker.refine_pose(key_frame);
+
+    cm.remove_frame(init_frame);
     Eigen::Isometry3f T_c_c0 = static_cast<Eigen::Isometry3f>(key_frame->get_pose().matrix());
-
-    add_last_tracking_result_to_window(pcp, key_frame, cm);
-    // reset rendering start pose
     synetic_image.set_start_pose(pose.atIndex(start_idx) * T_c_c0.inverse());
-
+    key_frame->set_pose(Sophus::SE3f::transZ(0.0f));
+    key_frame->set_rendering_pose(Sophus::SE3f::transZ(0.0f));
     // debug::execute_func_according_to_config(
     //    config.DEBUG_KEY_FRAME_SYNETIC_IMAGE_ALIGNMENT, config.debug_key_frame_synetci_img_alignment_mutex,
-    //    show_debug_key_frame_synetic_img_alignment, img_draw_vec[0], syn_im_vec_curr[0], key_frame->get_aff_light());
+    //    show_debug_key_frame_synetic_img_alignment, img_draw_vec[0], syn_im_vec_curr[0],
+    //    key_frame->get_aff_light());
     std::thread th_draw(&Visualizer::publish_curr_frame_tracking_info, std::ref(*vis), pcp, img_draw_vec[off_set],
                         key_frame->get_pose(), key_frame->get_pose().inverse(), true);
     th_draw.detach();
@@ -263,21 +276,23 @@ int main() {
             // get and set new tracking reference point cloud after optimization
             pcp = cm.get_point_cloud_pyramid();
 
-            // refine last frame
-            tracker.refine_pose(curr_frame, pcp);
-
             // set pcp for next tracking
             tracker.set_tracking_ref(curr_frame, pcp);
+
+            // refine itself
+            tracker.refine_pose(curr_frame);
+            syn_im_vec_curr = synetic_image.renderingAt(curr_frame->get_pose());
+            make_alignment_weight_mask(img_vec[i], syn_im_vec_curr[0], key_frame->get_aff_light());
 
             // visualize: depth map
             std::thread th_draw_depth(&Visualizer::draw_and_publish_key_frame_depth, std::ref(*vis),
                                       syn_im_vec_curr[1]);
             th_draw_depth.detach();
-        }
 
-        // sleep at last image
-        if (i == img_vec.size() - 1) {
-            while (true) std::this_thread::sleep_for(std::chrono::seconds(1));
+            // sleep at last image
+            if (i == img_vec.size() - 1) {
+                while (true) std::this_thread::sleep_for(std::chrono::seconds(1));
+            }
         }
     }
 }

@@ -73,6 +73,8 @@ class CandidateManager {
     const std::vector<Frame::ptr>& get_key_frames() const;
     Frame::ptr get_last_removed_kf() const;
 
+    void remove_frame(const Frame::ptr frame);
+
    private:
     // valid : depth from model is nearly correct
     bool is_synetic_depth_valid(const Candidate& can, const Frame::ptr host_frame, const Frame::ptr target_frame,

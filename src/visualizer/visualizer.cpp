@@ -268,7 +268,7 @@ void Visualizer::draw_tracking_point_cloud() {
 }
 void Visualizer::draw_ground_truth() {
     const int init_idx = 80;
-    const int end_idx = 520;
+    const int end_idx = 600;
 
     std::vector<Sophus::SE3f> pose_to_draw;
     Sophus::SE3f init_pose = ground_truth.get_pose_at_index(init_idx);

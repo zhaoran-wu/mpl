@@ -99,6 +99,12 @@ void CandidateManager::select_candidate(const Frame::ptr frame, const cv::Mat sy
     candidate_map[frame] = std::move(candidate_vec);
 }
 
+void CandidateManager::remove_frame(const Frame::ptr frame) {
+    candidate_map.erase(frame);
+    key_frames.erase(std::find(key_frames.begin(), key_frames.end(), frame));
+    if (newst_KF == frame) newst_KF = nullptr;
+}
+
 cv::Mat CandidateManager::generate_depth_safe_mask(const cv::Mat synetic_depth_im) {
     auto& config = Config::getInstance();
     // calc depth gradient magnitude
@@ -181,12 +187,13 @@ PointCloudPyramid::ptr CandidateManager::get_point_cloud_pyramid() {
     const int lvls = pcp->lvls();
     int cnt = 0;
 
-    for (auto& can : candidate_map[newst_KF]) {
+    for (auto& can : candidate_map[key_frames.back()]) {
         can->status = CandidateStatus::ACTIVE;
         ++cnt;
         for (int lvl = 0; lvl < lvls; ++lvl) {
             if ((lvl != 0 && cnt % (lvl + 1) == 0) || lvl == 0) {
-                Eigen::Vector3f position = newst_KF->unproject(Eigen::Vector2i(can->u, can->v), can->d_inv_synetic_im);
+                Eigen::Vector3f position =
+                    key_frames.back()->unproject(Eigen::Vector2i(can->u, can->v), can->d_inv_synetic_im);
 
                 (*pcp)[lvl].emplace_back(
                     can.get(), position,

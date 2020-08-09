@@ -38,7 +38,7 @@ class Tracker {
      * @param to_refine_frame
      * @param point_cloud_pyramid: point cloud in current synetic image coordinate
      */
-    void refine_pose(Frame::ptr to_refine_frame, const PointCloudPyramid::ptr point_cloud_pyramid);
+    void refine_pose(Frame::ptr to_refine_frame);
 
    private:
     // generate pediction T_curr_last

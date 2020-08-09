@@ -11,19 +11,19 @@ void Tracker::set_tracking_ref(const Frame::ptr ref_frame, const PointCloudPyram
     curr_ref_frame = ref_frame;
 }
 
-void Tracker::refine_pose(const Frame::ptr to_refine_frame, const PointCloudPyramid::ptr point_cloud_pyramid) {
+void Tracker::refine_pose(const Frame::ptr to_refine_frame) {
     auto& config = Config::getInstance();
 
     Sophus::SE3f init_pose = Sophus::SE3f::transZ(0.0f);
-    AffineLight init_aff_light = to_refine_frame->get_aff_light();
+    AffineLight init_aff_light = to_refine_frame->get_aff_light().inverse();
 
     optimizer.init(init_pose, init_aff_light, point_cloud_pyramid_, to_refine_frame);
     optimizer.set_lvl(0);
 
     int iterations = 15;
-    float lamda_init = 1e-14;
+    float lamda_init = 1e-15;
     float huber_radius = 10;
-    float lamda_min = 1e-21;
+    float lamda_min = 1e-20;
 
     float energy = optimizer.solve(iterations, lamda_init, lamda_min, huber_radius, false);
 
