@@ -75,6 +75,9 @@ void Visualizer::run() {
     pangolin::Var<bool> menuDebugCoarseToFineTracking("menu.Debug Pyramid Tracking", false, true);
     pangolin::Var<bool> menuDebugDepthSafeMask("menu.Debug Depth Safe Mask", false, true);
     pangolin::Var<bool> menuDebugSlidingWindow("menu.Debug Sliding Window", false, true);
+    pangolin::Var<bool> menuShowGroundTruth("menu.Show Ground Truth", false, true);
+    pangolin::Var<bool> menuShowPoseHistory("menu.Show Pose history", true, true);
+    pangolin::Var<bool> menuShowPointCloudHistory("menu.Show Point Cloud", true, true);
 
     // add img view and set texture
     pangolin::View& view_curr_frame = pangolin::Display("curr frame").SetAspect(img_cols / img_rows);
@@ -95,11 +98,20 @@ void Visualizer::run() {
 
         // display 3d
         view_3d.Activate(cam_3d);
+
         draw_sliding_window();
+        if (menuShowPoseHistory) {
+            draw_pose_history();
+        }
+
+        if (menuShowPointCloudHistory) {
+            draw_point_cloud_history();
+        }
         draw_tracking_point_cloud();
         draw_curr_frame_cam();
-        draw_all_history();
-        draw_ground_truth();
+        if (menuShowGroundTruth) {
+            draw_ground_truth();
+        }
 
         // display  curr frame and key frame depth
         if (curr_frame_image_changed) {  // double check trick to save time
@@ -353,30 +365,48 @@ void Visualizer::draw_sliding_window() {
     T_w_c_vec.reserve(this->T_w_c_sliding_window.size());
     point_vec.reserve(this->point_cloud_siding_window.size());
 
-    this->sliding_window_mutex.lock();
-    std::copy(this->T_w_c_sliding_window.begin(), this->T_w_c_sliding_window.end(), std::back_inserter(T_w_c_vec));
-    std::copy(this->point_cloud_siding_window.begin(), this->point_cloud_siding_window.end(),
-              std::back_inserter(point_vec));
-    this->sliding_window_mutex.unlock();
+    if (is_sliding_window_changed) {
+        this->sliding_window_mutex.lock();
+        if (is_sliding_window_changed) {
+            std::copy(this->T_w_c_sliding_window.begin(), this->T_w_c_sliding_window.end(),
+                      std::back_inserter(T_w_c_vec));
+            std::copy(this->point_cloud_siding_window.begin(), this->point_cloud_siding_window.end(),
+                      std::back_inserter(point_vec));
+        }
+        this->sliding_window_mutex.unlock();
+    }
     // draw all frame
     draw_cameras(T_w_c_vec, 3.0f, 0.8f, 0.36f, 0.36f, 2.0f, 0.0f, 0.0f, 0.3f);
     // draw all point
     draw_point_clouds(point_vec, 3.0f, 0.6f, 0.8f, 0.2f);
 }
 
-void Visualizer::draw_all_history() {
+void Visualizer::draw_pose_history() {
     std::vector<Sophus::SE3f> T_w_c_vec;
-    std::vector<Eigen::Vector3f> point_cloud_vec;
-
     T_w_c_vec.reserve(this->T_w_c_history.size());
-    point_cloud_vec.reserve(this->point_cloud_history.size());
 
-    this->history_mutex.lock();
-    std::copy(this->T_w_c_history.begin(), this->T_w_c_history.end(), std::back_inserter(T_w_c_vec));
-    std::copy(this->point_cloud_history.begin(), this->point_cloud_history.end(), std::back_inserter(point_cloud_vec));
-    this->history_mutex.unlock();
+    if (is_history_changed) {
+        this->history_mutex.lock();
+        if (is_history_changed) {
+            std::copy(this->T_w_c_history.begin(), this->T_w_c_history.end(), std::back_inserter(T_w_c_vec));
+        }
+        this->history_mutex.unlock();
+    }
     // draw all frame
     draw_cameras(T_w_c_vec, 2.0f, 0.26f, 0.41f, 0.88f, 2.0f, 0.1f, 0.1f, 0.1f);
+}
+
+void Visualizer::draw_point_cloud_history() {
+    std::vector<Eigen::Vector3f> point_cloud_vec;
+    point_cloud_vec.reserve(this->point_cloud_history.size());
+    if (is_history_changed) {
+        this->history_mutex.lock();
+        if (is_history_changed) {
+            std::copy(this->point_cloud_history.begin(), this->point_cloud_history.end(),
+                      std::back_inserter(point_cloud_vec));
+        }
+        this->history_mutex.unlock();
+    }
     // draw all point
     draw_point_clouds(point_cloud_vec, 2.0f, 0.4f, 0.4f, 0.4f);
 }
@@ -488,7 +518,7 @@ void Visualizer::set_new_sliding_window_data(CandidateManager& cm, const Frame::
 
     this->T_w_c_sliding_window.resize(pose_buff_sliding_window.size());
     this->point_cloud_siding_window.resize(point_buff_sliding_window.size());
-
+    this->is_sliding_window_changed = true;
     std::move(pose_buff_sliding_window.begin(), pose_buff_sliding_window.end(), this->T_w_c_sliding_window.begin());
     std::move(point_buff_sliding_window.begin(), point_buff_sliding_window.end(),
               this->point_cloud_siding_window.begin());
@@ -501,6 +531,7 @@ void Visualizer::set_new_sliding_window_data(CandidateManager& cm, const Frame::
         this->point_cloud_history.reserve(this->point_cloud_history.size() + point_buff_history.size());
         this->point_cloud_history.insert(this->point_cloud_history.end(), point_buff_history.begin(),
                                          point_buff_history.end());
+        is_history_changed = true;
         history_mutex.unlock();
     }
 }

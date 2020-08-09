@@ -61,7 +61,8 @@ class Visualizer {
     void draw_lines(const std::vector<line>& line_vec, const float line_width, const float r, const float g,
                     const float b, const Sophus::SE3f& T_w_o = Sophus::SE3f::transZ(0.0f));
     void draw_sliding_window();
-    void draw_all_history();
+    void draw_pose_history();
+    void draw_point_cloud_history();
 
     cv::Mat resize(cv::Mat im) const;
     void set_key_frame_depth(cv::Mat img);
@@ -87,11 +88,13 @@ class Visualizer {
 
     // sliding widow
     std::mutex sliding_window_mutex;
+    bool is_sliding_window_changed = false;
     std::vector<Sophus::SE3f> T_w_c_sliding_window;
     std::vector<Eigen::Vector3f> point_cloud_siding_window;
 
     // all key frame/point cloud history(data that will not change )
     std::mutex history_mutex;
+    bool is_history_changed = false;
     std::vector<Sophus::SE3f> T_w_c_history;
     std::vector<Eigen::Vector3f> point_cloud_history;
 
