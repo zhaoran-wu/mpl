@@ -22,9 +22,29 @@ void Visualizer::init() {
     config = &Config::getInstance();
     img_cols = cam_data->width[scale_factor];
     img_rows = cam_data->height[scale_factor];
-    // ground truth
+    // ground truth1
     const std::string kitti_gound_truth = "/home/zhaoran/dataset/KITTI/data_odometry_poses/dataset/poses/00.txt";
     this->ground_truth = KittiReader(kitti_gound_truth);
+
+    const int init_idx = 80;
+    const int end_idx = 600;
+
+    Sophus::SE3f init_pose = ground_truth.get_pose_at_index(init_idx);
+
+    for (int i = init_idx; i <= end_idx; ++i) {
+        Sophus::SE3f pose = init_pose.inverse() * ground_truth.get_pose_at_index(i);
+        pose_groud_truth1.push_back(pose);
+    }
+    // ground truth 2
+    std::string project_path = "/home/zhaoran/thesis_ws/mpl/project/";
+    std::string pose_file = project_path + "ground_truth.txt";
+    ground_truth2.read(pose_file, trajectory_io::Trajectory::FORMAT_MAT);
+
+    Sophus::SE3f init_pose2 = Sophus::SE3f(ground_truth2.atIndex(0).rotation(), ground_truth2.atIndex(0).translation());
+    for (int i = 0; i <= (end_idx - init_idx) / 4; i++) {
+        pose_groud_truth2.push_back(init_pose2.inverse() * Sophus::SE3f(ground_truth2.atIndex(i).rotation(),
+                                                                        ground_truth2.atIndex(i).translation()));
+    }
 
     W = 1.5 * (cam_data->width[0] + UI_W);
     H = cam_data->height[0] * 3;
@@ -75,7 +95,8 @@ void Visualizer::run() {
     pangolin::Var<bool> menuDebugCoarseToFineTracking("menu.Debug Pyramid Tracking", false, true);
     pangolin::Var<bool> menuDebugDepthSafeMask("menu.Debug Depth Safe Mask", false, true);
     pangolin::Var<bool> menuDebugSlidingWindow("menu.Debug Sliding Window", false, true);
-    pangolin::Var<bool> menuShowGroundTruth("menu.Show Ground Truth", false, true);
+    pangolin::Var<bool> menuShowGroundTruth1("menu.Show Ground Truth1", false, true);
+    pangolin::Var<bool> menuShowGroundTruth2("menu.Show Ground Truth2", false, true);
     pangolin::Var<bool> menuShowPoseHistory("menu.Show Pose history", true, true);
     pangolin::Var<bool> menuShowPointCloudHistory("menu.Show Point Cloud", true, true);
 
@@ -109,8 +130,11 @@ void Visualizer::run() {
         }
         draw_tracking_point_cloud();
         draw_curr_frame_cam();
-        if (menuShowGroundTruth) {
-            draw_ground_truth();
+        if (menuShowGroundTruth1) {
+            draw_ground_truth1();
+        }
+        if (menuShowGroundTruth2) {
+            draw_ground_truth2();
         }
 
         // display  curr frame and key frame depth
@@ -278,20 +302,13 @@ void Visualizer::draw_tracking_point_cloud() {
 
     draw_point_clouds(point_cloud_to_draw, 3, 0.75f, 0.0f, 0.0f);
 }
-void Visualizer::draw_ground_truth() {
-    const int init_idx = 80;
-    const int end_idx = 600;
 
-    std::vector<Sophus::SE3f> pose_to_draw;
-    Sophus::SE3f init_pose = ground_truth.get_pose_at_index(init_idx);
+void Visualizer::draw_ground_truth1() {
+    this->draw_cameras(pose_groud_truth1, 3, 0.0f, 1.0f, 0.0f, 1, 1.0f, 0.0f, 1.0f);
+}
 
-    for (int i = init_idx; i <= end_idx; ++i) {
-        Sophus::SE3f pose = init_pose.inverse() * ground_truth.get_pose_at_index(i);
-
-        pose_to_draw.push_back(pose);
-    }
-
-    this->draw_cameras(pose_to_draw, 3, 0.0f, 1.0f, 0.0f, 1, 1.0f, 0.0f, 1.0f);
+void Visualizer::draw_ground_truth2() {
+    this->draw_cameras(pose_groud_truth2, 3, 0.0f, 1.0f, 0.0f, 1, 1.0f, 0.0f, 1.0f);
 }
 
 void Visualizer::draw_and_publish_key_frame_depth(cv::Mat depth_im) {

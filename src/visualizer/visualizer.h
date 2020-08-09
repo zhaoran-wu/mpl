@@ -1,5 +1,6 @@
 #pragma once
 #include "../util/kitti.h"
+#include "../util/trajectory.h"
 #include "point_cloud_pyramid.h"
 #include <opencv2/highgui.hpp>
 #include <pangolin/pangolin.h>
@@ -69,9 +70,13 @@ class Visualizer {
     void set_curr_frame_tracking_info(cv::Mat img, const Sophus::SE3f& T_w_c, const Sophus::SE3f& T_c_kf);
     void init();
 
-    void draw_ground_truth();
+    void draw_ground_truth1();
+    void draw_ground_truth2();
 
     KittiReader ground_truth;
+    std::vector<Sophus::SE3f> pose_groud_truth1;
+    trajectory_io::Trajectory ground_truth2;
+    std::vector<Sophus::SE3f> pose_groud_truth2;
 
     // curr frame(tracking)
     std::mutex curr_frame_mutex;
